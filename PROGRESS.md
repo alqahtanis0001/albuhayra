@@ -21,7 +21,7 @@ npm run typecheck        # tsc --noEmit, not part of build
 **Status:** 265 tests in 14 files, `npm run build`, `npm test` and `tsc --noEmit` all exit 0. Tree clean at `7e2e5d6`.
 **Exactly where we stopped:** Checkpoint 5 committed and handed over. All three teammates shut down.
 **Next concrete action:** W3/W4 — `getTransaction` is the last stub in the tree. It must flip **together** with `updateTransaction`/`deleteTransaction` on the edit page, because a swap point pointing at one real query and one stub tells two stories. Then the user's first sign-in test (checklist below), then Phase 2: integration pass, README with Render deploy steps, final PROGRESS.md.
-**Teammates:** `backend`, `frontend`, `reviewer` — all shut down at handover. Their full notes are in `progress/*.md`; everything durable is merged here.
+**Teammates:** `backend`, `frontend`, `reviewer` — all shut down at handover. Their full notes are in `progress/*.md`; everything durable is merged here. **`PROGRESS.md` is the source of truth where they disagree** — a teammate's notes stop being updated at shutdown, so a claim there can be true-when-written and stale now. One such correction is annotated in `progress/backend.md` (it recorded `src/lib/auth.test.ts` as held out of the commit; the user ruled it stays, and it is in `7417419`).
 
 ## First sign-in test — the two gaps no test in this repo can reach
 Server actions have never been submitted end to end (every action test calls the function directly), and the export is proven to *reach* its route but not to *return a workbook*. Both close in one manual pass:

@@ -438,7 +438,7 @@ cannot fall through to building a workbook — but nobody should cite the suite 
 | File | Cases | Gates |
 |---|---|---|
 | `src/features/locks/locks.test.ts` | 10 → 26 | build, 222/222, tsc |
-| `src/lib/auth.test.ts` | 16 — **in the tree, held out of the commit** | same |
+| `src/lib/auth.test.ts` | 16 — ~~in the tree, held out of the commit~~ **[lead correction, post-shutdown: the user ruled it STAYS. Committed in `7417419`, and `PROGRESS.md`'s Gotcha now reads "tests may import `auth.ts` when they mock `server-only` and Prisma". Security rule 2 and H1 are standing invariants that must always be pinned — if a refactor makes this file inconvenient, it moves rather than being deleted.]** | same |
 
 ### Status: the locks half is committed-ready, the auth half awaits the user
 `src/lib/auth.test.ts` exists and passes, and the lead is deliberately **excluding it from the
