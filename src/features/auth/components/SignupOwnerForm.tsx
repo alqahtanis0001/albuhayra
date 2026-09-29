@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import Link from "next/link";
 
 import { Button } from "@/components/Button";
-import { FormToast } from "@/components/FormToast";
+import { FormError } from "@/components/FormError";
 import { Input } from "@/components/Input";
 import { t } from "@/i18n/ar";
 import { SignupOwnerSchema, invalid } from "@/lib/validation";
@@ -68,12 +68,20 @@ export function SignupOwnerForm() {
           required
           error={fieldErrors?.establishmentName}
         />
+        {/* F2b: an owner or employee whose email is already registered is told
+            only that sign-up failed — the generic key is deliberate. This link
+            is the route out for that person, so it must appear *with* the
+            error, not merely somewhere on the page. */}
+        <FormError state={state}>
+          <Link href="/login" className="text-sm font-medium text-accent-dark underline">
+            {t.auth.loginLink}
+          </Link>
+        </FormError>
+
         <Button type="submit" block pending={pending}>
           {t.auth.signupTitle}
         </Button>
       </form>
-
-      <FormToast state={state} />
     </AuthCard>
   );
 }

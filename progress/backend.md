@@ -147,3 +147,119 @@ zzsmoke src/` → 0). All test data cleaned up; the database is back to the seed
   `ChangePasswordSchema`'s three fields: I followed the schema, and it takes a `FormData`.
 - `allocateJoinCode` lives in `src/lib/joinCode.ts` (a `src/lib/*` fix) rather than being
   duplicated across two features.
+
+---
+
+## Checkpoint 2 — B3, B4, B8, B10
+
+| Task | Files | Gates |
+|---|---|---|
+| B3 | `transactions/{actions,queries}.ts`, `dashboard/queries.ts`, `reports/queries.ts`, `transactions/scoping.test.ts` | build, 131/131, tsc |
+| B4 | `locks/{actions,queries,assertUnlocked}.ts`, `locks/locks.test.ts` | same |
+| B8 | `settings/actions.ts` (+`setCategoryOrder`) | same |
+| B10 | `auth/actions.ts` (`signupStaff`), `auth/auth.test.ts` | same |
+
+### The scoping net (`transactions/scoping.test.ts`, 26 cases)
+Captures every Prisma call the read *and* write paths make through a mocked client
+and checks `establishmentId` at the **top level** of `where` — a scope nested in a
+relation filter does not constrain an aggregate, so it must not satisfy the check.
+
+Widened past the brief in three ways, all cleared with the lead first: `reports/queries.ts`
+(the most aggregate-heavy file of the three), `transactions/actions.ts` (an unscoped write
+beats an unscoped read), and B4's two lock files.
+
+Seven of the 26 cases test **the harness itself** — a `groupBy` with no `where`, a scope
+nested under `category:`, another establishment's id, a unique-where write, a `create`
+with no `establishmentId` in `data`, a correctly scoped call, and raw SQL. A net nobody
+has watched fail is not evidence.
+
+I also ran two **mutation tests** rather than trusting the green tick:
+- Replacing `where: allTime` with `where: { deletedAt: null }` in the by-method `groupBy`
+  failed 2 cases with `transaction.groupBy where.establishmentId is undefined`.
+- Splitting `signupStaff`'s combined guard back into `joinFailed` / `signupFailed` failed
+  2 cases in `auth.test.ts`.
+Both reverted; `grep` confirms the originals are back.
+
+**What it does not prove**, stated because a green tick invites over-reading: a mocked
+client only sees the calls the tests drive. Every function runs twice, empty filters and
+all filters, so both sides of each conditional execute, and a static sweep compares the
+`(model, method)` pairs in the source against the pairs seen at runtime — so an
+unexercised call site fails the suite. A *second* site with the **same** pair on an
+unexercised branch would still escape. Closing that needs a coverage threshold on those
+files, which is a `vitest.config.mts` change and not this task's.
+
+### Gotchas
+- **Scoped writes use `updateMany`, not `update`.** Prisma's `update` needs a *unique*
+  where, and `{ id, establishmentId }` is not unique, so `update` structurally cannot
+  carry the tenant scope — it can only be made safe by the `findFirst` above it. Every
+  write in `transactions/actions.ts`, `locks/actions.ts` and `setCategoryOrder` uses
+  `updateMany` so the boundary is in the SQL. The scoping test **bans** `update` / `delete`
+  / `upsert` outright in the files it sweeps, which is why `settings/actions.ts` and
+  `establishments/actions.ts` are not in that list — their B2 code uses the older shape.
+  Correct today, worth a follow-up task; the exclusion is commented in the test.
+- **`isClosedMonth` lives in `assertUnlocked.ts`, not `actions.ts`.** A `"use server"`
+  module may only export async functions, so a sync helper exported from one breaks the
+  build — not the typecheck, which is why it is worth knowing.
+- **`assertUnlocked` returns rather than throws**, despite the name in the doc: an action
+  has to answer with an `ActionResult`, and a throw would reach the error boundary instead
+  of the form. `updateTransaction` passes **two** months in one `findFirst` with an `OR`,
+  so a lock on the origin refuses a move exactly as a lock on the destination does.
+- **`last6Months` buckets in JS.** A SQL `date_trunc` needs `$queryRaw`, which has no
+  `where` object for the scoping test to inspect — so raw SQL is banned in these files and
+  the six-month window is aggregated in memory. A few thousand rows for a business this size.
+- **The raw-SQL regex is anchored on the receiver** (`db.$queryRaw`, not `$queryRaw`).
+  My own comment explaining why raw SQL is avoided tripped the first version of that test.
+- `lockMonth` / `unlockMonth` are **idempotent** — locking an already-locked month returns
+  `ok`. A double click on the grid is the state the owner asked for, not a failure.
+- `listLocks` returns **newest first**: an owner locks the month that just ended.
+- `setCategoryOrder` only moves **active** categories, and reaching either end is a no-op
+  success rather than an error.
+
+### B10 — the oracle is closed on all five paths, not four
+`signupStaff` now answers `err.joinFailed` to a bad code, a disabled establishment, an
+owner who is not ACTIVE, **and** a taken email. Two details beyond the brief:
+- The `catch` around the insert returned `err.signupFailed`. Its realistic cause is the
+  email unique constraint losing a race, so that was a fifth path with a fifth answer —
+  the same oracle for anyone willing to trigger it. It now returns `err.joinFailed` too.
+- Both lookups run in one `Promise.all` and bcrypt is spent **before** the decision. The
+  old order made a taken email one query slower than a bad code, and skipping the ~250ms
+  hash on failures timed the branch far more clearly than any key named it. `auth.test.ts`
+  asserts this structurally — same two queries, one hash, on all five outcomes — because a
+  wall-clock assertion would be flaky.
+
+### Open for the lead
+- **`signupOwner` has the same oracle shape and I did not change it.** Its only business
+  failure is a taken email, so a well-formed owner sign-up returning `err.signupFailed`
+  means that address exists — which is what Security rule 4 names directly. The only fix
+  that removes it is answering a taken email with a fake success, and with no email channel
+  and no password reset (both out of scope) a real person who mistypes an existing address
+  would wait for an approval that never comes. That trade is a product decision, not mine,
+  and it is the same class the user just overruled — so it needs a ruling rather than my
+  judgement.
+
+### Reconciliation against the corrected briefs
+The corrected B3/B4/B8/B10 briefs and the `Halalas` naming ruling arrived after the code
+was already written, so this was a reconciliation pass, not a rewrite. Six items had
+converged independently (where-present, top-level read, four files, no raw SQL, the
+category rules, STAFF-canEdit-edits-any). Five were genuinely missing:
+
+- **`where.deletedAt === null` on every Transaction read** — the one I had not thought of,
+  and the lead is right that it is the same class of undetectable wrong number. Added to
+  the gate; mutation-verified by removing the filter from `ledgerWhere`, which failed 8
+  cases with `transaction.findMany where.deletedAt is undefined, not null`.
+- **A by-value drive against a second establishment.** I had the harness case; the gate now
+  also drives `listTransactions(OTHER_EST, …)` and asserts *every* call fails. A
+  `toBeDefined()` check would pass that, which is the hole.
+- **`Halalas` suffix on every money field** in all four query shapes.
+- **`balanceByMethod` is `{ method, balanceHalalas }`** — one net figure, not my
+  `{ paymentMethod, in, out, net }`.
+- **`topOutCategories` percent removed**, and **`LedgerRow.date` is an ISO string** rather
+  than a `Date`, since these rows cross into the recharts client component.
+- **Business-rule rejections go in `fieldErrors`** — `categoryId` for `err.categoryInvalid`
+  and `err.categoryDirectionMismatch`. `err.amountInvalid` and `err.dateFuture` already
+  landed on their fields via `invalid(zodError)`; `err.monthLocked` stays bare.
+
+Open contract question raised with the lead: `docs/BACKEND.md` writes
+`listTransactions(estId, filters, page)`, but `TransactionFilterSchema` already carries
+`page` with a default of 1, so a third argument would duplicate it. Implemented as
+`listTransactions(estId, filters)` with `filters.page`.

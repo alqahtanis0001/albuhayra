@@ -25,6 +25,15 @@ Run against every completed backend task. One line per item; a miss is a finding
 4. **zod on every input**, using a schema exported from `src/lib/validation.ts`.
    `z.object()` strips unknown keys (zod 4 default) — `z.looseObject` /
    `.passthrough()` would be a finding.
+4c. **Two failure paths returning different keys are an oracle**, even when each
+   key is individually generic, and this is **not tradeable against usability**
+   (`docs/BACKEND.md` Security rule 4, hardened 2026-09-29). A large keyspace and
+   a rate limiter do not make it acceptable. I found this in `signupStaff` and
+   then argued for accepting it; the lead ruled my way and the **user overruled
+   us both**, correctly — rule 4 prohibits enumeration outright rather than
+   pricing it. So: enumerate the failure paths of every auth-adjacent form and
+   check they return one key *and* do the same work. Do not weigh a leak against
+   a better error message again.
 4b. **No bare `z.string()` / `z.number()` / `z.enum([...])`.** The
    `{ error: "err.*" }` argument matters as much as the per-constraint message:
    without it a *type* mismatch (a non-string where a string is expected) emits
@@ -477,9 +486,213 @@ sign-ups.
 `src/features/auth/components/actions.ts` plus deleting `stubActions.ts`. If it
 turns into more than that, the frozen contract drifted and I want to know why.
 
+### Rulings on the brief-vs-doc read (all adopted, 2026-09-29)
+
+Everything I raised was accepted. What to check when the code lands:
+
+- **B3 gate, now four files** — `transactions/{queries,actions}.ts`,
+  `dashboard/queries.ts`, `reports/queries.ts` — asserting `where.establishmentId`
+  **by value** against a fixture holding a *second, foreign* establishment, plus
+  `deletedAt: null`, reading the argument object rather than a serialised form
+  (so a nested `category: { establishmentId }` fails), asserting the `where` is
+  *present* on every `groupBy`/`aggregate`/`count`, and **raw SQL banned** in all
+  four files because the gate is structurally blind to it.
+- **B8 — ruled my way and the doc moved, verified at `docs/BACKEND.md:165`:**
+  swaps with the adjacent **active** category, skipping inactive rows; at the ends
+  (first UP, last DOWN) a **silent no-op returning `ok: true`**, deliberately no
+  error key, and the UI disables the arrow. So when reviewing B8: a thrown error
+  or an `err.*` return at the ends is a finding, and so is a swap that trades
+  `sortOrder` with an inactive row.
+- **B10** — both lookups issue **unconditionally** with one branch at the end, so
+  the four paths do equal work and not merely return one key; the test asserts
+  that *structurally*, not by wall clock. The usability cost is accepted and the
+  leak-free mitigation is scheduled as **F2b** (an "already have an account?"
+  link to `/login`). **Do not let anyone soften the key** — that is the line-162
+  failure mode pointed at a security rule instead of a doc line.
+- **B4** — brief now carries the current/future-month refusal and
+  `listLocks` = 24 months with state; `currentMonthKey()` is the only sanctioned
+  "now".
+- **F3** — divide-by-zero guard on "% of month OUT" (a first month with no OUT
+  entries is the *normal* state), Western digits on the percentage even though
+  `MoneyText` does not cover it, no `server-only` import across the recharts
+  client boundary, and only plain serialisable numbers in chart props.
+- **F4** — the direction toggle's localStorage default is now in writing, so
+  **it is not a Do-not violation**; date defaults to today as well as capping at
+  today; item 13b applies to *حفظ وإضافة أخرى* from the start.
+
+Method note: the lesson that generalised best was checking whether a rule's
+*mechanism* actually reaches every case — `MoneyText` enforces Western digits for
+money and therefore not for a percentage. Worth asking of any rule that is
+enforced by a component rather than by a check.
+
+### 2026-09-29 — R-B3 / R-B4 / R-B8 / R-B10
+
+**One finding: the scoping gate does not assert `deletedAt: null`.**
+`scopeFailure()` (`src/features/transactions/scoping.test.ts:170-201`) checks
+`where.establishmentId` and nothing else. The *code* is correct — every
+Transaction read goes through `ledgerWhere()`
+(`transactions/queries.ts:90-106`, `deletedAt: null` at `:106`), which the
+dashboard derives from (`:172-173`, `:215`) and reports imports (`:39`) — so
+nothing is wrong today. But a future inline `where` in a new aggregate passes all
+26 cases while counting deleted rows in a total: the same undetectable
+wrong-number shape the gate exists for, in its **same-tenant** form. Three lines
+in `scopeFailure` plus a harness case; patch sent to `backend`. Not a blocker.
+
+**Four of my five original holes confirmed closed, each with a harness case
+proving the rule fires** — no-`where`, nested relation filter (top level only),
+by-value against a second foreign establishment, raw SQL banned at runtime *and*
+statically. `$transaction` coverage confirmed by tracing it rather than reading
+the claim: the inner client from `makeClient()` closes over the same `calls`
+array, and `createTransaction`'s `tx.transaction.create` is observed at `:397`,
+which is only possible if inner calls are captured. `backend` added a static
+sweep comparing source `(model, method)` pairs against observed ones, closing a
+case I had not raised.
+
+**Verified clean:** B4's both-months `OR` in one `findFirst`, traced through all
+three callers so a lock on the *origin* refuses a move out as well as in; the
+current/future refusal via `isClosedMonth` + `currentMonthKey()`; B8's
+active-only neighbour and silent no-op success at both ends; B10's five business
+paths collapsed to one key including the insert `catch`; B3's category
+triple-check with both `err.*` keys as a `fieldErrors` entry on `categoryId`; and
+the two sweep-excluded B2 files re-checked (not trusted from R-B2, since
+`settings/actions.ts` changed for B8) — every unique-where write still follows a
+scoped `findFirst`.
+
+**Judgements I recorded so they are not re-litigated:**
+- `assertUnlocked` **returning** rather than throwing is correct; I would have
+  flagged the reverse, because a throw reaches the error boundary instead of the
+  form. The name is the doc's, not a contract.
+- `err.signupFailed` on a **zod** failure in `signupStaff` is *not* an oracle: it
+  depends only on the shape of the attacker's own input, and a probe submits
+  well-formed input by definition. Collapsing it into `err.joinFailed` would cost
+  honest users their `fieldErrors` and buy nothing. Pre-empted with `backend`
+  rather than waiting to review the "fix".
+- Reordering an **inactive** category returns `err.notFound` (B8's `current`
+  requires `active: true`). Consistent; F8 must not surface that key.
+- `signupOwner`'s oracle is **with the user**, not open against the code. Not to
+  be raised in review. My only observation for their decision: the remedy is
+  worse here than in the staff case, because a fake success with no email channel
+  leaves someone who mistyped a known address waiting for an approval that never
+  comes.
+
+**Follow-up: gate gap closed, and a business-rule loosening reviewed.**
+`backend` and I converged on the `deletedAt` fix independently; it landed before
+my review did, with a second harness case (`deletedAt: { not: null }`) that a
+presence-only check would have missed, mutation-tested to 8 failures.
+`snapshot()` now uses `dateToISO()`.
+
+`checkCategory` was then loosened so a **retired category may be kept but never
+newly assigned** — `frontend` found it from the UI: an owner could not fix a typo
+on an old expense whose category had been retired without re-categorising it,
+i.e. rewriting history to satisfy validation. I checked it closely because a
+loosening deserves more review than a tightening, and it is sound. The
+load-bearing detail is **check order**: existence → direction → active-unless-kept,
+so the exemption bypasses only `active`. One line earlier and "keep the retired
+category" would have become "skip the direction check", letting an entry sit
+under a category of the opposite direction — corrupting the very report totals
+the B3 gate protects. `keptCategoryId` comes from `existing.categoryId` selected
+from the scoped `findFirst`, so it cannot be forged; `createTransaction` omits
+the argument entirely; it fails closed if that `select` is trimmed.
+
+Consequences raised: `docs/BACKEND.md:161-162` now contradicts the code (update
+is no longer "same as create") and must move, since docs outrank code; and F4's
+edit-mode category select must offer the entry's own retired category or it
+cannot represent the row — it would render empty or silently post a different
+category, which is the original complaint one layer up.
+
+**Two kinds of blindness, and neither subsumes the other.** The unscoped
+aggregate was invisible from the UI and only a structural check could catch it.
+The retired-category trap was invisible structurally — the rule was
+self-consistent and enforced exactly as written — and only imagining a real
+owner's afternoon could catch it. Keep both kinds of attention pointed at this
+codebase.
+
+**A rule's mechanism again did not reach every case** — the same lesson as
+`MoneyText` and percentages. `ledgerWhere` enforces soft delete for every caller
+that *uses* it, and the gate that was supposed to enforce it for everyone checks
+a different clause. Ask of every guard: what does it *not* see?
+
+### 2026-09-29 — R-F3 (reviewed unprompted; it was ready)
+
+**Clean.** The trap the lead named — every `OwnerDashboard` field is a `number`,
+so a crossed label/value wire compiles and shows the wrong figure under the right
+label — does not bite: all four StatCards pair correctly, and `TopOutCategories`
+takes `monthOutHalalas` as its denominator rather than the net or the balance.
+The `Halalas` suffix is what made this checkable **by reading**; with four bare
+numbers I would have had to run it.
+
+Both advance flags closed: `percentOfTotal` returns null on `total <= 0` so the
+normal first-month state renders "—" not `NaN%`, and `formatPercent` uses `en-US`.
+Chart boundary pure, `data.ts` types every crossing value as plain number or ISO
+string. `frontend` also built the `sr-only` fallback table I raised only as a
+judgement — correctly, `sr-only` not `hidden`, with `aria-hidden` on the chart.
+
+**One consistency point:** the fallback table calls `formatSAR` directly where
+`<MoneyText>` would work. Harmless, but told them to align it. Explicitly told
+them *not* to change the recharts `tickFormatter`/`Tooltip`, which **cannot** use
+`<MoneyText>` because recharts needs a string. Third instance of the same
+lesson: the rule is "Western digits"; `<MoneyText>` is its usual mechanism, not
+the rule. Pre-empting the over-correction is as much the job as finding the gap.
+
+**W2 verified early rather than at the swap.** `data.ts` and
+`dashboard/queries.ts` define the contract independently, so I compared them
+field by field: `MethodBalance`/`MonthTotals` identical, `TopOutCategory` ==
+`CategoryTotal`, and `LedgerRow` is a strict superset of `RecentTransaction`.
+**W2 will compile**; the only churn is type names, which fails loudly. Checking a
+two-copy contract *before* the task that merges them is cheap and turns a
+possible surprise into a known quantity.
+
+### 2026-09-29 — R-F4 and F2b. Checkpoint 2 clear from my side.
+
+**F2b meets the user's condition.** `FormError.tsx:24-25` returns null unless
+there is a non-field error, and the `/login` link is a **child** of that alert
+box in both signup forms — so it cannot appear without the error. A grep for the
+link alone would have passed either way, which is why the lead was right to ask
+for it verified. Traced the path that matters: a taken email returns the generic
+key with no `fieldErrors`, so the alert renders with the link attached.
+
+**F4 clean.** All five of the lead's priorities hold: the edit-mode select keeps
+the entry's own retired category (and `frontend` found the half I missed —
+**controlled rather than `defaultValue`**, because an uncontrolled select retains
+a stale DOM value when the option list is replaced); the retired option cannot
+survive a direction flip because `c.type === direction` stops matching, making
+the bad state structurally impossible rather than merely cleared; the
+locked-month split is two distinct guards (`dateLocked` → buttons only,
+`originalLocked` → every field), checked field by field; `intent` is stripped by
+`z.object()`; and there is no `try` around the action call, confirmed by absence.
+
+**What I actually spent the time on: whether the form posts the right body.** A
+form can look entirely correct and submit the wrong thing.
+- `AmountField` splits a visible `amountInput` (SAR text) from a hidden
+  `amountHalalas` carrying `parseSAR(value)`. Without that, "1234.50" arrives as
+  a non-integer and fails `.int()`.
+- `DirectionToggle` uses **real radios** with `name="direction"`, `sr-only`
+  rather than hidden. A segmented control built from buttons would look identical
+  and post nothing.
+- `today` arrives as a server prop, so the date cap cannot disagree with a client
+  whose clock or timezone differs.
+Generalise: for any form, check the three things that are invisible in the
+markup — what each control is *named*, what value it actually submits, and which
+side decided "now".
+
+Two cosmetic notes only: the dedicated `t.transaction.retiredCategory` ("متوقف")
+is unused while the label uses `t.status.DISABLED` ("معطل") — account vocabulary
+applied to a category; and an empty amount reports `err.amountPositive` rather
+than `err.required` because `Number("")` is `0`.
+
+`frontend`'s comment at `TransactionForm.tsx:78-82` is a better formulation of my
+own item 13b than mine: it says the no-`try` rule must hold *for whichever action
+changes its mind later*, rather than resting on what the actions do today.
+
 ## In progress
-- Task: Checkpoint 1 reviews all delivered and closed. Standing by for the
-  user's approval of Checkpoint 2 (W1, F3, B3, B4).
+- Task: Checkpoint 2 under way — `frontend` on W1 then F3 ∥ F4, `backend` on B3.
+  Reviewing code as it lands. Brief-vs-doc pass done and fully adopted; the
+  "Rulings" block above is my checklist for these reviews.
+- Order: W1 → B3 ∥ F3 ∥ F4 → B4, B8, B10 → W2.
+- First things to check on each: **W1** — is it only the import swap plus
+  `stubActions.ts` deleted? **B3** — the four-file gate, by value, with
+  `deletedAt`, plus the five dropped doc rules (category triple-check first).
+  **F4** — 13b on *حفظ وإضافة أخرى*. **F3** — the `0/0` percentage guard.
 - **Checkpoint 1 is `2dc246b`, not `9b48932`** — the lead amended twice after
   announcing the first hash. Settled, and explicitly not to be re-verified; the
   lead will announce the new hash on any future amend. Recorded only so the

@@ -112,7 +112,7 @@ Rules:
 
 ## Sign-up and approval flows
 1. **Owner sign-up** (`/signup?as=owner`): name, email, password, establishment name. Creates Establishment (`active: true`, new joinCode) + User `{role: OWNER, status: PENDING}`. Owner lands on `/pending`. ADMIN approves or rejects on the admin page. Reject = `status: DISABLED` and establishment `active: false`.
-2. **Staff sign-up** (`/signup?as=staff`): name, email, password, join code. Looks up Establishment by joinCode (must be active, owner must be ACTIVE). Creates User `{role: STAFF, status: PENDING, establishmentId}`. Staff lands on `/pending`. OWNER approves/rejects in settings. Wrong join code → generic error, and rate-limited like login.
+2. **Staff sign-up** (`/signup?as=staff`): name, email, password, join code. Looks up Establishment by joinCode (must be active, owner must be ACTIVE). Creates User `{role: STAFF, status: PENDING, establishmentId}`. Staff lands on `/pending`. OWNER approves/rejects in settings. **Every** failure returns the same generic `err.joinFailed` — wrong join code, inactive establishment, owner not ACTIVE, and an email that already exists. A caller must not be able to tell which, or the form becomes a join-code oracle (submit a known-taken email: a different key means the code was valid). Rate-limited like login.
 3. **Login**: only `status: ACTIVE` users can log in. PENDING users are redirected to `/pending`; DISABLED users get the generic login error.
 4. **Permissions**: OWNER toggles `canEdit` per STAFF user. Effect is immediate (checked server-side on every mutation, not cached in the session).
 
@@ -158,11 +158,11 @@ nothing but that sentence. The consequence is accepted deliberately — see the 
 | `signupOwner(input)` | public | creates establishment + pending owner |
 | `signupStaff(input)` | public | valid join code; pending staff |
 | `login(prev, formData)` / `logout()` | public / any | ACTIVE gets a session; PENDING redirects to `/pending?as=…` with no session; DISABLED and inactive establishment get the generic key |
-| `createTransaction(input)` | any ACTIVE user in establishment | month not locked; amount > 0; date ≤ today; category active, same establishment, same direction |
-| `updateTransaction(id, input)` | `requireCanEdit()` | same as create; both old and new month unlocked; STAFF with canEdit may edit any entry of the establishment |
+| `createTransaction(prev, formData)` | any ACTIVE user in establishment | month not locked; amount > 0; date ≤ today; category active, same establishment, same direction. **Returns; never redirects** — the form has two outcomes (حفظ leaves, حفظ وإضافة أخرى stays) and only the client knows which was pressed, so the UI navigates |
+| `updateTransaction(id, prev, formData)` | `requireCanEdit()` | same as create; both old and new month unlocked; STAFF with canEdit may edit any entry of the establishment. **Update is NOT "same as create" on category.** A category which has since been retired may be **kept** if it is the one the entry already carries — read from the **database**, never from the form, or it is forgeable — but may never be newly **assigned**. The exemption bypasses `active` only: existence, establishment scope and direction are still checked first, so a kept retired category cannot be used to smuggle in a direction mismatch. Without this, a note on a two-year-old entry could not be corrected without silently re-categorising it |
 | `deleteTransaction(id)` | OWNER | month unlocked; soft delete |
 | `lockMonth(y,m)` / `unlockMonth(y,m)` | OWNER | not current or future month |
-| `createCategory` / `updateCategory` / `setCategoryActive` / `setCategoryOrder(id, "UP"\|"DOWN")` | OWNER | at least one active category per direction must remain. Duplicate names are compared against **active** categories only; `createCategory` **reactivates** a matching inactive category rather than inserting a second row, and `setCategoryActive` refuses to reactivate a name an active category already uses. `setCategoryOrder` swaps `sortOrder` with the adjacent category of the same direction |
+| `createCategory` / `updateCategory` / `setCategoryActive` / `setCategoryOrder(id, "UP"\|"DOWN")` | OWNER | at least one active category per direction must remain. Duplicate names are compared against **active** categories only; `createCategory` **reactivates** a matching inactive category rather than inserting a second row, and `setCategoryActive` refuses to reactivate a name an active category already uses. `setCategoryOrder` swaps `sortOrder` with the adjacent **active** category of the same direction — skipping inactive rows, because swapping with a row the owner cannot see makes the visible order appear not to change. At the ends (first item UP, last item DOWN) it is a silent no-op returning `ok: true`; there is deliberately no error key, and the UI disables the arrow instead |
 | `approveStaff(userId)` / `rejectStaff(userId)` / `setCanEdit(userId, bool)` / `setStaffActive(userId, bool)` / `resetStaffPassword(userId, prev, formData)` | OWNER | target must be STAFF of own establishment. `resetStaffPassword` is form-backed with a bound id (see the signature convention); the rest are button actions |
 | `regenerateJoinCode()` | OWNER | — |
 | `changeOwnPassword(prev, formData)` | any | `ChangePasswordSchema`: current + new + confirm; bcrypt compare current |
@@ -172,11 +172,17 @@ nothing but that sentence. The consequence is accepted deliberately — see the 
 
 ## Read queries (`src/features/<feature>/queries.ts`)
 Plain async functions used by server components; all take `establishmentId` explicitly (from `requireUser()`), never from params.
-- `getOwnerDashboard(estId)` → `{ balanceTotal, balanceByMethod[], monthIn, monthOut, monthNet, topOutCategories[] (this month, top 5), last6Months[] {ym, in, out}, recent[] (10) }`
-- `getStaffDashboard(estId, userId)` → `{ monthIn, monthOut, myRecent[] (10), canEdit }`
-- `listTransactions(estId, filters, page)` → `{ rows[], total, pageTotals {in,out,net} }` (50/page)
+**Naming rule — every money-valued field carries a `Halalas` suffix.** The unit belongs in the name:
+these are integers in halalas, never SAR, and a field called `total` invites someone to format it as
+riyals. It also avoids `in` as a property name, which cannot be destructured because `in` is a
+reserved word. Non-money fields (counts, `ym`, ids) keep their plain names.
+
+- `getOwnerDashboard(estId)` → `{ balanceTotalHalalas, balanceByMethod[] {method, balanceHalalas}, monthInHalalas, monthOutHalalas, monthNetHalalas, topOutCategories[] {categoryId, nameAr, totalHalalas} (this month, top 5 — **no percentage**, that is a presentation decision because of the divide-by-zero case), last6Months[] {ym, inHalalas, outHalalas}, recent[] (10) }`
+- `getStaffDashboard(estId, userId)` → `{ monthInHalalas, monthOutHalalas, myRecent[] (10), canEdit }`
+- `listTransactions(estId, filters)` → `{ rows[], total, pageTotals { inHalalas, outHalalas, netHalalas } }` (`PAGE_SIZE` 50). **No third `page` argument** — `TransactionFilterSchema` already carries `page` with a default of 1, and F5 parses URL search params straight through that schema, so a separate parameter would give one value two sources that can disagree.
+- **Every exported query return type must be serialisable.** No `Date` (and no Prisma `Decimal`) may appear in a shape a server component passes to a client component — it throws at the boundary. Dates cross as ISO strings. Which helper depends on the column: a `@db.Date` calendar date uses `dateToISO()` (UTC getters, correct for a stored day), while a `DateTime` **instant** — `lockedAt`, `createdAt` — uses `todayISO(instant)`, the Riyadh formatter. Using `dateToISO()` on an instant reports the previous day for anything before 03:00 Riyadh.
 - `getTransaction(estId, id)`
-- `getReport(estId, from, to)` → `{ byCategoryIn[], byCategoryOut[], totalIn, totalOut, net }`
+- `getReport(estId, from, to)` → `{ byCategoryIn[] {categoryId, nameAr, totalHalalas}, byCategoryOut[] {…}, totalInHalalas, totalOutHalalas, netHalalas }`
 - `listCategories(estId)`, `listStaff(estId)`, `listLocks(estId)` (last 24 months with state)
 - `getAdminOverview()` → `{ pendingOwners[], establishments[] {id, name, ownerName, ownerEmail, status, staffCount, transactionCount, lastActivityAt} }` — **no amounts**.
 
@@ -200,8 +206,16 @@ Exports zod schemas and inferred types: `SignupOwnerSchema`, `SignupStaffSchema`
 ## Security (non-negotiable — reviewer checks every task against this list)
 1. Every action/query starts with `requireX()`; every establishment-scoped query includes `establishmentId` from the session.
 2. Role and `canEdit`/`status` are checked server-side on each mutation from the DB, not from the cookie.
+2b. **A scoped write carries its own tenant boundary.** On Category / Transaction / PeriodLock, use
+   `updateMany({ where: { id, establishmentId } })` and `updateMany`/`deleteMany` for soft deletes —
+   never `update({ where: { id } })` after a scoped `findFirst`. Prisma's `update` demands a *unique*
+   `where`, and `{ id, establishmentId }` is not unique, so `update` structurally cannot carry the
+   scope: it can only be made safe by trusting the read above it. `updateMany` accepts the compound
+   filter, so the database enforces the boundary on every write. A write that affects 0 rows means the
+   id was not the caller's and returns `err.notFound`. This also keeps the scoping test uniform — no
+   "this call is safe because of the line above it" exceptions, which is how such a test rots.
 3. zod on every input. Unknown fields stripped.
-4. Generic error messages for login, sign-up, and join code — never reveal whether an email exists or which field was wrong. Sign-up with an existing email returns the same generic failure key as any other invalid sign-up.
+4. Generic error messages for login, sign-up, and join code — never reveal whether an email exists or which field was wrong. Sign-up with an existing email returns the same generic failure key as any other invalid sign-up. **This is not tradeable against usability.** Two failure paths in one form that return different keys are an enumeration oracle even when each key is individually generic; a large keyspace and a rate limiter do not make it acceptable.
 5. Cookie flags as above; logout clears the cookie; session invalid if user becomes DISABLED or establishment becomes inactive (checked in `requireUser()`).
 6. bcrypt cost 12.
 7. Constant headers in `next.config.mjs`: `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `Permissions-Policy: camera=(), geolocation=(), microphone=()`, `Strict-Transport-Security: max-age=63072000; includeSubDomains`.

@@ -125,6 +125,7 @@ export const t = {
     amount: "المبلغ",
     date: "التاريخ",
     category: "التصنيف",
+    chooseCategory: "اختر التصنيف",
     counterparty: "الجهة",
     counterpartyHint: "اسم العميل أو المورد",
     note: "ملاحظة",

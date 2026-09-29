@@ -1,0 +1,308 @@
+"use server";
+
+/**
+ * The three ledger mutations.
+ *
+ * Every write is an `updateMany` / `create` carrying `establishmentId`, never an
+ * `update({ where: { id } })`. Prisma's `update` needs a *unique* where, and
+ * `{ id, establishmentId }` is not unique, so `update` structurally cannot hold
+ * the tenant scope — it can only be made safe by trusting the read above it.
+ * `updateMany` puts the boundary in the SQL, where a future edit cannot drop it
+ * by moving a line.
+ */
+import { revalidatePath } from "next/cache";
+import { z } from "zod";
+
+import { assertUnlocked } from "@/features/locks/assertUnlocked";
+import { writeAudit } from "@/lib/audit";
+import { requireCanEdit, requireMember, requireOwner } from "@/lib/auth";
+import { dateToISO, isoToDate, monthKey } from "@/lib/dates";
+import { db } from "@/lib/db";
+import {
+  TransactionInputSchema,
+  invalid,
+  type ActionResult,
+  type DirectionValue,
+} from "@/lib/validation";
+
+export type TransactionState = ActionResult<null> | null;
+
+const idSchema = z.string().trim().min(1, "err.required").max(64, "err.tooLong");
+
+/** Paths that show ledger numbers; all of them go stale on any mutation. */
+const LEDGER_PATHS = [
+  "/owner",
+  "/owner/transactions",
+  "/owner/reports",
+  "/staff",
+  "/staff/transactions",
+];
+
+function revalidateLedger(): void {
+  for (const path of LEDGER_PATHS) revalidatePath(path);
+}
+
+/**
+ * `FormData` is all strings, but the schema wants an integer count of halalas —
+ * the form computes it with `parseSAR` and submits the integer as text. A
+ * non-numeric value becomes NaN here and the schema answers `err.amountInvalid`.
+ */
+function transactionInput(formData: FormData): Record<string, unknown> {
+  const raw = Object.fromEntries(formData) as Record<string, unknown>;
+  return {
+    ...raw,
+    amountHalalas:
+      raw.amountHalalas === undefined ? undefined : Number(raw.amountHalalas),
+  };
+}
+
+type CategoryProblem = "err.categoryInvalid" | "err.categoryDirectionMismatch";
+
+/**
+ * A rejection attributable to one input goes in `fieldErrors`, so the message
+ * lands under that input rather than in a form-level toast (docs/BACKEND.md).
+ * `err.monthLocked` has no field to blame and stays bare.
+ */
+function fieldError(
+  field: string,
+  key: string,
+): { ok: false; error: string; fieldErrors: Record<string, string> } {
+  return { ok: false, error: key, fieldErrors: { [field]: key } };
+}
+
+/**
+ * The category must exist in this establishment and match the direction.
+ *
+ * It must also be active — **unless** it is the one the entry already carries.
+ * An owner who retires a category does not thereby freeze every old entry that
+ * used it: without this, fixing a typo in the note of a two-year-old expense
+ * would be impossible without also re-categorising it, which rewrites history to
+ * satisfy a validation rule. `keptCategoryId` is the existing row's category,
+ * read from the database, never from the form.
+ */
+async function checkCategory(
+  establishmentId: string,
+  categoryId: string,
+  direction: DirectionValue,
+  keptCategoryId?: string,
+): Promise<CategoryProblem | null> {
+  const category = await db.category.findFirst({
+    where: { establishmentId, id: categoryId },
+    select: { type: true, active: true },
+  });
+
+  if (!category) return "err.categoryInvalid";
+  if (category.type !== direction) return "err.categoryDirectionMismatch";
+  if (!category.active && categoryId !== keptCategoryId) {
+    return "err.categoryInvalid";
+  }
+  return null;
+}
+
+type Snapshot = {
+  date: string;
+  direction: DirectionValue;
+  amountHalalas: number;
+  categoryId: string;
+  paymentMethod: string;
+};
+
+function snapshot(row: {
+  date: Date;
+  direction: DirectionValue;
+  amountHalalas: number;
+  categoryId: string;
+  paymentMethod: string;
+}): Snapshot {
+  return {
+    date: dateToISO(row.date),
+    direction: row.direction,
+    amountHalalas: row.amountHalalas,
+    categoryId: row.categoryId,
+    paymentMethod: row.paymentMethod,
+  };
+}
+
+/** Any ACTIVE member of the establishment may add an entry. */
+export async function createTransaction(
+  _prev: TransactionState,
+  formData: FormData,
+): Promise<ActionResult<null>> {
+  const { user, establishmentId } = await requireMember();
+
+  const parsed = TransactionInputSchema.safeParse(transactionInput(formData));
+  if (!parsed.success) return invalid(parsed.error);
+  const input = parsed.data;
+  const when = isoToDate(input.date);
+
+  const locked = await assertUnlocked(establishmentId, [monthKey(when)]);
+  if (locked) return { ok: false, error: locked };
+
+  const badCategory = await checkCategory(
+    establishmentId,
+    input.categoryId,
+    input.direction,
+  );
+  if (badCategory) return fieldError("categoryId", badCategory);
+
+  await db.$transaction(async (tx) => {
+    const row = await tx.transaction.create({
+      data: {
+        establishmentId,
+        date: when,
+        direction: input.direction,
+        amountHalalas: input.amountHalalas,
+        categoryId: input.categoryId,
+        paymentMethod: input.paymentMethod,
+        counterparty: input.counterparty ?? null,
+        note: input.note ?? null,
+        createdById: user.id,
+      },
+      select: { id: true },
+    });
+    await writeAudit({
+      establishmentId,
+      userId: user.id,
+      action: "CREATE",
+      entity: "Transaction",
+      entityId: row.id,
+      after: { ...snapshot({ ...input, date: when }) },
+      client: tx,
+    });
+  });
+
+  revalidateLedger();
+  return { ok: true, data: null };
+}
+
+/**
+ * OWNER, or STAFF the owner has given `canEdit` — who may edit any entry of the
+ * establishment, not only their own. **Both** months must be open: moving an
+ * entry *out* of a locked month edits that locked month too.
+ */
+export async function updateTransaction(
+  transactionId: string,
+  _prev: TransactionState,
+  formData: FormData,
+): Promise<ActionResult<null>> {
+  const { user, establishmentId } = await requireCanEdit();
+
+  const parsedId = idSchema.safeParse(transactionId);
+  if (!parsedId.success) return invalid(parsedId.error);
+  const parsed = TransactionInputSchema.safeParse(transactionInput(formData));
+  if (!parsed.success) return invalid(parsed.error);
+  const input = parsed.data;
+  const when = isoToDate(input.date);
+
+  const existing = await db.transaction.findFirst({
+    where: { establishmentId, id: parsedId.data, deletedAt: null },
+    select: {
+      id: true,
+      date: true,
+      direction: true,
+      amountHalalas: true,
+      categoryId: true,
+      paymentMethod: true,
+    },
+  });
+  if (!existing) return { ok: false, error: "err.notFound" };
+
+  const locked = await assertUnlocked(establishmentId, [
+    monthKey(existing.date),
+    monthKey(when),
+  ]);
+  if (locked) return { ok: false, error: locked };
+
+  const badCategory = await checkCategory(
+    establishmentId,
+    input.categoryId,
+    input.direction,
+    existing.categoryId,
+  );
+  if (badCategory) return fieldError("categoryId", badCategory);
+
+  const changed = await db.$transaction(async (tx) => {
+    const { count } = await tx.transaction.updateMany({
+      where: { establishmentId, id: existing.id, deletedAt: null },
+      data: {
+        date: when,
+        direction: input.direction,
+        amountHalalas: input.amountHalalas,
+        categoryId: input.categoryId,
+        paymentMethod: input.paymentMethod,
+        counterparty: input.counterparty ?? null,
+        note: input.note ?? null,
+      },
+    });
+    if (count === 0) return 0;
+
+    await writeAudit({
+      establishmentId,
+      userId: user.id,
+      action: "UPDATE",
+      entity: "Transaction",
+      entityId: existing.id,
+      before: { ...snapshot(existing) },
+      after: { ...snapshot({ ...input, date: when }) },
+      client: tx,
+    });
+    return count;
+  });
+
+  if (changed === 0) return { ok: false, error: "err.notFound" };
+
+  revalidateLedger();
+  return { ok: true, data: null };
+}
+
+/** OWNER only, and a soft delete — the row and its audit trail both survive. */
+export async function deleteTransaction(
+  transactionId: string,
+): Promise<ActionResult<null>> {
+  const { user, establishmentId } = await requireOwner();
+
+  const parsedId = idSchema.safeParse(transactionId);
+  if (!parsedId.success) return invalid(parsedId.error);
+
+  const existing = await db.transaction.findFirst({
+    where: { establishmentId, id: parsedId.data, deletedAt: null },
+    select: {
+      id: true,
+      date: true,
+      direction: true,
+      amountHalalas: true,
+      categoryId: true,
+      paymentMethod: true,
+    },
+  });
+  if (!existing) return { ok: false, error: "err.notFound" };
+
+  const locked = await assertUnlocked(establishmentId, [
+    monthKey(existing.date),
+  ]);
+  if (locked) return { ok: false, error: locked };
+
+  const changed = await db.$transaction(async (tx) => {
+    const { count } = await tx.transaction.updateMany({
+      where: { establishmentId, id: existing.id, deletedAt: null },
+      data: { deletedAt: new Date() },
+    });
+    if (count === 0) return 0;
+
+    await writeAudit({
+      establishmentId,
+      userId: user.id,
+      action: "DELETE",
+      entity: "Transaction",
+      entityId: existing.id,
+      before: { ...snapshot(existing) },
+      client: tx,
+    });
+    return count;
+  });
+
+  if (changed === 0) return { ok: false, error: "err.notFound" };
+
+  revalidateLedger();
+  return { ok: true, data: null };
+}

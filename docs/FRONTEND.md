@@ -12,6 +12,7 @@ Read `CLAUDE.md` and `PROGRESS.md` first. Owner of this doc: lead. Implementer: 
 ## Look and feel
 - Mobile-first; owners and staff will mostly use phones. Tap targets ≥ 44px. `max-w-3xl` centered on desktop.
 - Calm, high contrast, no decorative animation. Accent `#0f766e`. IN amounts green with `+`, OUT amounts red `#b91c1c` with `−` — never color alone.
+- **Every chart carries a server-rendered text equivalent.** recharts' `ResponsiveContainer` needs a measured DOM, so the served HTML contains the container and **zero `<svg>` elements** — the bars exist only after hydration. The numbers are therefore absent with JS off and before hydration, not merely hard to read without colour vision. An `sr-only` table of the same figures satisfies both cases at once, and is the chart equivalent of the `+`/`−` rule.
 - Layout per role area: top bar (app name, establishment name, user name, logout) + bottom tab bar on mobile / side nav on ≥ md.
   - Owner tabs: الرئيسية · إضافة · السجل · التقارير · الإعدادات
   - Staff tabs: الرئيسية · إضافة · السجل
@@ -46,7 +47,8 @@ src/app/page.tsx                  redirects to the role's home
   5. طريقة الدفع: select
   6. الجهة (optional), ملاحظة (optional)
   7. حفظ · حفظ وإضافة أخرى (new only)
-  - Locked month → blocking notice, submit disabled.
+  - The التصنيف select lists **active** categories **plus the entry's own category when editing**, even if it has since been deactivated — filtering to active rows alone would silently reassign the entry on save.
+  - Locked month → blocking notice, submit disabled. Two cases, and they differ: when the **chosen date** falls in a closed month, leave the fields editable so the user can move the date to an open one; when the **entry's current** month is closed, disable the fields too, because no edit can rescue it and live fields invite a form that fails on submit.
 - **`/owner/transactions`**: filters as URL search params (from, to, direction, category, method, q); table on desktop / stacked cards on mobile; footer totals for the current filter; 50/page; per-row edit + delete (delete via ConfirmDialog); LockBadge on locked months hides actions. Shows "أضافه: <name>" on each row.
 - **`/owner/reports`**: month picker (default current) or custom range; two tables (وارد by category, صادر by category) each with a total row, then الصافي; buttons تصدير Excel (`/api/export?from=&to=`) and طباعة (`window.print()`). Print stylesheet hides nav/buttons, black on white, header with establishment name + range.
 - **`/owner/settings`** tabs:
@@ -69,7 +71,8 @@ src/app/page.tsx                  redirects to the role's home
 - **`/admin/account`**: change password.
 
 ## Forms and errors
-- Server actions with `useActionState`; field errors under inputs from `fieldErrors`; generic Toast for `ok: false` without fieldErrors.
+- Server actions with `useActionState`; field errors under inputs from `fieldErrors`; generic Toast for `ok: false` without fieldErrors. **Exception — the two sign-up forms use an inline `<FormError>` banner, not a Toast.** A toast can be dismissed or missed, and the "already have an account?" link lives in that banner: it is the only route out for someone whose email is already registered, who by design is told only that sign-up failed. The banner sits with the submit button, carries `role="alert"`, and stays silent when `fieldErrors` is populated. `/login` keeps the Toast — the link would be pointless there.
+- **Two submit buttons need a named submit field.** `useActionState` hands the reducer `(prevState, formData)` with no submitter, so a `<Button type="submit" name="intent" value="…">` is how the reducer tells حفظ from حفظ وإضافة أخرى. It reaches the server only as a side effect of being a real form field and is stripped by the `z.object()` — behaviour pinned by `validation.test.ts`. Do not remove it as a stray field.
 - Client-side validation imports the same zod schemas from `src/lib/validation.ts`.
 - Disable submit while pending; never double-submit.
 

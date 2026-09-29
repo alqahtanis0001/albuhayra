@@ -30,6 +30,11 @@ const SETTINGS_PATH = "/owner/settings";
 
 const idSchema = z.string().trim().min(1, "err.required").max(64, "err.tooLong");
 
+const orderSchema = z.object({
+  categoryId: idSchema,
+  direction: z.enum(["UP", "DOWN"], { error: "err.invalidInput" }),
+});
+
 const activeSchema = z.object({
   categoryId: idSchema,
   active: z.boolean({ error: "err.invalidInput" }),
@@ -264,6 +269,66 @@ export async function setCategoryActive(
     entityId: current.id,
     before: { active: current.active },
     after: { active: parsed.data.active },
+  });
+
+  revalidatePath(SETTINGS_PATH);
+  return { ok: true, data: null };
+}
+
+/**
+ * Moves a category one place up or down within its own direction (task B8).
+ *
+ * Only **active** categories take part: the settings list shows retired ones too,
+ * but their position is meaningless, and letting them occupy a slot would make
+ * the arrows skip visibly. Reaching the end is a no-op success rather than an
+ * error — the button is simply already at the edge of the list.
+ */
+export async function setCategoryOrder(
+  categoryId: string,
+  direction: "UP" | "DOWN",
+): Promise<ActionResult<null>> {
+  const { user: owner, establishmentId } = await requireOwner();
+  const parsed = orderSchema.safeParse({ categoryId, direction });
+  if (!parsed.success) return invalid(parsed.error);
+
+  const current = await db.category.findFirst({
+    where: { id: parsed.data.categoryId, establishmentId, active: true },
+    select: { id: true, type: true, sortOrder: true },
+  });
+  if (!current) return { ok: false, error: "err.notFound" };
+
+  const up = parsed.data.direction === "UP";
+  const neighbour = await db.category.findFirst({
+    where: {
+      establishmentId,
+      type: current.type,
+      active: true,
+      sortOrder: up ? { lt: current.sortOrder } : { gt: current.sortOrder },
+    },
+    orderBy: { sortOrder: up ? "desc" : "asc" },
+    select: { id: true, sortOrder: true },
+  });
+  if (!neighbour) return { ok: true, data: null };
+
+  await db.$transaction(async (tx) => {
+    await tx.category.updateMany({
+      where: { establishmentId, id: current.id },
+      data: { sortOrder: neighbour.sortOrder },
+    });
+    await tx.category.updateMany({
+      where: { establishmentId, id: neighbour.id },
+      data: { sortOrder: current.sortOrder },
+    });
+    await writeAudit({
+      establishmentId,
+      userId: owner.id,
+      action: "CATEGORY_UPDATE",
+      entity: "Category",
+      entityId: current.id,
+      before: { sortOrder: current.sortOrder },
+      after: { sortOrder: neighbour.sortOrder, swappedWith: neighbour.id },
+      client: tx,
+    });
   });
 
   revalidatePath(SETTINGS_PATH);

@@ -207,31 +207,43 @@ export async function signupStaff(
   if (!consumeAttempt(key)) return { ok: false, error: "err.tooManyAttempts" };
 
   const { name, email, password, joinCode } = parsed.data;
-  const establishment = await db.establishment.findUnique({
-    where: { joinCode },
-    select: {
-      id: true,
-      active: true,
-      users: {
-        where: { role: "OWNER", status: "ACTIVE" },
-        select: { id: true },
-        take: 1,
+
+  // Both lookups always run, and always together: doing the email check only
+  // after the code check made a taken email measurably slower than a bad code,
+  // which is the same oracle by a different route.
+  const [establishment, taken] = await Promise.all([
+    db.establishment.findUnique({
+      where: { joinCode },
+      select: {
+        id: true,
+        active: true,
+        users: {
+          where: { role: "OWNER", status: "ACTIVE" },
+          select: { id: true },
+          take: 1,
+        },
       },
-    },
-  });
-  // A wrong code, a disabled establishment and an owner who is not active are
-  // one answer: the code is the only thing the caller gets to learn about.
-  if (!establishment || !establishment.active || establishment.users.length === 0) {
-    return { ok: false, error: "err.joinFailed" };
-  }
+    }),
+    db.user.findUnique({ where: { email }, select: { id: true } }),
+  ]);
 
-  const taken = await db.user.findUnique({
-    where: { email },
-    select: { id: true },
-  });
-  if (taken) return { ok: false, error: "err.signupFailed" };
-
+  // Hash before deciding, so bcrypt's ~250ms is spent whatever the answer. It is
+  // by far the largest term here, so skipping it on a failure would time the
+  // branch more clearly than any error key would name it.
   const passwordHash = await hashPassword(password);
+
+  const codeUsable =
+    establishment !== null &&
+    establishment.active &&
+    establishment.users.length > 0;
+
+  // All four failures are one answer: a wrong code, an establishment that has
+  // been disabled, an owner who is not ACTIVE, and an address already in use.
+  // Two individually-generic keys still tell a guesser which check failed, and
+  // the pair "joinFailed vs signupFailed" told them their code was *valid* —
+  // Security rule 4 forbids the distinction, not just the wording.
+  if (!codeUsable || taken) return { ok: false, error: "err.joinFailed" };
+
   try {
     await db.$transaction(async (tx) => {
       const user = await tx.user.create({
@@ -256,7 +268,11 @@ export async function signupStaff(
       });
     });
   } catch {
-    return { ok: false, error: "err.signupFailed" };
+    // Same key as every other failure. The realistic cause is the email unique
+    // constraint losing a race with a concurrent sign-up, so answering
+    // `err.signupFailed` here would reopen the oracle for anyone willing to
+    // trigger it — a fifth path with a fifth answer.
+    return { ok: false, error: "err.joinFailed" };
   }
 
   clearAttempts(key);
