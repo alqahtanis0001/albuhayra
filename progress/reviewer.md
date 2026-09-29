@@ -77,10 +77,14 @@ Run against every completed backend task. One line per item; a miss is a finding
 15. **ADMIN never sees money.** `getAdminOverview()` and every admin action
     return counts and statuses only — no `amountHalalas`, no transaction rows.
 16. `.env` gitignored and untracked; `.env.example` shipped with placeholders.
-17. **Verify the commit object, not the working tree.** A file can be absent
-    from disk and still staged in the index, and an untracked file is invisible
-    in a diff — which is how `zzsmoke` survived two "it's gone" reports and a
-    second copy of it appeared under a different heading. Use
+17. **No single source is authoritative; the commit object is what decides what
+    ships.** A file can be absent from disk and still staged in the index, an
+    untracked file is invisible in a diff, and a hash can be amended out from
+    under a verification. `zzsmoke` survived two "it's gone" reports and a second
+    copy appeared under a different heading — I was right both times only because
+    I re-checked the tree instead of trusting my own previous answer. So: do not
+    trust the tree, the diff, a report, or a check you ran a minute ago; and
+    re-verify against the commit, not the workspace. Use
     `git status --porcelain --untracked-files=all`, then `git grep <marker> HEAD`
     and `git ls-tree -r HEAD` to check what is actually *in* the commit. Confirm
     nothing under `src/app/api/` but `health` and `export`, and scan for
@@ -384,9 +388,110 @@ untracked file is invisible in a diff. It composed with the
 so a cosmetic finding plus a stray file made an unauthenticated
 privilege-escalation endpoint. **Keep filing the cosmetic ones.**
 
+### 2026-09-29 — Checkpoint 1 closed (commit `9b48932`)
+
+Verified by the lead in the **commit object**, not the tree: `git grep zzsmoke HEAD`
+and `git grep getOwnStatus HEAD` both empty, no `src/features/auth/queries.ts` in
+`git ls-tree -r HEAD`.
+
+Why the blocker had to be repeated: there were **two** smoke routes. The lead's
+`ls` ran in a window when the first was absent, and `backend` had created a
+second headed "B9 verification" rather than "B2 verification". I reported it as
+still present *after* being told it was gone, and was right both times — because
+I checked the tree each time instead of trusting the previous answer. The
+sharper method, now Checklist A item 17: a file can be absent from disk and
+still staged in the index, so the commit object is the only authority.
+
+Frozen-contract mismatch amended as recommended — text changed, not code.
+`docs/BACKEND.md` now permits a form-backed action to take its id before the
+state for `.bind(null, id)`, names `updateCategory` and `resetStaffPassword`,
+and no longer lists `resetStaffPassword(userId, pw)` among the button actions.
+Landed before F8 builds against it.
+
+### Prep for R-B3 / R-B4 (Checkpoint 2: W1, F3, B3, B4)
+
+Written in advance so the review is fast. The heavy lifting is Checklist A
+items 1, 2 and 13; these are the specific traps in *this* feature set:
+
+**Scoping (item 2) — the single highest-risk area so far.**
+- `getTransaction(estId, id)` and every update/delete path must be
+  `findFirst({ where: { id, establishmentId, deletedAt: null } })`. A
+  `findUnique({ where: { id } })` followed by an `if (row.establishmentId !== …)`
+  check is *not* equivalent and I will treat the `findUnique` form as a finding:
+  it leaks existence through timing and invites a later refactor to drop the
+  guard. The B2 pattern to insist on is `findOwnStaff` / `findOwnCategory` —
+  scope in the query, then key the `update` off the id that query returned.
+- `listTransactions` filters arrive from **URL search params** (F5), so they are
+  attacker-controlled: `categoryId` and `paymentMethod` must be parsed by
+  `TransactionFilterSchema` and the category must be re-checked as belonging to
+  the establishment, not merely passed into the `where`.
+- Aggregates (`getOwnerDashboard`, `getReport`) are the easy place to forget a
+  scope: check **every** `groupBy`, `aggregate`, `count` and `$queryRaw` clause
+  separately. One unscoped aggregate leaks another establishment's totals
+  without leaking a single row.
+- `getStaffDashboard(estId, userId)` takes two ids — confirm `myRecent` filters
+  on *both*, and that `userId` comes from the session rather than an argument a
+  caller chose.
+
+**Soft delete (item 11).** `deletedAt: null` on every read *including every
+aggregate and count* — the dashboard and report totals are where a deleted
+entry silently reappears. `deleteTransaction` must set `deletedAt`, never call
+`db.transaction.delete`.
+
+**Month lock (item 12).** `assertUnlocked` on create, update **and** delete.
+`updateTransaction` must check both the old and the new month — moving an entry
+*out of* a locked month is the case that gets missed.
+
+> **An implementation tripwire, not a specification defect.** I briefly recorded
+> the opposite on the lead's ruling; both the lead and `backend` then corrected
+> it, and I verified: `docs/BACKEND.md:162` has said "same as create; **both old
+> and new month unlocked**" since the Phase 0 commit `9a2dbb1` (line 137 there).
+> The doc was always right — my own prep note above derives the requirement from
+> it. What was loose was the one-line B4 summary in `progress/TASKS.md`, which
+> compressed it to "month lock + audit wiring": a summary lossier than its
+> source, not a deficient spec.
+>
+> It stays a real thing to watch for in B4, because a single lock check satisfies
+> a careless reading of the doc while missing the entry that moves *out* of a
+> locked month. But it is not evidence the doc needs fixing, and nobody should be
+> sent to "correct" line 162.
+
+Lock/unlock must refuse
+the current and any future month (`err.cannotLockCurrentMonth`), using
+`currentMonthKey()` from `src/lib/dates.ts`, which is the only sanctioned way to
+decide "now" (Asia/Riyadh). Any `new Date()` local getter on a stored date is a
+finding per the PROGRESS.md gotcha.
+
+**Money and dates.** `amountHalalas` integer > 0 — reject 0 as well as negatives.
+Direction supplies the sign at calculation time; nothing stores a negative.
+Category must be active, same establishment *and* same direction as the entry.
+`isoToDate`/`dateToISO` for `@db.Date` round-trips, never local getters.
+
+**Audit (item 13).** `writeAudit` inside the same `$transaction` as the mutation,
+with `before`/`after` on update and `before` on delete. And per item 13b,
+re-check that adding those `$transaction` wrappers has not captured a trailing
+`redirect()` inside a new `try` — that is exactly how B9 nearly broke the
+sign-ups.
+
+**W1** should be the one-line import swap in
+`src/features/auth/components/actions.ts` plus deleting `stubActions.ts`. If it
+turns into more than that, the frozen contract drifted and I want to know why.
+
 ## In progress
-- Task: R-B1, R-B2, R-F1, R-F2 delivered; B9 re-verified except the pending
-  `getOwnStatus` deletion.
+- Task: Checkpoint 1 reviews all delivered and closed. Standing by for the
+  user's approval of Checkpoint 2 (W1, F3, B3, B4).
+- **Checkpoint 1 is `2dc246b`, not `9b48932`** — the lead amended twice after
+  announcing the first hash. Settled, and explicitly not to be re-verified; the
+  lead will announce the new hash on any future amend. Recorded only so the
+  dangling hash in earlier entries of this file does not mislead me later.
+- Three items from my B3/B4 prep went to `backend` *before* it writes the code:
+  the scoped-`findFirst` rule, per-aggregate scoping and `deletedAt: null`, and
+  the old-and-new-month check. Prevention beat detection here; doing the prep
+  during a wait is worth repeating at the start of every checkpoint.
+- W1 tripwire: it must be the one-line import swap in
+  `src/features/auth/components/actions.ts` plus deleting `stubActions.ts`.
+  Anything more means the frozen contract drifted, and I ask why rather than
+  reviewing the diff on its merits.
 - Where I am: one HIGH still open (the zzsmoke route), one new low on the frozen
   contract, three notes. F1/F2 clean against Checklist B and against the frozen
   text.
@@ -409,7 +514,28 @@ privilege-escalation endpoint. **Keep filing the cosmetic ones.**
   better than the doc still means one of them must change.
 - **A brief from the lead can be stale.** Two of their five F1/F2 questions and
   one handover fact were wrong because the tree moved. Verify the premise before
-  spending a pass on the question.
+  spending a pass on the question. The lead has asked to be treated this way
+  explicitly, having been corrected on three factual claims in one session, each
+  asserted from memory where a check was cheap.
+- **Verify a correction too, not just a claim.** I accepted "this is a
+  specification defect" as a ruling and wrote it into these notes — about a line
+  of `docs/BACKEND.md` I had already read correctly and had derived my own prep
+  note from. A ruling that contradicts a document I have read is exactly as
+  checkable as any other claim, and `grep` would have settled it in seconds.
+  Deference is not verification, and a wrong entry here would have sent a future
+  reader to "fix" a correct line.
+- **Read a task doc for *unstated* cases**, not only code against stated ones.
+  The illustration is aggregate scoping: nothing in `docs/BACKEND.md` says
+  "scope every `groupBy` and `count` separately", yet an unscoped aggregate
+  leaks another establishment's totals while passing a row-level review and
+  every RTL check, leaving an owner a wrong number they cannot detect. With
+  "correct numbers" among the four priorities in `CLAUDE.md`, that is the worst
+  available outcome for this app.
+- **Prepare before the code exists.** The three items that mattered most in
+  Checkpoint 1 were found in prep, not review. The lead will now send task briefs
+  at assignment time so prep runs against the same text the implementers build
+  from — read the brief *beside* the doc it summarises, since that is what would
+  have caught the lossy B4 summary.
 
 ## Gotchas I found
 - `errorMessage()` in `src/i18n/ar.ts:293` silently falls back to

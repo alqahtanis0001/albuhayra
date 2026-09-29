@@ -223,9 +223,17 @@ Also worth keeping for the next reader of `ConfirmDialog`: `closedby="any"` is t
 ## Session 5 — checkpoint 1 closed out from my side
 
 Everything I raised is resolved, and I verified each claim in the tree rather than on the message
-that reported it — which is the habit this session earned, because a teammate's description and the
-tree disagreed three separate times (the action shape, `zzsmoke`'s first "deletion", and
-`getOwnStatus`). In every case the file was right and the description was stale.
+that reported it — which is the habit this session earned, because a report and the tree disagreed
+three separate times (the action shape, `zzsmoke`'s first "deletion", and `getOwnStatus` being
+described as present after it was gone). In every case the file was right and the report was stale.
+
+**One thing I got wrong, recorded so nobody chases it:** I inferred that the untracked
+`src/features/auth/queries.ts` had been destroyed as collateral when `zzsmoke` was cleaned up, and
+said so. It was not. The lead ordered it deleted as dead code — `getOwnStatus` lost its only caller
+when `?as=` replaced it — and `backend` removed that one file deliberately. No untracked work was
+lost and there is nothing to investigate. The absence was real; my explanation of it was a guess
+dressed up as a finding, which is the failure mode to avoid: report what the tree shows, and label a
+mechanism as a guess when that is what it is.
 
 Verified now:
 - `find src/app/api -type f` → `health/route.ts` only; `grep -rn zzsmoke src/` → 0.
@@ -245,3 +253,29 @@ for the symbol beats an `ls` for the file, since a renamed or emptied file passe
 Final state of F1 + F2: build clean, `npm test` 84/84 in 6 files, `tsc --noEmit` clean, no
 findings open against my code from `reviewer`. W1 is one line and verified; W1 then F3 once the
 lead lifts the hold. Nothing of mine is in flight.
+
+## Session 6 — verification addendum, and the commit hash moved
+
+**Checkpoint 1 is `2dc246b`, not `9b48932`.** I verified `9b48932 phase 1: checkpoint 1` and
+reported that hash; the lead then amended or replaced the commit. `git cat-file -t 9b48932` still
+resolves — the object survives — but `git merge-base --is-ancestor 9b48932 HEAD` fails, so it is
+unreachable and dangling. `git rev-parse --short HEAD` → `2dc246b`. A verified commit hash has a
+shelf life; re-read HEAD rather than quoting an earlier check.
+
+**Verify the commit object, not the working tree.** This is the lead's rule and it closes the gap my
+own checks had: the working tree, the index and the commit can all disagree, and a file deleted from
+disk can still be staged. So the checks that count are `git ls-tree -r --name-only HEAD` and
+`git grep <symbol> HEAD`, not `find` and `grep` over `src/`. Re-run against `2dc246b`:
+
+- `git ls-tree -r --name-only HEAD | grep -ci zzsmoke` → **0**
+- `git ls-tree -r --name-only HEAD | grep -c 'features/auth/queries'` → **0**
+- `git grep getOwnStatus HEAD -- src docs` → **no matches**
+- api files in HEAD → `src/app/api/health/route.ts` only
+- my F1/F2 files in HEAD → **51**
+- `grep -rn getOwnStatus docs/` → nothing; the lead had already removed it from the read-queries
+  list before I read the doc, so my citation of it was simply out of date.
+
+Three directions a report can be wrong, all seen in one checkpoint: a file reported **present** that
+is absent, a file reported **absent** that is present, and a file **absent from disk but staged**.
+`grep` for the symbol beats `ls` for the file (an emptied or renamed file passes an `ls`), and
+`git grep ... HEAD` beats both.
