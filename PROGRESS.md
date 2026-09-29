@@ -17,10 +17,10 @@ npm run typecheck        # tsc --noEmit, not part of build
 `DATABASE_URL` is read by `prisma.config.ts` (which loads `.env` via dotenv) for migrate/seed, and by `src/lib/db.ts` at runtime. `prisma generate` and `npm run build` work without it.
 
 ## Current phase
-**Phase:** v1.1e done — email verification, password reset by email, sign-up quality. Committed locally, not pushed. Next: the user's Gmail test on a Neon branch, then push, then the contract migration dropping `User.name`, then Google sign-in.
-**Status:** Live at https://ledger-8c5g.onrender.com running v1.1d. v1.1e: 530 tests in 25 files; `npm run build`, `npm test`, `tsc --noEmit` all exit 0. The v1.1e migration has run only on PGlite — never on Neon.
-**Exactly where we stopped:** v1.1e committed by the lead after every task was reviewed (team `backend`/`frontend`/`reviewer`); nothing open in review.
-**Next concrete action:** the user runs the v1.1e Gmail test plan against a **Neon branch** (never production first), then pushes; Render's build applies the migration to production — watch that first build log (a failed migration blocks every later deploy until `prisma migrate resolve`).
+**Phase:** v1.1e done and user-tested — next: the contract migration dropping `User.name` (once v1.1e is live), then Google sign-in.
+**Status:** v1.1e committed (`e1066b7`) and handed over; the user's Gmail test passed. Live site runs v1.1d until the user pushes (the project denies `git push` to agents). 530 tests in 25 files; `npm run build`, `npm test`, `tsc --noEmit` all exit 0.
+**Exactly where we stopped:** v1.1e finalized; all teammates (backend, frontend, reviewer) asked to shut down. Waiting for the user to push.
+**Next concrete action:** the user pushes (`git push`); Render's build runs `prisma migrate deploy` on production — **watch that first build log** (a failed migration blocks every later deploy until `prisma migrate resolve`). Then a quick live check: sign-up → email → `/verify`. Then the contract migration dropping `User.name`, then Google sign-in.
 **Teammates:** `backend`, `frontend`, `reviewer` — all shut down at handover. Their full notes are in `progress/*.md`; everything durable is merged here. **`PROGRESS.md` is the source of truth where they disagree** — a teammate's notes stop being updated at shutdown, so a claim there can be true-when-written and stale now. One such correction is annotated in `progress/backend.md` (it recorded `src/lib/auth.test.ts` as held out of the commit; the user ruled it stays, and it is in `7417419`).
 
 ## First sign-in test — PASSED in full on localhost (2026-09-29)
@@ -96,6 +96,7 @@ Closed the two gaps no test in this repo can reach: server actions submitted end
 | v1.1e | E0 contract (names, `AuthedUser`, list fields, validation folder, actions split); E1 expand-only migration + PGlite test (23 name shapes, old-release compatibility, drift check); E2 NCSC common list + disposable list + every name/email/password rule; E3 codes (HMAC, increment-first, caps), `zk_flow` cookie, Brevo mail via `after()`, non-enumerating sign-up/forgot/reset with a tested fake-flow twin, verification gate, approval refusal — 530 tests, mutation-checked | backend | 2026-09-30 |
 | v1.1e | G1 sign-up redesign (three name fields, helper line per field, exact-rule errors, strength meter, typo hint); G2 `/verify`, `/forgot`, `/reset` + banners + «نسيت كلمة المرور؟»; G3 display/full names and «مُوثّق» badges, approve disabled for unverified | frontend | 2026-09-30 |
 | v1.1e | R-brief (5 blockers, 14 shoulds, 10 notes — all resolved before code as A1–A14), R-G1..G3, R-E0..E3, re-checks, final sweep | reviewer | 2026-09-30 |
+| v1.1e | Gmail test plan run on a Neon branch — verification, reset, enumeration, rejections, badges, names: **passed** | user | 2026-09-30 |
 
 ## v1.1 plan
 (a) done; (b) not started. In this order.
