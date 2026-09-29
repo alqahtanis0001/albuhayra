@@ -222,10 +222,13 @@ describe("TransactionInputSchema", () => {
     }
   });
 
-  it("rejects an amount above the ceiling", () => {
+  it("rejects an amount above the ceiling (20M SAR since v1.2a) and accepts it exactly", () => {
+    expect(
+      TransactionInputSchema.safeParse({ ...validTransaction(), amountHalalas: 2_000_000_000 }).success,
+    ).toBe(true);
     const result = TransactionInputSchema.safeParse({
       ...validTransaction(),
-      amountHalalas: 10_000_000_001,
+      amountHalalas: 2_000_000_001,
     });
     expect(result.success).toBe(false);
     if (!result.success) {

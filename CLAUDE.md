@@ -14,6 +14,7 @@ Priorities in order: **simple → secure → Arabic UI → correct numbers**. Wh
 - STAFF can always add entries. STAFF can edit entries only if the OWNER has switched on their `canEdit` permission. Only OWNER can delete.
 - Money is an integer in halalas. Dates are Gregorian in the DB, Hijri shown alongside in the UI.
 - No VAT anywhere. No receipts anywhere.
+- **v1.2 (user's ruling):** parties (الجهات), owner-named cost items (إضافة, code name `Project`, with an optional budget), and agreements (الاتفاقيات, `Plan`) paid by scheduled instalments (`Instalment`) are in scope. A payment is always an ordinary `Transaction` — all money still goes through `Transaction`; an instalment never creates an entry by itself. Release plan: v1.2a (these + nav restructure) → v1.2b الموظفون/الحضور → v1.2c التذكيرات/التقارير (see `PROGRESS.md`).
 
 ## Files that define the project
 | File | Owner | Purpose |
@@ -48,10 +49,10 @@ Team shape: **lead** + `backend` + `frontend` + `reviewer`. Do not spawn more wi
 ### File ownership map
 | Path | Owner |
 |---|---|
-| `prisma/**`, `src/lib/**`, `src/i18n/ar.ts` (keys only, after Phase 0) | lead (Phase 0), then `backend` for `prisma/seed.ts` and `src/lib/*` fixes |
+| `prisma/**`, `src/lib/**`, `src/i18n/ar.ts` + `src/i18n/ar.v12a.ts` (keys only, after Phase 0) | lead (Phase 0), then `backend` for `prisma/seed.ts` and `src/lib/*` fixes |
 | `src/features/*/actions.ts`, `src/features/*/queries.ts`, `src/app/api/**`, `src/proxy.ts`, `src/**/*.test.ts` | `backend` |
 | `src/app/**/page.tsx`, `src/app/**/layout.tsx`, `src/components/**`, `src/features/*/components/**`, `public/**`, `src/app/globals.css` | `frontend` |
-| `src/i18n/ar.ts` string *values* | `frontend` may add/edit values; new *keys* must be announced to `backend` by message |
+| `src/i18n/ar.ts` / `ar.v12a.ts` string *values* | `frontend` may add/edit values; new *keys* must be announced to `backend` by message |
 | everything else | lead |
 
 Contract between backend and frontend: the exported types and zod schemas in `src/lib/validation.ts`, the action signatures listed in `docs/BACKEND.md`, and the string keys in `src/i18n/ar.ts`. Change any of these only through the lead.
@@ -75,8 +76,8 @@ Checkpoint after every 3–4 completed tasks: lead merges `progress/*.md` into `
 ## Code conventions
 - Server Actions for mutations; server components for reads; `/api` only for health and export.
 - Every server action and every data-reading server component starts with `requireUser()` / `requireOwner()` / `requireAdmin()` and scopes queries by `establishmentId` from the session. No exceptions.
-- One folder per feature under `src/features/`: `auth`, `establishments`, `transactions`, `dashboard`, `reports`, `locks`, `settings`, `admin`, `audit`.
+- One folder per feature under `src/features/`: `auth`, `establishments`, `transactions`, `dashboard`, `reports`, `locks`, `settings`, `admin`, `audit`, and since v1.2a `parties`, `projects`, `plans`.
 - All Arabic strings in `src/i18n/ar.ts`. No file over ~250 lines. Boring, readable code.
 
 ## Out of scope (do not build)
-Invoicing, VAT, ZATCA, receipts/attachments, bank integrations, budgets, recurring entries, notifications/marketing email (transactional email for sign-up verification and password reset **is in scope since v1.1e** — user's ruling), dark mode, English UI, native apps, E2E suite, payments/subscriptions for owners.
+Invoicing, VAT, ZATCA, receipts/attachments, bank integrations, establishment-wide budgets (a per-إضافة budget **is in scope since v1.2a**), recurring entries that post themselves (an instalment schedule records nothing until someone records a payment), notifications/marketing email (transactional email for sign-up verification and password reset **is in scope since v1.1e** — user's ruling), dark mode, English UI, native apps, E2E suite, payments/subscriptions for owners.

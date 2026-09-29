@@ -11,13 +11,17 @@ import { t } from "@/i18n/ar";
 
 import { NavProgress, NavProgressProvider } from "../NavProgress";
 import { Footer } from "./Footer";
-import { BottomTabs, SideNav } from "./RoleNav";
+import { BottomTabs, SideNav, type Badges } from "./RoleNav";
 import { RouteTransition } from "./RouteTransition";
 import { TopBar } from "./TopBar";
-import type { NavItem } from "./nav";
+import type { NavGroup } from "./nav";
 
 export type AppShellProps = {
-  items: NavItem[];
+  groups: NavGroup[];
+  /** Phone tab bar hrefs; the rest go to المزيد. Omit: every item is a tab. */
+  tabHrefs?: string[];
+  /** Count badges by item href (v1.2a: overdue on /owner/dues); 0 hides one. */
+  badges?: Badges;
   userName: string;
   establishmentName?: string | null;
   accountHref: string;
@@ -25,7 +29,9 @@ export type AppShellProps = {
 };
 
 export function AppShell({
-  items,
+  groups,
+  tabHrefs,
+  badges,
   userName,
   establishmentName,
   accountHref,
@@ -50,7 +56,7 @@ export function AppShell({
         />
 
         <div className="flex flex-1">
-          <SideNav items={items} label={t.nav.menu} />
+          <SideNav groups={groups} badges={badges} label={t.nav.menu} />
 
           <div className="flex min-w-0 flex-1 flex-col">
             <main id="main" className="mx-auto w-full max-w-3xl flex-1 p-4 md:pb-6">
@@ -62,7 +68,7 @@ export function AppShell({
           </div>
         </div>
 
-        <BottomTabs items={items} label={t.nav.menu} />
+        <BottomTabs groups={groups} tabHrefs={tabHrefs} badges={badges} label={t.nav.menu} />
       </div>
     </NavProgressProvider>
   );

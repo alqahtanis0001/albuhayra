@@ -41,7 +41,7 @@ export function RecentTransactions({
                 </div>
                 <p className="mt-1 truncate text-xs text-gray-600">
                   {t.paymentMethod[row.paymentMethod]}
-                  {row.counterparty ? ` · ${row.counterparty}` : ""}
+                  {(row.partyName ?? row.counterparty) ? ` · ${row.partyName ?? row.counterparty}` : ""}
                 </p>
                 <p className="text-xs text-gray-500">
                   {t.transaction.addedBy}: {row.createdByName}

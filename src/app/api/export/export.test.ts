@@ -43,6 +43,7 @@ const fixture = vi.hoisted(() => {
     counterparty: string | null;
     note: string | null;
     createdByName: string;
+    partyName: string | null;
   };
   const row = (
     id: string,
@@ -65,6 +66,7 @@ const fixture = vi.hoisted(() => {
     counterparty,
     note,
     createdByName,
+    partyName: null,
   });
   const ROWS: Row[] = [
     row("tx_1", "2026-09-10", "OUT", 123450, "إيجار", "CASH", "مؤجر", "ملاحظة", "موظف"),
@@ -75,6 +77,9 @@ const fixture = vi.hoisted(() => {
     row("tx_6", "2026-08-15", "OUT", 9999, "ضيافة", "STC_PAY", null, "قهوة وماء للمكتب، وملاحظة أطول من غيرها لتجربة التفاف النص في العمود", "موظف"),
     row("tx_7", "2026-08-02", "OUT", 300000, "رواتب", "BANK_TRANSFER", "موظفو المنشأة", "رواتب يوليو", "مالك"),
   ];
+  // v1.2a: a linked party. The action stores counterparty null with a party, so
+  // the text here only proves which one the column prefers.
+  ROWS[1] = { ...ROWS[1]!, partyName: "مؤسسة الأمل" };
 
   /** What getReport would say about `rows`, built the same way it groups. */
   function reportOf(rows: Row[]) {
@@ -350,6 +355,14 @@ describe("the exported workbook", () => {
       expect(date, r.id).toBeInstanceOf(Date);
       expect(date, r.id).toEqual(isoToDate(r.date));
     });
+  });
+
+  it("v1.2a: the counterparty column shows the party's name, else the free text", async () => {
+    const sheet = (await exportedBook()).worksheets[0]!;
+    fixture.ROWS.forEach((r, i) => {
+      expect(sheet.getRow(6 + i).getCell(6).value, r.id).toBe(r.partyName ?? r.counterparty ?? "");
+    });
+    expect(sheet.getRow(7).getCell(6).value).toBe("مؤسسة الأمل");
   });
 
   it("totals the amount column with SUMIF/SUM formulas and their cached results", async () => {

@@ -30,6 +30,13 @@ export type LedgerRow = {
   counterparty: string | null;
   note: string | null;
   createdByName: string;
+  /** v1.2a links. The party's name replaces `counterparty` wherever one is set. */
+  partyId: string | null;
+  partyName: string | null;
+  projectId: string | null;
+  projectName: string | null;
+  /** Set on a payment against an agreement's instalment (checkpoint 2). */
+  instalmentId: string | null;
 };
 
 export type LedgerPage = {
@@ -58,8 +65,13 @@ const ROW_SELECT = {
   paymentMethod: true,
   counterparty: true,
   note: true,
+  partyId: true,
+  projectId: true,
+  instalmentId: true,
   category: { select: { nameAr: true } },
   createdBy: { select: NAME_SELECT },
+  party: { select: { name: true } },
+  project: { select: { name: true } },
 } satisfies Prisma.TransactionSelect;
 
 type SelectedRow = {
@@ -71,8 +83,13 @@ type SelectedRow = {
   paymentMethod: PaymentMethodValue;
   counterparty: string | null;
   note: string | null;
+  partyId: string | null;
+  projectId: string | null;
+  instalmentId: string | null;
   category: { nameAr: string };
   createdBy: NameParts;
+  party: { name: string } | null;
+  project: { name: string } | null;
 };
 
 function toRow(row: SelectedRow): LedgerRow {
@@ -87,6 +104,13 @@ function toRow(row: SelectedRow): LedgerRow {
     counterparty: row.counterparty,
     note: row.note,
     createdByName: displayName(row.createdBy),
+    // `?? null` rather than trusting the shape: a row written before v1.2a has
+    // no link, and Prisma answers null for the relation — never undefined.
+    partyId: row.partyId ?? null,
+    partyName: row.party?.name ?? null,
+    projectId: row.projectId ?? null,
+    projectName: row.project?.name ?? null,
+    instalmentId: row.instalmentId ?? null,
   };
 }
 
@@ -98,7 +122,8 @@ function ledgerWhere(
   establishmentId: string,
   filters: Partial<TransactionFilter> = {},
 ): Prisma.TransactionWhereInput {
-  const { from, to, direction, categoryId, paymentMethod, q } = filters;
+  const { from, to, direction, categoryId, paymentMethod, partyId, projectId, q } =
+    filters;
 
   const date =
     from || to
@@ -114,12 +139,17 @@ function ledgerWhere(
     ...(direction ? { direction } : {}),
     ...(categoryId ? { categoryId } : {}),
     ...(paymentMethod ? { paymentMethod } : {}),
+    ...(partyId ? { partyId } : {}),
+    ...(projectId ? { projectId } : {}),
     ...(date ? { date } : {}),
     ...(q
       ? {
           OR: [
             { counterparty: { contains: q, mode: "insensitive" as const } },
             { note: { contains: q, mode: "insensitive" as const } },
+            // A relation filter on a party row — the top-level establishmentId
+            // above still bounds the result, so this can only narrow it.
+            { party: { name: { contains: q, mode: "insensitive" as const } } },
           ],
         }
       : {}),

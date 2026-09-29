@@ -27,14 +27,32 @@ export type AuditAction =
   | "ENABLE_ESTABLISHMENT"
   // v1.1e
   | "EMAIL_VERIFIED"
-  | "PASSWORD_RESET_SELF";
+  | "PASSWORD_RESET_SELF"
+  // v1.2a (docs/BACKEND.md → v1.2a → Audit)
+  | "PARTY_CREATE"
+  | "PARTY_UPDATE"
+  | "PARTY_ACTIVE"
+  | "PARTY_DELETE"
+  | "PROJECT_CREATE"
+  | "PROJECT_UPDATE"
+  | "PROJECT_STATUS"
+  | "PROJECT_DELETE"
+  | "PLAN_CREATE"
+  | "PLAN_UPDATE"
+  | "PLAN_CANCEL"
+  | "PLAN_ARCHIVE"
+  | "PLAN_ALLOCATE";
 
 export type AuditEntity =
   | "Transaction"
   | "PeriodLock"
   | "User"
   | "Category"
-  | "Establishment";
+  | "Establishment"
+  // v1.2a
+  | "Party"
+  | "Project"
+  | "Plan";
 
 /**
  * Never pass a password hash or a session into `before`/`after`.

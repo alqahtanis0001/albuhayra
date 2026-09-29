@@ -9,7 +9,7 @@ export type IconProps = Omit<SVGProps<SVGSVGElement>, "children"> & {
   size?: number;
 };
 
-function Svg({ size = 20, ...rest }: IconProps & { children: ReactNode }) {
+export function Svg({ size = 20, ...rest }: IconProps & { children: ReactNode }) {
   return (
     <svg
       width={size}
@@ -194,18 +194,3 @@ export const SpinnerIcon = (p: IconProps) => (
     <path d="M12 3a9 9 0 1 1-9 9" />
   </Svg>
 );
-
-/** Nav items cross the server/client boundary, so they name their icon. */
-export const NAV_ICONS = {
-  home: HomeIcon,
-  add: PlusIcon,
-  ledger: ListIcon,
-  reports: ChartIcon,
-  settings: SettingsIcon,
-  requests: InboxIcon,
-  establishments: BuildingIcon,
-  account: UserIcon,
-  staff: UsersIcon,
-} as const;
-
-export type NavIconName = keyof typeof NAV_ICONS;

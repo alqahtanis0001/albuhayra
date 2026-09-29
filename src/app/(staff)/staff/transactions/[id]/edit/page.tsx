@@ -5,6 +5,8 @@ import { updateTransaction } from "@/features/transactions/components/actions";
 import { getTransaction } from "@/features/transactions/components/data";
 import { TransactionForm } from "@/features/transactions/components/TransactionForm";
 import { listLocks } from "@/features/locks/queries";
+import { listPartyOptions } from "@/features/parties/queries";
+import { listProjectOptions } from "@/features/projects/queries";
 import { listCategories } from "@/features/settings/queries";
 import { t } from "@/i18n/ar";
 import { requireCanEdit } from "@/lib/auth";
@@ -26,10 +28,12 @@ export default async function StaffEditTransactionPage({
   const { id } = await params;
   const { establishmentId } = await requireCanEdit();
 
-  const [row, categories, locks] = await Promise.all([
+  const [row, categories, locks, parties, projects] = await Promise.all([
     getTransaction(establishmentId, id),
     listCategories(establishmentId),
     listLocks(establishmentId),
+    listPartyOptions(establishmentId),
+    listProjectOptions(establishmentId),
   ]);
   if (!row) notFound();
   const lockedMonths = locks.filter((l) => l.locked).map((l) => l.ym);
@@ -43,6 +47,8 @@ export default async function StaffEditTransactionPage({
         mode="edit"
         action={updateTransaction.bind(null, row.id)}
         categories={categories}
+        parties={parties}
+        projects={projects}
         lockedMonths={lockedMonths}
         today={todayISO()}
         doneHref="/staff/transactions"

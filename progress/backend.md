@@ -832,3 +832,115 @@ Unchanged from before: `login:{ip}:{email}`, `signup:{ip}`, `join:{ip}` at 5 / 1
   mutation-checked alone (1 named failure each).
 - E3-S1 (stale `ledger_session` on unverified/PENDING login) was already in, with tests.
 - Gates: tsc 0 · 530/530 · build 0; the list chunk is referenced only by /signup and /reset.
+
+## v1.2a — checkpoint 1 (K1–K5), 2026-09-30
+
+### Done
+- **(0)** `src/lib/money.test.ts`: the ceiling case now pins 20M SAR (2_000_000_000 ≤ 2^31−1).
+- **K1** `src/features/parties/{queries,actions}.ts`, `src/features/projects/{queries,actions}.ts`
+  with the doc's names; extra exported types `PartyDetail`, `PartyOption`, `PartyFilter`,
+  `PartyState`, `ProjectDetail`, `ProjectCategoryTotal`, `ProjectOption`, `ProjectFilter`,
+  `ProjectState`. `LedgerRow` gains `partyId/partyName/projectId/projectName/instalmentId`
+  (ROW_SELECT reads `party.name`, `project.name`). `TransactionRow` is frontend's Pick in
+  `components/data.ts` — told them to widen it. Ran `npx prisma generate` (gitignored output).
+- **K2** `prisma/migrations/20261001000000_v1_2a_parties_projects_plans/migration.sql` via
+  `migrate diff --from-schema <HEAD schema in scratch file> --to-schema …`, CR stripped, additions
+  only (grep for DROP/ALTER COLUMN/DELETE/UPDATE: only the FK `ON DELETE RESTRICT ON UPDATE
+  CASCADE` clauses). `src/lib/migration.v12a.test.ts` (13): pre-existing row keeps null links;
+  old-release insert works; new columns nullable; links work; dangling FK refused ×3; Restrict ×3
+  (row survives); drift vs `--from-empty` (columns, pg_indexes, pg_constraint); V3; Prisma P2003.
+- **K3** party/project rules, audits (inside the `$transaction`), P2003 → `*HasHistory`,
+  revalidation (`/owner/parties|projects` + `/owner` and `/staff` layouts). V9: establishments,
+  locks, settings actions revalidate `("/owner/settings", "layout")`; staff-row actions also
+  `/owner/staff/logins`; `regenerateJoinCode` settings only.
+- **K4** `checkLinks` in `transactions/actions.ts` (party active unless kept; project ACTIVE unless
+  kept → `err.projectClosed`; unknown → `err.projectInvalid`; any `instalmentId` →
+  `err.instalmentInvalid`); party set ⇒ `counterparty` null; update never writes `instalmentId`
+  (absent = keep); snapshots carry the three links; `ledgerWhere` partyId/projectId + party-name
+  in `q`; export column F = `partyName ?? counterparty` (+ export test case).
+- **K5** `scoping.test.ts`: models party/project/plan/instalment; `createMany` per element;
+  `createManyAndReturn` refused; V1 `isReferenceProbe` + 9 pin cases; drivers for every new
+  query/action (empty + populated); foreign link id ×3 → field error with scoped lookups;
+  parties/projects in `FILES`; static "no nested `transactions: true|{`" in
+  parties/projects/plans. `admin.test.ts`: static no-v1.2a-models case over
+  `src/features/admin/**`, `src/app/(admin)/**`, `src/components/chrome/**` (imports) with
+  pattern self-checks. New: `parties/parties.test.ts` (16), `projects/projects.test.ts` (15),
+  `transactions/links.test.ts` (13), `lib/validation.v12a.test.ts` (16); `validation.test.ts`
+  ceiling case now 2_000_000_000 / 2_000_000_001.
+
+### Decisions / readings (flag if wrong)
+- `updateParty` runs the duplicate check only while the party is **active**; an inactive party is
+  checked when reactivated (`setPartyActive`), which is where a clash would become visible.
+- The V1 probe is slightly stricter than the doc: also no `_min/_max/include`, `groupBy.by` only
+  link keys, and a `findFirst` must `select` ids only (a select-less findFirst returns the amount).
+- Party balances: `plan.findMany` (scoped, all states → `hasHistory`) + `instalment.groupBy` by
+  planId over OPEN plans; `max(0, due − paid)` per plan.
+
+### V3 result (recorded)
+Postgres widens `sum(int4)` to **bigint** (`pg_typeof` confirmed), and Prisma 7 + adapter-pg
+returns the `_sum` as a JavaScript **number** (4_000_000_000 arrived as `number`). The `Number()`
+at each query boundary is therefore a no-op kept as a guard. Proven by driving the real generated
+client on PGlite through a `pg.Pool` stand-in (`prismaOn()` in `migration.v12a.test.ts`).
+
+### Gotchas
+- **`ON DELETE RESTRICT` raises SQLSTATE 23001 (restrict_violation), not 23503.** adapter-pg maps
+  both to P2003, so the actions' mapping holds; a raw-SQL test must expect 23001.
+- A Restrict test must use a row referenced **only** by the link under test: a party held by a
+  plan also refuses deletion, which would hide a missing Restrict on `Transaction.partyId`.
+- A test on a row inserted by an earlier test goes vacuous when that insert fails (UPDATE of 0
+  rows raises nothing) — the dangling-FK cases target the row seeded before the migration.
+- Prisma on PGlite works: the adapter needs `instanceof pg.Pool`, raw text values
+  (`parsers` for OIDs 0–8191 → identity) and pg's own `getTypeParser`. Reusable for CP2 if the
+  lead wants it in `src/lib/testing/`.
+- Heredocs through the Bash tool choke on some long Python blocks ("unexpected EOF looking for
+  `'`"); use Edit/Write for big test insertions.
+
+### Mutation verification (each broken alone, restored byte-exact, suite re-run)
+Migration: SET NULL on project link → Restrict(Project)+drift; renamed `counterparty` → old
+insert, kept row, drift; dropped instalment FK → dangling(instalment), Restrict(Instalment),
+drift; dropped an index → drift only. Scoping: 13 mutations (probe unscoped, each V1 clause
+dropped, createMany first-only, link lookups unscoped, instalment not refused, nested
+`transactions` select, delete probe unscoped) — each failed its named case; dropping the V1
+`by` or where-key clause also fails one older soft-delete case (those inputs become probes).
+Rules: 19 mutations over parties/projects/links/admin/phone — each failed its named case(s).
+
+### Gates
+`npx tsc --noEmit` 0 · `npx vitest run` 645/645 in 30 files · `npm run build` 0 (under the lock).
+
+### After R-K1 (reviewer: pass, 3 notes) and the lead's K5 ruling
+- Lead: K5 stays in `scoping.test.ts` (one scopeFailure / observed set / sweep); V1 pins sit
+  right after the scope-rule unit cases; drivers under "v1.2a" describe blocks — as built.
+- N-K1a: added the balance case (OPEN IN 1000 − 300 → owedToUs 700; ARCHIVED → 0; `hasHistory`
+  from the plan alone, no transaction). Mutation-checked: counting archived plans and dropping
+  plan-derived history each fail it alone.
+- N-K1b: V3 established by test (see "V3 result" above), not by assumption.
+- N-K1c: comment on `byCategory`'s unreachable `""` fallback.
+- Gates: tsc 0 · vitest 646/646.
+
+### Lead rulings (a)(b)(c) + grants — applied
+- (c) `src/features/transactions/links.ts` (server-only, not "use server") now holds
+  `checkLinks`/`linkColumns`; `actions.ts` imports them (325 lines). Added to the sweep `FILES`.
+  Mutation-checked: a stray `db.party.count({ where: {} })` in links.ts fails the sweep; unscoped
+  party/project lookups and a dropped instalment refusal in links.ts each fail their cases.
+- (b) Each V1 bound has its own pin and each widening now fails **exactly one** case: added pins
+  for `_avg`, `_min`, `_max`, `include` (dropping any one fails only its case). The two older
+  soft-delete cases were reshaped so they are not probe candidates on independent grounds
+  (groupBy now carries `_sum`; the "asks for deleted rows" case is a `findMany`) — re-run: the
+  `by` and where-key widenings each fail one case now.
+- Grant 2: `src/lib/testing/pgliteClient.ts` exports `pgliteClient(lite)` (the Prisma-7-on-PGlite
+  stand-in); `migration.v12a.test.ts` uses it and carries a static case that nothing but a
+  `*.test.ts` imports it (mutation-checked).
+- Gates: tsc 0 · vitest 652/652 in 30 files · build 0 (under the lock).
+
+### R-K2..K5: pass + S-K5a fixed (last CP1 blocker)
+- S-K5a: `isReferenceProbe` now requires (1) at least one link key besides `establishmentId`
+  and (2) every link key naming ids — a string or `{ in: [strings] }`, never `null`/`{ not }`.
+  Pins: `{ establishmentId }` alone, and `partyId: null` (+ `{ not: null }`). Dropping clause 1
+  fails only the first pin; dropping clause 2 fails only the second (mutation-checked).
+- links.ts sweep proof re-run: a stray `db.party.count({ where: {} })` fails "every (model,
+  method) pair … exercised"; restored byte-exact. The foreign-link cases drive links.ts's
+  `party.findFirst`/`project.findFirst` (unscoping either fails its foreign case).
+- N-K5b noted: CP2's payment path goes in its own module; actions.ts (325) must not grow.
+- Gates: tsc 0 · vitest 654/654 in 30 files · build 0 (under the lock).
+- S-K5a tightened per reviewer: ids must be non-empty (`""` and `{ in: [] }` / `{ in: [""] }`
+  refused). Four clauses mutation-checked, each fails exactly one S-K5a pin.

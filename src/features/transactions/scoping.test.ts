@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 
 import { todayISO } from "@/lib/dates";
 
@@ -50,6 +50,11 @@ const harness = vi.hoisted(() => {
     "establishment",
     "periodLock",
     "auditLog",
+    // v1.2a
+    "party",
+    "project",
+    "plan",
+    "instalment",
   ];
 
   function defaultResult(method: string): unknown {
@@ -175,6 +180,16 @@ const {
   resetStaffPassword,
   regenerateJoinCode,
 } = await import("@/features/establishments/actions");
+const { listParties, listPartyOptions, getParty } = await import("@/features/parties/queries");
+const { createParty, updateParty, setPartyActive, deleteParty } = await import(
+  "@/features/parties/actions"
+);
+const { listProjects, listProjectOptions, getProject } = await import(
+  "@/features/projects/queries"
+);
+const { createProject, updateProject, setProjectStatus, deleteProject } = await import(
+  "@/features/projects/actions"
+);
 
 /* ------------------------------------------------------------ the scope rule */
 
@@ -204,12 +219,20 @@ function scopeFailure(call: Call): string | null {
     return `${model}.${method} takes a unique where, so it cannot carry establishmentId — use updateMany`;
   }
 
+  /**
+   * `createMany` takes an array, and every element is its own row — one
+   * unscoped element among scoped ones is still a foreign-tenant write, so each
+   * is checked (v1.2a: instalments are created this way). `createManyAndReturn`
+   * is deliberately absent: it falls to "not a method this rule set knows".
+   */
   if (method === "create" || method === "createMany") {
-    const data = args.data as Record<string, unknown> | undefined;
-    if (!data) return `${model}.${method} has no data`;
-    return data.establishmentId === EST
+    const data = args.data as Record<string, unknown> | Array<Record<string, unknown>> | undefined;
+    const rows = Array.isArray(data) ? data : data ? [data] : [];
+    if (rows.length === 0) return `${model}.${method} has no data`;
+    const bad = rows.find((row) => row?.establishmentId !== EST);
+    return bad === undefined
       ? null
-      : `${model}.${method} data.establishmentId is ${JSON.stringify(data.establishmentId)}`;
+      : `${model}.${method} data.establishmentId is ${JSON.stringify(bad?.establishmentId)}`;
   }
 
   if (!WHERE_METHODS.has(method)) {
@@ -261,11 +284,56 @@ function scopeFailure(call: Call): string | null {
    * the gate catches cross-tenant wrong numbers and misses same-tenant ones.
    * Transaction is the only soft-deleted model.
    */
-  if (model === "transaction" && where.deletedAt !== null) {
+  if (model === "transaction" && where.deletedAt !== null && !isReferenceProbe(call)) {
     return `transaction.${method} where.deletedAt is ${JSON.stringify(where.deletedAt)}, not null`;
   }
 
   return null;
+}
+
+/**
+ * V1 — the third encoded exception (Decision in PROGRESS.md). "Does anything
+ * reference this party / إضافة / instalment" must count soft-deleted entries,
+ * because their foreign key still points there — so it cannot carry
+ * `deletedAt: null`. Allowed only when it can answer "linked or not" and never
+ * a total: a `transaction` count/findFirst/groupBy whose `where` keys are a
+ * subset of the link keys (scope already checked by value above, `deletedAt`
+ * absent), grouping only by link keys, selecting only ids, and reading no
+ * aggregate. Each clause is pinned by its own case below.
+ */
+const LINK_KEYS = new Set(["establishmentId", "partyId", "projectId", "instalmentId"]);
+const PROBE_SELECT_KEYS = new Set(["id", "partyId", "projectId", "instalmentId", "_all"]);
+
+function isReferenceProbe(call: Call): boolean {
+  const { method, args } = call;
+  if (!["count", "findFirst", "groupBy"].includes(method)) return false;
+  const where = args.where as Record<string, unknown>;
+  if (!Object.keys(where).every((k) => LINK_KEYS.has(k))) return false;
+  // S-K5a: it must name a link — `{ establishmentId }` alone is a count of every
+  // entry, deleted ones included, which is exactly the wrong number this gate
+  // exists for. Two clauses, one pin each: a link key is present, and every
+  // link key names a real id (a string, or `{ in: [strings] }`), never null.
+  const links = Object.keys(where).filter((k) => k !== "establishmentId");
+  if (links.length === 0) return false;
+  const isId = (id: unknown) => typeof id === "string" && id !== "";
+  const namesIds = (v: unknown) =>
+    isId(v) ||
+    (typeof v === "object" &&
+      v !== null &&
+      Object.keys(v).length === 1 &&
+      Array.isArray((v as { in?: unknown }).in) &&
+      (v as { in: unknown[] }).in.length > 0 &&
+      (v as { in: unknown[] }).in.every(isId));
+  if (!links.every((k) => namesIds(where[k]))) return false;
+  if (["_sum", "_avg", "_min", "_max", "include"].some((k) => k in args)) return false;
+  if (method === "groupBy") {
+    const by = (args.by as string[] | undefined) ?? [];
+    if (!by.every((k) => LINK_KEYS.has(k))) return false;
+  }
+  const select = args.select as Record<string, unknown> | undefined;
+  if (method === "findFirst" && select === undefined) return false; // a whole row carries the amount
+  if (select && !Object.keys(select).every((k) => PROBE_SELECT_KEYS.has(k))) return false;
+  return true;
 }
 
 function failures(): string[] {
@@ -314,6 +382,8 @@ const FULL_FILTERS = {
   direction: "OUT" as const,
   categoryId: "cat_1",
   paymentMethod: "CASH" as const,
+  partyId: "party_1",
+  projectId: "proj_1",
   q: "إيجار",
   page: 2,
 };
@@ -383,7 +453,9 @@ describe("the scope rule actually bites", () => {
       scopeFailure({
         model: "transaction",
         method: "groupBy",
-        args: { by: ["direction"], where: { establishmentId: EST } },
+        // A total — the shape the soft-delete rule exists for. The `_sum` also
+        // keeps it clear of the V1 probe, so each probe bound has one pin below.
+        args: { by: ["direction"], where: { establishmentId: EST }, _sum: { amountHalalas: true } },
       }),
     ).toMatch(/deletedAt is undefined, not null/);
   });
@@ -392,7 +464,8 @@ describe("the scope rule actually bites", () => {
     expect(
       scopeFailure({
         model: "transaction",
-        method: "count",
+        // findMany: a list of rows, never a V1 probe (see the pins below).
+        method: "findMany",
         args: { where: { establishmentId: EST, deletedAt: { not: null } } },
       }),
     ).toMatch(/deletedAt is/);
@@ -476,6 +549,144 @@ describe("the scope rule actually bites", () => {
   it("refuses raw SQL, which has no where to inspect", async () => {
     const raw = harness.db as { $queryRaw: () => unknown };
     expect(() => raw.$queryRaw()).toThrow(/not allowed/);
+  });
+
+  it("v1.2a: checks every element of a createMany, not only the first", () => {
+    expect(
+      scopeFailure({
+        model: "instalment",
+        method: "createMany",
+        args: { data: [{ establishmentId: EST }, { establishmentId: OTHER_EST }] },
+      }),
+    ).toMatch(/data\.establishmentId is "est_belonging/);
+    expect(
+      scopeFailure({
+        model: "instalment",
+        method: "createMany",
+        args: { data: [{ establishmentId: EST }, { establishmentId: EST }] },
+      }),
+    ).toBeNull();
+  });
+
+  it("v1.2a: refuses createManyAndReturn, which the harness does not know", () => {
+    expect(
+      scopeFailure({
+        model: "instalment",
+        method: "createManyAndReturn",
+        args: { data: [{ establishmentId: EST }] },
+      }),
+    ).toMatch(/not a method this rule set knows/);
+  });
+});
+
+/**
+ * V1's reference probe, pinned clause by clause. Each widening must fail
+ * exactly one case, naming what was dropped.
+ */
+describe("v1.2a: the reference-probe exemption (V1) is narrow", () => {
+  const probe = (method: string, args: Record<string, unknown>) =>
+    scopeFailure({ model: "transaction", method, args });
+
+  it("accepts 'is anything linked' — count, findFirst of ids, groupBy by the link", () => {
+    expect(probe("count", { where: { establishmentId: EST, partyId: "p1" } })).toBeNull();
+    expect(
+      probe("findFirst", { where: { establishmentId: EST, projectId: "j1" }, select: { id: true } }),
+    ).toBeNull();
+    expect(
+      probe("groupBy", { by: ["partyId"], where: { establishmentId: EST, partyId: { in: ["p1"] } } }),
+    ).toBeNull();
+  });
+
+  it("S-K5a: refuses a probe that names no link — a count of every entry, deleted included", () => {
+    expect(probe("count", { where: { establishmentId: EST } })).toMatch(/deletedAt is undefined/);
+  });
+
+  it("S-K5a: refuses a probe whose link is null (or any non-id filter)", () => {
+    expect(probe("count", { where: { establishmentId: EST, partyId: null } })).toMatch(
+      /deletedAt is undefined/,
+    );
+    for (const partyId of [{ not: null }, "", { in: [] }, { in: [""] }]) {
+      expect(probe("count", { where: { establishmentId: EST, partyId } }), JSON.stringify(partyId)).toMatch(
+        /deletedAt is undefined/,
+      );
+    }
+  });
+
+  it("refuses a probe that sums the amount", () => {
+    expect(
+      probe("groupBy", {
+        by: ["partyId"],
+        where: { establishmentId: EST, partyId: { in: ["p1"] } },
+        _sum: { amountHalalas: true },
+      }),
+    ).toMatch(/deletedAt is undefined/);
+  });
+
+  // One case per aggregate, so dropping any single one from the list fails.
+  it.each(["_avg", "_min", "_max"])("refuses a probe that reads %s of the amount", (aggregate) => {
+    expect(
+      probe("groupBy", {
+        by: ["partyId"],
+        where: { establishmentId: EST, partyId: { in: ["p1"] } },
+        [aggregate]: { amountHalalas: true },
+      }),
+    ).toMatch(/deletedAt is undefined/);
+  });
+
+  it("refuses a probe that includes a relation", () => {
+    expect(
+      probe("findFirst", {
+        where: { establishmentId: EST, partyId: "p1" },
+        select: { id: true },
+        include: { category: true },
+      }),
+    ).toMatch(/deletedAt is undefined/);
+  });
+
+  it("refuses a probe that selects the amount", () => {
+    expect(
+      probe("findFirst", {
+        where: { establishmentId: EST, partyId: "p1" },
+        select: { id: true, amountHalalas: true },
+      }),
+    ).toMatch(/deletedAt is undefined/);
+  });
+
+  it("refuses a findFirst probe with no select, which returns the whole row", () => {
+    expect(probe("findFirst", { where: { establishmentId: EST, partyId: "p1" } })).toMatch(
+      /deletedAt is undefined/,
+    );
+  });
+
+  it("refuses a probe grouped by something other than a link", () => {
+    expect(
+      probe("groupBy", { by: ["amountHalalas"], where: { establishmentId: EST, partyId: "p1" } }),
+    ).toMatch(/deletedAt is undefined/);
+  });
+
+  it("refuses a probe with an extra where key", () => {
+    expect(
+      probe("count", { where: { establishmentId: EST, partyId: "p1", direction: "OUT" } }),
+    ).toMatch(/deletedAt is undefined/);
+  });
+
+  it("refuses a probe on a method outside count/findFirst/groupBy", () => {
+    expect(probe("findMany", { where: { establishmentId: EST, partyId: "p1" }, select: { id: true } })).toMatch(
+      /deletedAt is undefined/,
+    );
+  });
+
+  it("refuses a probe without the scope, or with another establishment's", () => {
+    expect(probe("count", { where: { partyId: "p1" } })).toMatch(/where\.establishmentId is undefined/);
+    expect(probe("count", { where: { establishmentId: OTHER_EST, partyId: "p1" } })).toMatch(
+      /where\.establishmentId is/,
+    );
+  });
+
+  it("applies only to transaction — no other model has soft delete to skip", () => {
+    expect(
+      scopeFailure({ model: "party", method: "count", args: { where: { partyId: "p1" } } }),
+    ).toMatch(/where\.establishmentId is undefined/);
   });
 });
 
@@ -1039,6 +1250,242 @@ describe("filterTotals span the filter, not the page", () => {
   });
 });
 
+/* ------------------------------------------------ v1.2a: parties and إضافة */
+
+const PARTY = {
+  id: "party_1",
+  name: "مورد الخرسانة",
+  type: "SUPPLIER",
+  phone: null,
+  email: null,
+  notes: null,
+  active: true,
+  createdAt: new Date(Date.UTC(2026, 8, 1)),
+};
+
+const PROJECT = {
+  id: "proj_1",
+  name: "فرع جديد",
+  description: null,
+  status: "ACTIVE",
+  budgetHalalas: 10_000,
+  startDate: new Date(Date.UTC(2026, 0, 1)),
+  endDate: null,
+};
+
+/** Populated reads, so every branch past "nothing found" runs. */
+function populateParties(): void {
+  harness.responses.set("party.findMany", [PARTY]);
+  harness.responses.set("plan.findMany", [
+    { id: "plan_1", partyId: "party_1", direction: "OUT", state: "OPEN" },
+    { id: "plan_2", partyId: "party_1", direction: "IN", state: "ARCHIVED" },
+  ]);
+  harness.responses.set("instalment.groupBy", [
+    { planId: "plan_1", _sum: { amountDueHalalas: 1000, paidHalalas: 400 } },
+  ]);
+  harness.responses.set("transaction.groupBy", [{ partyId: "party_1" }]);
+}
+
+function populateProjects(): void {
+  harness.responses.set("project.findMany", [PROJECT]);
+  harness.responses.set("project.findFirst", PROJECT);
+  harness.responses.set("transaction.groupBy", (args: Record<string, unknown>) =>
+    (args.by as string[]).includes("direction")
+      ? [
+          {
+            projectId: "proj_1",
+            categoryId: "cat_1",
+            direction: "OUT",
+            _sum: { amountHalalas: 2500 },
+            _count: { _all: 2 },
+          },
+        ]
+      : [{ projectId: "proj_1" }],
+  );
+}
+
+/** The row for a by-id lookup, and "no namesake" for the duplicate probe. */
+function partyLookup(row: Record<string, unknown> = PARTY) {
+  return (args: Record<string, unknown>) =>
+    (args.where as Record<string, unknown>).name === undefined ? row : null;
+}
+
+function partyForm(): FormData {
+  const form = new FormData();
+  form.append("name", "مورد الخرسانة");
+  form.append("type", "SUPPLIER");
+  form.append("phone", "0501234567");
+  form.append("email", "");
+  return form;
+}
+
+function projectForm(): FormData {
+  const form = new FormData();
+  form.append("name", "فرع جديد");
+  form.append("budgetHalalas", "1000000");
+  form.append("startDate", "2026-01-01");
+  form.append("endDate", "2026-12-31");
+  return form;
+}
+
+describe("v1.2a: parties scope every call", () => {
+  it("listParties, empty", async () => {
+    await listParties(EST);
+    expect(observedPairs()).toContain("party.findMany");
+    expect(failures()).toEqual([]);
+    record();
+  });
+
+  it("listParties, populated and filtered — balances and the reference probe run", async () => {
+    populateParties();
+    const [row] = await listParties(EST, { type: "SUPPLIER" });
+    expect(row).toMatchObject({ owedByUsHalalas: 600, owedToUsHalalas: 0, hasHistory: true });
+    expect(observedPairs()).toContain("instalment.groupBy");
+    expect(observedPairs()).toContain("transaction.groupBy");
+    expect(failures()).toEqual([]);
+    record();
+  });
+
+  it("balance numbers: OPEN IN counts due − paid, ARCHIVED counts 0, a plan alone is history", async () => {
+    harness.responses.set("party.findMany", [PARTY]);
+    harness.responses.set("plan.findMany", [
+      { id: "plan_in", partyId: "party_1", direction: "IN", state: "OPEN" },
+      { id: "plan_old", partyId: "party_1", direction: "OUT", state: "ARCHIVED" },
+    ]);
+    harness.responses.set("instalment.groupBy", (args: Record<string, unknown>) => {
+      const ids = ((args.where as Record<string, unknown>).planId as { in: string[] }).in;
+      return [
+        { planId: "plan_in", _sum: { amountDueHalalas: 1000, paidHalalas: 300 } },
+        { planId: "plan_old", _sum: { amountDueHalalas: 9000, paidHalalas: 0 } },
+      ].filter((g) => ids.includes(g.planId));
+    });
+    // No transaction references it: hasHistory must come from the plans alone.
+    const [row] = await listParties(EST);
+    expect(row).toMatchObject({ owedToUsHalalas: 700, owedByUsHalalas: 0, hasHistory: true });
+    expect(failures()).toEqual([]);
+    record();
+  });
+
+  it("listPartyOptions and getParty", async () => {
+    populateParties();
+    harness.responses.set("party.findFirst", PARTY);
+    await listPartyOptions(EST);
+    expect(await getParty(EST, "party_1")).toMatchObject({ createdAt: "2026-09-01" });
+    expect(failures()).toEqual([]);
+    record();
+  });
+
+  it("createParty, updateParty, setPartyActive", async () => {
+    harness.responses.set("party.findFirst", partyLookup());
+    expect(await createParty(null, partyForm())).toEqual({ ok: true, data: { id: "generated_id" } });
+    expect(await updateParty("party_1", null, partyForm())).toEqual({ ok: true, data: null });
+    expect(await setPartyActive("party_1", false)).toEqual({ ok: true, data: null });
+    harness.responses.set("party.findFirst", partyLookup({ ...PARTY, active: false }));
+    expect(await setPartyActive("party_1", true)).toEqual({ ok: true, data: null });
+    expect(observedPairs()).toContain("party.create");
+    expect(observedPairs()).toContain("party.updateMany");
+    expect(failures()).toEqual([]);
+    record();
+  });
+
+  it("deleteParty, without and with history", async () => {
+    harness.responses.set("party.findFirst", PARTY);
+    expect(await deleteParty("party_1")).toEqual({ ok: true, data: null });
+    expect(observedPairs()).toContain("party.deleteMany");
+    harness.responses.set("transaction.count", 1);
+    expect(await deleteParty("party_1")).toEqual({ ok: false, error: "err.partyHasHistory" });
+    expect(failures()).toEqual([]);
+    record();
+  });
+});
+
+describe("v1.2a: projects scope every call", () => {
+  it("listProjects, empty", async () => {
+    await listProjects(EST);
+    expect(observedPairs()).toContain("project.findMany");
+    expect(failures()).toEqual([]);
+    record();
+  });
+
+  it("listProjects, populated and filtered — totals and the reference probe run", async () => {
+    populateProjects();
+    const [row] = await listProjects(EST, { status: "ACTIVE" });
+    expect(row).toMatchObject({ spentHalalas: 2500, remainingHalalas: 7500, hasHistory: true });
+    expect(failures()).toEqual([]);
+    record();
+  });
+
+  it("listProjectOptions and getProject with categories to name", async () => {
+    populateProjects();
+    await listProjectOptions(EST);
+    const project = await getProject(EST, "proj_1");
+    expect(project?.byCategory).toHaveLength(1);
+    expect(observedPairs()).toContain("category.findMany");
+    expect(failures()).toEqual([]);
+    record();
+  });
+
+  it("createProject, updateProject, setProjectStatus, deleteProject", async () => {
+    harness.responses.set("project.findFirst", PROJECT);
+    expect(await createProject(null, projectForm())).toEqual({ ok: true, data: { id: "generated_id" } });
+    expect(await updateProject("proj_1", null, projectForm())).toEqual({ ok: true, data: null });
+    expect(await setProjectStatus("proj_1", "COMPLETED")).toEqual({ ok: true, data: null });
+    expect(await deleteProject("proj_1")).toEqual({ ok: true, data: null });
+    expect(observedPairs()).toContain("project.deleteMany");
+    harness.responses.set("transaction.count", 1);
+    expect(await deleteProject("proj_1")).toEqual({ ok: false, error: "err.projectHasHistory" });
+    expect(failures()).toEqual([]);
+    record();
+  });
+});
+
+/**
+ * Rule 11 at the ledger: a link id belonging to another establishment reads
+ * exactly like an unknown one. The canned lookup answers only for the caller's
+ * own row under the caller's scope, as the database would.
+ */
+describe("v1.2a: a foreign link id is the field error, and the lookup is scoped", () => {
+  beforeEach(() => {
+    const ownOnly =
+      (row: Record<string, unknown>, id: string) => (args: Record<string, unknown>) => {
+        const where = args.where as Record<string, unknown>;
+        return where.establishmentId === EST && where.id === id ? row : null;
+      };
+    harness.responses.set("party.findFirst", ownOnly({ active: true }, "party_mine"));
+    harness.responses.set("project.findFirst", ownOnly({ status: "ACTIVE" }, "proj_mine"));
+  });
+
+  it.each([
+    ["partyId", "party_foreign", "err.partyInvalid"],
+    ["projectId", "proj_foreign", "err.projectInvalid"],
+    ["instalmentId", "inst_foreign", "err.instalmentInvalid"],
+  ])("%s from another establishment", async (field, id, key) => {
+    const form = ledgerForm();
+    form.set(field, id);
+    expect(await createTransaction(null, form)).toEqual({
+      ok: false,
+      error: key,
+      fieldErrors: { [field]: key },
+    });
+    expect(await updateTransaction("tx_existing", null, form)).toMatchObject({
+      fieldErrors: { [field]: key },
+    });
+    expect(observedPairs()).not.toContain("transaction.create");
+    expect(observedPairs()).not.toContain("transaction.updateMany");
+    expect(failures()).toEqual([]);
+  });
+
+  it("the caller's own party and project are accepted", async () => {
+    const form = ledgerForm();
+    form.set("partyId", "party_mine");
+    form.set("projectId", "proj_mine");
+    expect(await createTransaction(null, form)).toEqual({ ok: true, data: null });
+    expect(await updateTransaction("tx_existing", null, form)).toEqual({ ok: true, data: null });
+    expect(failures()).toEqual([]);
+    record();
+  });
+});
+
 /* --------------------------------------------------------- the static sweep */
 
 describe("static sweep: no call site escapes the runtime net", () => {
@@ -1052,6 +1499,8 @@ describe("static sweep: no call site escapes the runtime net", () => {
   const FILES = [
     "src/features/transactions/queries.ts",
     "src/features/transactions/actions.ts",
+    // v1.2a: the link checks actions.ts calls.
+    "src/features/transactions/links.ts",
     "src/features/dashboard/queries.ts",
     "src/features/reports/queries.ts",
     "src/features/locks/assertUnlocked.ts",
@@ -1067,6 +1516,11 @@ describe("static sweep: no call site escapes the runtime net", () => {
     // than querying Prisma, so it contributes no pairs — being listed is what
     // fails the suite if that ever changes.
     "src/app/api/export/route.ts",
+    // v1.2a
+    "src/features/parties/queries.ts",
+    "src/features/parties/actions.ts",
+    "src/features/projects/queries.ts",
+    "src/features/projects/actions.ts",
   ];
 
   it("every (model, method) pair in the source was exercised above", () => {
@@ -1107,6 +1561,27 @@ describe("static sweep: no call site escapes the runtime net", () => {
       // $queryRaw — explaining why it is avoided — does not trip this.
       expect(source, file).not.toMatch(/\b(?:db|tx|client)\.\$(?:query|execute)Raw/);
     }
+  });
+
+  /**
+   * V1: a nested `transactions` read inside a select/include/_count is a query
+   * the harness never sees — its scope and soft-delete filter would go
+   * unchecked. Anchored on the Prisma shape (`transactions: true|{`), so prose
+   * naming transactions cannot trip it.
+   */
+  it("v1.2a: no nested transactions read in parties, projects or plans", () => {
+    const dirs = ["src/features/parties", "src/features/projects", "src/features/plans"];
+    let scanned = 0;
+    for (const dir of dirs) {
+      if (!existsSync(dir)) continue;
+      for (const name of readdirSync(dir)) {
+        if (!/\.tsx?$/.test(name) || name.endsWith(".test.ts")) continue;
+        const source = readFileSync(`${dir}/${name}`, "utf8");
+        scanned += 1;
+        expect(source, `${dir}/${name}`).not.toMatch(/\btransactions\s*:\s*(?:true|\{)/);
+      }
+    }
+    expect(scanned).toBeGreaterThanOrEqual(4);
   });
 
   it("no unique-where write in any of those files", () => {

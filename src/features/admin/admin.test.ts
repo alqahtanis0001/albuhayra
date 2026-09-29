@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 
 /**
  * Security rule 10: **ADMIN endpoints never return `amountHalalas` or a
@@ -432,5 +432,57 @@ describe("static: rule 10 in the source", () => {
     for (const file of FILES) {
       expect(code(file), file).toContain("establishment");
     }
+  });
+});
+
+/**
+ * v1.2a rule 10, extended: ADMIN sees nothing of Party / Project / Plan /
+ * Instalment — no rows, names or counts. Nothing in the admin area may touch
+ * those models or import their features, and the shared chrome (which admin
+ * pages render) may not import them either (V12). Every pattern is anchored on
+ * code shape — a receiver, an import, a Prisma key — so prose cannot trip it
+ * and no comment stripper is needed.
+ */
+describe("static: v1.2a models never reach the admin area", () => {
+  function walk(dir: string): string[] {
+    return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+      const path = `${dir}/${entry.name}`;
+      if (entry.isDirectory()) return walk(path);
+      return /\.tsx?$/.test(entry.name) && !entry.name.endsWith(".test.ts") ? [path] : [];
+    });
+  }
+
+  const ADMIN = [...walk("src/features/admin"), ...walk("src/app/(admin)")];
+  const CHROME = walk("src/components/chrome");
+  const FEATURE_IMPORT = /(?:from\s+|import\s*\(\s*)["'][^"']*features\/(?:parties|projects|plans)\b/;
+  const MODEL_CALL = /\b(?:db|tx|client)\.(?:party|project|plan|instalment)\./;
+  const RELATION_READ = /\b(?:party|parties|project|projects|plans?|instalments?)\s*:\s*(?:true|\{)/;
+
+  it("scans real files", () => {
+    expect(ADMIN.length).toBeGreaterThanOrEqual(5);
+    expect(CHROME.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("no admin file calls a v1.2a model or reads one through a relation", () => {
+    for (const file of ADMIN) {
+      const source = readFileSync(file, "utf8");
+      expect(source, file).not.toMatch(MODEL_CALL);
+      expect(source, file).not.toMatch(RELATION_READ);
+    }
+  });
+
+  it("no admin or chrome file imports the parties, projects or plans features", () => {
+    for (const file of [...ADMIN, ...CHROME]) {
+      expect(readFileSync(file, "utf8"), file).not.toMatch(FEATURE_IMPORT);
+    }
+  });
+
+  it("the patterns do match the shapes they forbid", () => {
+    expect('import { listParties } from "@/features/parties/queries";').toMatch(FEATURE_IMPORT);
+    expect('await import("@/features/plans/queries")').toMatch(FEATURE_IMPORT);
+    expect("db.party.count({ where: {} })").toMatch(MODEL_CALL);
+    expect("tx.instalment.findMany(").toMatch(MODEL_CALL);
+    expect("_count: { select: { parties: true } }").toMatch(RELATION_READ);
+    expect("include: { plans: { select: { id: true } } }").toMatch(RELATION_READ);
   });
 });

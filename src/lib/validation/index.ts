@@ -10,8 +10,6 @@
  * `@/lib/validation` stays the one import path.
  */
 import { z } from "zod";
-import { MAX_AMOUNT_HALALAS } from "../money";
-import { todayISO } from "../dates";
 import { enteredPassword } from "./auth";
 import { newPassword } from "./password";
 
@@ -46,47 +44,27 @@ export {
 
 /* ---------------------------------------------------------------- primitives */
 
-export const DirectionEnum = z.enum(["IN", "OUT"], { error: "err.invalidInput" });
-export type DirectionValue = z.infer<typeof DirectionEnum>;
+import {
+  amountHalalas,
+  anyISODate,
+  cuid,
+  DirectionEnum,
+  optionalCuid,
+  optionalText,
+  pastOrTodayISODate,
+  PaymentMethodEnum,
+} from "./primitives";
 
-export const PaymentMethodEnum = z.enum(
-  ["CASH", "BANK_TRANSFER", "MADA", "STC_PAY", "OTHER"],
-  { error: "err.invalidInput" },
-);
-export type PaymentMethodValue = z.infer<typeof PaymentMethodEnum>;
+export {
+  DirectionEnum,
+  PaymentMethodEnum,
+  type DirectionValue,
+  type PaymentMethodValue,
+} from "./primitives";
 
-/** ISO calendar date, not in the future (Riyadh "today"). */
-const pastOrTodayISODate = z
-  .string({ error: "err.required" })
-  .regex(/^\d{4}-\d{2}-\d{2}$/, "err.dateInvalid")
-  .refine((v) => !Number.isNaN(Date.parse(`${v}T00:00:00Z`)), "err.dateInvalid")
-  .refine((v) => v <= todayISO(), "err.dateFuture");
-
-const anyISODate = z
-  .string({ error: "err.required" })
-  .regex(/^\d{4}-\d{2}-\d{2}$/, "err.dateInvalid")
-  .refine((v) => !Number.isNaN(Date.parse(`${v}T00:00:00Z`)), "err.dateInvalid");
-
-const amountHalalas = z
-  .number({ error: "err.amountInvalid" })
-  .int("err.amountInvalid")
-  .positive("err.amountPositive")
-  .max(MAX_AMOUNT_HALALAS, "err.amountTooLarge");
-
-const optionalText = (max: number) =>
-  z
-    .string({ error: "err.invalidInput" })
-    .trim()
-    .max(max, "err.tooLong")
-    .transform((v) => (v === "" ? undefined : v))
-    .optional();
-
-const cuid = z
-  .string({ error: "err.required" })
-  .trim()
-  .min(1, "err.required")
-  .max(64, "err.tooLong");
-
+// v1.2a
+export * from "./parties";
+export * from "./plans";
 
 /* -------------------------------------------------------------------- schemas */
 
@@ -98,6 +76,12 @@ export const TransactionInputSchema = z.object({
   paymentMethod: PaymentMethodEnum,
   counterparty: optionalText(200),
   note: optionalText(500),
+  // v1.2a links — each optional; "" from a select's «none» option = not given.
+  // The action checks every id against the session's establishment.
+  partyId: optionalCuid,
+  projectId: optionalCuid,
+  /** Set only by «تسجيل دفعة»; requires canEdit (docs/BACKEND.md v1.2a). */
+  instalmentId: optionalCuid,
 });
 export type TransactionInput = z.infer<typeof TransactionInputSchema>;
 
@@ -151,6 +135,9 @@ export const TransactionFilterSchema = z
     direction: DirectionEnum.optional(),
     categoryId: cuid.optional(),
     paymentMethod: PaymentMethodEnum.optional(),
+    // v1.2a — reached through links (a party's or an إضافة's page), not filter controls.
+    partyId: cuid.optional(),
+    projectId: cuid.optional(),
     q: z.string({ error: "err.invalidInput" }).trim().max(200, "err.tooLong").optional(),
     page: z.coerce
       .number({ error: "err.invalidInput" })

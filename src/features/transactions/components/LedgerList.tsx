@@ -6,6 +6,8 @@
  * A server component: the only interactive part is the delete button inside
  * LedgerRowActions.
  */
+import Link from "next/link";
+
 import { DateText } from "@/components/DateText";
 import { DirectionBadge } from "@/components/DirectionBadge";
 import { MoneyText } from "@/components/MoneyText";
@@ -26,7 +28,27 @@ export type LedgerListProps = {
   basePath: string;
 };
 
+/** v1.2a: the party's name, else the free-text counterparty. */
+const partyText = (row: LedgerRow) => row.partyName ?? row.counterparty;
+
+/**
+ * The إضافة an entry belongs to, as a small chip. A link to the إضافة only on
+ * the owner's ledger — staff have no إضافة pages (v1.2a V12), so they get text.
+ */
+function ProjectChip({ row, linked }: { row: LedgerRow; linked: boolean }) {
+  if (!row.projectId || !row.projectName) return null;
+  const shape = "inline-flex max-w-full items-center rounded-sm border border-accent-line bg-accent-soft px-1.5 text-xs text-accent-dark";
+  return linked ? (
+    <Link href={`/owner/projects/${row.projectId}`} className={`${shape} truncate hover:underline`}>
+      {row.projectName}
+    </Link>
+  ) : (
+    <span className={`${shape} truncate`}>{row.projectName}</span>
+  );
+}
+
 export function LedgerList({ page, lockedMonths, permissions, basePath }: LedgerListProps) {
+  const ownerChips = basePath === "/owner/transactions";
   const isLocked = (row: LedgerRow) => lockedMonths.includes(monthOf(row.date));
   const editHref = (row: LedgerRow) => `${basePath}/${row.id}/edit`;
 
@@ -46,8 +68,9 @@ export function LedgerList({ page, lockedMonths, permissions, basePath }: Ledger
                 </div>
                 <p className="mt-1 truncate text-xs text-gray-600">
                   {t.paymentMethod[row.paymentMethod]}
-                  {row.counterparty ? ` · ${row.counterparty}` : ""}
+                  {partyText(row) ? ` · ${partyText(row)}` : ""}
                 </p>
+                <ProjectChip row={row} linked={ownerChips} />
                 <p className="text-xs text-gray-500">
                   {t.transaction.addedBy}: {row.createdByName}
                 </p>
@@ -96,9 +119,10 @@ export function LedgerList({ page, lockedMonths, permissions, basePath }: Ledger
                 </Td>
                 <Td>
                   <span className="block">{row.categoryNameAr}</span>
-                  {row.counterparty ? (
-                    <span className="block text-xs text-gray-500">{row.counterparty}</span>
+                  {partyText(row) ? (
+                    <span className="block text-xs text-gray-500">{partyText(row)}</span>
                   ) : null}
+                  <ProjectChip row={row} linked={ownerChips} />
                 </Td>
                 <Td>{t.paymentMethod[row.paymentMethod]}</Td>
                 <Td className="text-xs text-gray-600">{row.createdByName}</Td>

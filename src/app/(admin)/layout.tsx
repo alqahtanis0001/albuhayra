@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
 import { AppShell } from "@/components/chrome/AppShell";
-import { ADMIN_NAV } from "@/components/chrome/nav";
+import { ADMIN_NAV, singleGroup } from "@/components/chrome/nav";
 import { requireAdmin } from "@/lib/auth";
 
 /**
@@ -14,7 +14,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
 
   return (
     <AppShell
-      items={ADMIN_NAV}
+      groups={singleGroup(ADMIN_NAV)}
       userName={user.displayName}
       establishmentName={null}
       accountHref="/admin/account"

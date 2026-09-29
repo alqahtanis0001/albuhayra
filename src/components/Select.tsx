@@ -3,6 +3,8 @@ import type { SelectHTMLAttributes } from "react";
 import { errorMessage } from "@/i18n/ar";
 
 export type SelectOption = { value: string; label: string };
+/** An `<optgroup>`: rendered after the plain `options`, in order. */
+export type SelectGroup = { label: string; options: SelectOption[] };
 
 // `children` stays excluded: the options come from `options`, and accepting both
 // would let a caller build a select two ways at once.
@@ -11,8 +13,16 @@ export type SelectProps = Omit<
   "children"
 > & {
   label: string;
-  name: string;
+  /**
+   * Omit only for a select that is not itself a form field (v1.2a: the entry
+   * form's الجهة picker, whose value travels in a hidden input) — then pass `id`.
+   */
+  name?: string;
   options: SelectOption[];
+  /** Optional labelled groups after `options` (v1.2a: parties by type). */
+  groups?: SelectGroup[];
+  /** Plain options after the groups (v1.2a: «أخرى (اكتب الاسم)», always last). */
+  trailing?: SelectOption[];
   /** An `err.*` i18n key from `fieldErrors`. */
   error?: string;
   hint?: string;
@@ -25,6 +35,8 @@ export function Select({
   name,
   id,
   options,
+  groups = [],
+  trailing = [],
   error,
   hint,
   placeholder,
@@ -32,7 +44,7 @@ export function Select({
   required,
   ...rest
 }: SelectProps) {
-  const fieldId = id ?? name;
+  const fieldId = id ?? name ?? "";
   const hintId = hint ? `${fieldId}-hint` : undefined;
   const errorId = error ? `${fieldId}-error` : undefined;
 
@@ -62,6 +74,22 @@ export function Select({
           <option value="">{placeholder}</option>
         ) : null}
         {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+        {groups
+          .filter((group) => group.options.length > 0)
+          .map((group) => (
+            <optgroup key={group.label} label={group.label}>
+              {group.options.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        {trailing.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}
           </option>

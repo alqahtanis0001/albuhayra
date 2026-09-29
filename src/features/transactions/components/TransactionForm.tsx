@@ -16,9 +16,12 @@ import { validateEntry } from "./validateEntry";
 
 import { AmountField } from "./AmountField";
 import { DirectionToggle, readLastDirection, rememberDirection } from "./DirectionToggle";
+import { LinkFields } from "./LinkFields";
 import { LockedNotice } from "./LockedNotice";
 import type { TransactionRow } from "./data";
 import type { CategoryRow } from "@/features/settings/queries";
+import type { PartyOption } from "@/features/parties/queries";
+import type { ProjectOption } from "@/features/projects/queries";
 import type { TransactionFormAction, TransactionState } from "./actions";
 
 const METHODS = ["CASH", "BANK_TRANSFER", "MADA", "STC_PAY", "OTHER"] as const;
@@ -29,20 +32,30 @@ export function TransactionForm({
   mode,
   action,
   categories,
+  parties,
+  projects,
   lockedMonths,
   today,
   doneHref,
   initial,
+  presetProjectId,
 }: {
   mode: "new" | "edit";
   action: TransactionFormAction;
   categories: CategoryRow[];
+  parties: PartyOption[];
+  projects: ProjectOption[];
   /** "YYYY-MM" keys of closed months. */
   lockedMonths: string[];
   /** Riyadh "today", decided on the server so both sides agree. */
   today: string;
   doneHref: string;
   initial?: TransactionRow;
+  /**
+   * New entry from an إضافة's «تسجيل تكلفة» (?projectId=, already checked
+   * against the options by the page): preselects it and صادر.
+   */
+  presetProjectId?: string;
 }) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
@@ -50,6 +63,8 @@ export function TransactionForm({
   const [direction, setDirection] = useState<DirectionValue>(
     initial?.direction ?? "OUT",
   );
+  // Remounts LinkFields after «حفظ وإضافة أخرى», clearing the party.
+  const [linkKey, setLinkKey] = useState(0);
   const [date, setDate] = useState(initial?.date ?? today);
   const [amount, setAmount] = useState(
     initial ? (initial.amountHalalas / 100).toFixed(2) : "",
@@ -63,9 +78,10 @@ export function TransactionForm({
 
   // localStorage is read after mount only: it does not exist during the server
   // render, and seeding state from it would be a hydration mismatch.
+  // Never over a preset: «تسجيل تكلفة» means صادر (v1.2a S6).
   useEffect(() => {
-    if (mode === "new") setDirection(readLastDirection());
-  }, [mode]);
+    if (mode === "new" && !presetProjectId) setDirection(readLastDirection());
+  }, [mode, presetProjectId]);
 
   const [state, formAction, pending] = useActionState(
     async (prev: TransactionState, formData: FormData): Promise<TransactionState> => {
@@ -89,6 +105,7 @@ export function TransactionForm({
         setAmount("");
         setDate(today);
         setCategoryId("");
+        setLinkKey((k) => k + 1);
         setSaved(true);
       } else {
         router.push(doneHref);
@@ -167,6 +184,19 @@ export function TransactionForm({
         error={fieldErrors?.categoryId}
       />
 
+      <LinkFields
+        key={linkKey}
+        parties={parties}
+        projects={projects}
+        initial={{
+          partyId: initial?.partyId ?? null,
+          counterparty: initial?.counterparty ?? null,
+          projectId: initial?.projectId ?? presetProjectId ?? null,
+        }}
+        disabled={originalLocked}
+        fieldErrors={fieldErrors}
+      />
+
       <Select
         label={t.paymentMethod.label}
         name="paymentMethod"
@@ -175,16 +205,6 @@ export function TransactionForm({
         disabled={originalLocked}
         required
         error={fieldErrors?.paymentMethod}
-      />
-
-      <Input
-        label={`${t.transaction.counterparty} (${t.common.optional})`}
-        name="counterparty"
-        defaultValue={initial?.counterparty ?? ""}
-        hint={t.transaction.counterpartyHint}
-        maxLength={200}
-        disabled={originalLocked}
-        error={fieldErrors?.counterparty}
       />
 
       <Textarea

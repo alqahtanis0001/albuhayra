@@ -354,3 +354,62 @@ All reviewer findings accepted (5 BLOCKER, 14 SHOULD, 10 NOTE — evidence in `p
 - **Ownership addenda:** `prisma/seed.ts` → `backend` (name parts, `legacyName`, `emailVerifiedAt`); `src/app/(admin)/admin/establishments/page.tsx` → `frontend` (full name + badge).
 - **A6 changes E3's shape:** every email-dependent branch of sign-up and `/forgot` runs in `after()`; the flow id is a pre-made `randomUUID()` used as the new user's id.
 - **A14:** split `auth/actions.ts` and `validation.ts` by concern, keeping existing import paths.
+
+
+---
+
+# v1.2a — navigation, الجهات, إضافة, الاتفاقيات, المستحقات
+
+Design: `docs/BACKEND.md` → *v1.2a*, `docs/FRONTEND.md` → *v1.2a*, release plan and Decisions 1–13 in `PROGRESS.md`. **This list covers Checkpoint 1 only** (items 1–4). CP2 briefs are written after the user approves CP1.
+
+## Shared facts (every teammate)
+- The contract is already in the tree (lead, before code): `prisma/schema.prisma` (v1.2a models), `src/lib/validation/{primitives,parties,plans}.ts` + the new `TransactionInputSchema`/`TransactionFilterSchema` fields, `src/i18n/ar.v12a.ts` (spread into `t`), `src/lib/audit.ts` actions/entities. Change none of it yourself — ask the lead.
+- Local and live share **one Neon database**. Never run `migrate deploy`, `migrate dev`, `db push` or the seed against it, and never start the app against it to "try" a mutation. Tests use mocks and PGlite only.
+- Two agents building in one tree collide in `.next/`: wrap every `npm run build` in `mkdir .claude/build.lock` … `rmdir .claude/build.lock` (wait and retry if the mkdir fails).
+- A claim a teammate makes about the tree is checked with `grep` on the working tree, not `HEAD` — teammates never commit.
+- **Do not `git commit`.** Gates before marking done: `npm run build`, `npm test`, `npx tsc --noEmit` on real exit codes (never through a pipe to `tail`), and a note in `progress/<you>.md`.
+- Every mutation: `requireX()` → zod → scoped lookups → `$transaction` { write + `writeAudit` } → `revalidatePath`. Every query takes `establishmentId` from the page's `requireX()`. Money in halalas with a `Halalas` suffix; no `Date` in any exported return shape (dates as ISO strings).
+
+## Ownership for v1.2a CP1
+| Path | Owner |
+|---|---|
+| `prisma/migrations/20261001000000_v1_2a_parties_projects_plans/**`, `src/features/{parties,projects}/{queries,actions}.ts`, `src/features/transactions/{actions,queries}.ts`, `src/app/api/export/**`, every `*.test.ts` except `nav.test.ts` | `backend` |
+| `src/components/**` (incl. `chrome/nav.ts` and — addendum — `chrome/nav.test.ts`), `src/app/(owner)/**` pages/layouts/loading, `src/app/(staff)/staff/transactions/**` pages, `src/features/{parties,projects,settings,transactions}/components/**`, `src/app/globals.css`, `ar.ts`/`ar.v12a.ts` **values** | `frontend` |
+| read-only everything | `reviewer` |
+| `prisma/schema.prisma`, `src/lib/**` (incl. validation), `src/i18n/*` keys, `docs/*`, `CLAUDE.md`, `PROGRESS.md`, `progress/TASKS.md`, `package.json` | lead |
+
+## backend
+| ID | Task | Status |
+|---|---|---|
+| K1 | **Queries and actions skeleton first (≤ 30 min), so `frontend` builds on real types:** create `src/features/parties/{queries,actions}.ts` and `src/features/projects/{queries,actions}.ts` with the exact exported names and types of `docs/BACKEND.md` v1.2a, and extend `LedgerRow` / `TransactionRow` shapes. Real implementations, not stubs, where quick; message `frontend` and the lead with the exported names the moment `tsc` is green. | done |
+| K2 | **Migration** `20261001000000_v1_2a_parties_projects_plans` via `migrate diff --from-schema <(git show HEAD:prisma/schema.prisma)> --to-schema prisma/schema.prisma --script` (write HEAD's schema to a temp file), expand-only, LF endings (`.gitattributes`). **PGlite test** `src/lib/migration.v12a.test.ts`: init → v1.1e → v1.2a; an old-shape `Transaction` insert still works; links and FKs; drift check against `--from-empty`. | done |
+| K3 | **Parties + projects** per the doc: every rule, every audit, `revalidatePath` list incl. `revalidatePath("/owner", "layout")`. `hasHistory` counts soft-deleted transactions. Balances from OPEN plans' instalments (real query; zero until CP2). | done |
+| K4 | **Transaction links:** `partyId` (active unless kept; party set ⇒ `counterparty` null), `projectId` (ACTIVE unless kept → `err.projectClosed`), `instalmentId` refused in CP1 (`fieldErrors.instalmentId = err.instalmentInvalid`), audit snapshots with the links; `ledgerWhere` adds `partyId`/`projectId` and party-name search; `LedgerRow`/`getTransaction` return the link ids and names; export counterparty = `partyName ?? counterparty`. | done |
+| K5 | **Gates:** `scoping.test.ts` — harness models `party`, `project`, `plan`, `instalment`; `createMany` checked per element; drivers for every new query/action (empty and populated filters); `parties/*`, `projects/*` in the static-sweep `FILES`; a foreign-establishment id for each transaction link → its field error. `admin.test.ts` — static case: no file under `src/features/admin/**` or `src/app/(admin)/**` references `party`/`project`/`plan`/`instalment` models or imports `features/{parties,projects,plans}`. `validation.test.ts` — Party/Project schemas (phone, email, names, budget "" → undefined, end ≥ start) and the three transaction link fields (`""` → undefined, `intent` still stripped). Guards test — each party/project mutation calls `requireOwner`. Mutation-verify each new case (break the code, see exactly it fail, restore by diff). | done |
+
+## frontend
+Start with N1/N2 (no backend dependency). N3–N5 after `backend` reports K1.
+| ID | Task | Status |
+|---|---|---|
+| N1 | **Owner navigation** per `docs/FRONTEND.md` v1.2a: `OWNER_NAV_GROUPS`, grouped side nav with collapsible new groups (`localStorage` `zk_nav_groups`, try/catch, active group always open, `aria-expanded`/`aria-controls`), mobile bar of exactly five with the **المزيد** tile sheet (`<dialog>` + `showModal()`), `badges` prop through `AppShell` (owner layout passes `{}` / 0 in CP1), badge hidden at 0 and `99+`. Staff and admin nav unchanged. Update `nav.test.ts` (addendum: yours) for the groups and `activeHref` over flattened items. v1.1d press/pending states on every item and tile. | done |
+| N2 | **Settings split + staff pages:** `/owner/settings/{categories,join-code,locks,account}` (+ `loading.tsx` each), `/owner/settings` redirect honouring `?tab=`, the staff tab moved unchanged to `/owner/staff/logins`, «قريباً» placeholders `/owner/staff` and `/owner/staff/attendance`, top-bar account link → `/owner/settings/account`. | done |
+| N3 | **Parties UI** (after K1): `/owner/parties` (type tabs `?type=`, لنا/علينا with words), `/new`, `/[id]` (contact card, تعديل, إيقاف/تفعيل, حذف only without history), `/[id]/edit`; `loading.tsx` each; `notFound()` for unknown ids. | done |
+| N4 | **إضافة UI** (after K1): `/owner/projects` (status filter, budget bar with the number in text), `/new`, `/[id]` (totals, حسب التصنيف, `LedgerList` via `listTransactions({ projectId })`, تسجيل تكلفة, status buttons, حذف only without history, printable summary through the existing print block), `/[id]/edit`; `loading.tsx` each. | done |
+| N5 | **Form + ledger links** (after K1/K4): الجهة select (optgroups by type, kept inactive, «أخرى» reveals the text field), ضمن إضافة select, `?projectId=` prefill on both roles' new-entry page (validated against the options), ledger rows show party name / project chip. | done |
+
+## reviewer (read-only)
+| ID | Reviews | Status |
+|---|---|---|
+| R-brief | **Before any code:** the whole v1.2a design (both doc sections — CP2 included, since the schema already carries it), the schema, the validation modules, `ar.v12a.ts`, the Decisions, and every CP1 brief above — against `CLAUDE.md`, the Security list (rules 1–11), the RTL rules, and each other. Findings to the lead as BLOCKER / SHOULD / NOTE with file:line evidence. | done |
+| R-K*, R-N* | Each task as it lands: tenancy on every new call (rule 11: foreign id ≡ missing id), rule 10 (admin sees nothing new), audits in the same transaction, kept-not-newly-assigned for party/project, migration expand-only (re-run the PGlite test), gate strength (ask what it does *not* assert), RTL/logical utilities, Western digits, `+`/`−`, contrast of the badge, `<dialog>` focus handling, dynamic pages, no Arabic outside `src/i18n/*`. | done |
+
+## v1.2a — Resolutions after R-brief (lead, binding)
+All 20 reviewer findings accepted (2 BLOCKER, 10 SHOULD, 8 NOTE — `progress/reviewer.md` → v1.2a). Written into `docs/BACKEND.md` → *v1.2a amendments* **V1–V12** and the FRONTEND amendments; they override the briefs above.
+- **Lead already applied:** `onDelete: Restrict` on the three `Transaction` links (V2); `MAX_AMOUNT_HALALAS` = 2 000 000 000 (V3 — `backend` updates `money.test.ts`); `src/lib/plural.ts` + plural-form strings (V10).
+- **K3 grows:** V4 (revision read order — CP2, noted now), V8 `hasHistory` on projects, V9 revalidation in `establishments/`, `locks/`, `settings/actions.ts` (ownership addendum → `backend`), P2003 mapping (V2).
+- **K2 grows:** Restrict assertions, the drift-check mechanism (V12), and the `_sum`-over-int4 check (V3).
+- **K5 grows:** the V1 reference-probe exemption with its bound-pinning cases and the no-nested-`transactions` static rule; the admin static case also covers `src/components/chrome/**` (V12).
+- **N1 grows:** staff item label (V11), badge text through `plural()` (V10). **N5 grows:** the direction-preset rule (S6), owner-only project chip (V12).
+
+- **R-N1 ruling (lead):** `/owner/plans` and `/owner/dues` get «قريباً» placeholders in CP1 (`frontend`, with N3–N5) so the المستحقات tab and الاتفاقيات item never 404; CP2 replaces them.
+- **Ownership addenda (lead grants during CP1):** `src/features/transactions/links.ts` → `backend` (link checks split out of `actions.ts`, in the static sweep); `src/lib/testing/pgliteClient.ts` → `backend` (Prisma-7-on-PGlite client, test-only, statically guarded against non-test imports). `actions.ts` at 325 lines accepted for CP1 (308 at HEAD); CP2 puts payments in their own module.

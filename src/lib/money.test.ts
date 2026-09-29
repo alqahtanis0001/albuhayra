@@ -63,9 +63,13 @@ describe("parseSAR", () => {
     expect(parseSAR("١٢٣ريال")).toBeNull();
   });
 
-  it("rejects amounts above the 100M SAR ceiling", () => {
-    expect(parseSAR("100000000")).toBe(MAX_AMOUNT_HALALAS);
-    expect(parseSAR("100000000.01")).toBeNull();
+  it("rejects amounts above the 20M SAR ceiling (int4 columns, v1.2a)", () => {
+    expect(MAX_AMOUNT_HALALAS).toBe(2_000_000_000);
+    expect(MAX_AMOUNT_HALALAS).toBeLessThanOrEqual(2 ** 31 - 1);
+    expect(parseSAR("20000000")).toBe(MAX_AMOUNT_HALALAS);
+    expect(parseSAR("20,000,000.00")).toBe(MAX_AMOUNT_HALALAS);
+    expect(parseSAR("20000000.01")).toBeNull();
+    expect(parseSAR("100000000")).toBeNull();
   });
 
   it("round-trips through formatAmount", () => {

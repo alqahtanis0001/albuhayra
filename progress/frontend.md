@@ -1406,3 +1406,111 @@ Gates: build 0, tsc 0, vitest 528/528 in 25 files. Ports 3092/9333 freed.
 - **/forgot helper line (user requirement #5):** the email field now renders `t.forgot.emailHelp` via
   `Input`'s `hint` (id `email-hint`, in `aria-describedby`, `text-xs text-gray-500` — same as EmailField).
   Gates: tsc 0, vitest 530/530, build 0 (under the lock).
+
+## v1.2a — Checkpoint 1
+
+### N1 — owner navigation (done, awaiting review)
+- `src/components/chrome/nav.ts`: `NavGroup`, `OWNER_NAV_GROUPS` (6 groups, the three new ones
+  `collapsible`), `OWNER_TAB_HREFS` (the four item tabs before المزيد), `singleGroup()` for staff/admin,
+  `navItems()` (flatten), `groupOf()`. `activeHref()` unchanged and always run over **every** item of the
+  role — never per group, or each group would get its own winner. `OWNER_NAV` is gone (nothing else used
+  it). Staff item 2 now `t.navItem.newEntry` (V11).
+- `RoleNav.tsx`: `SideNav` renders headed groups; a collapsible heading is a `<button aria-expanded
+  aria-controls>` + `ChevronDownIcon` (rotate-180 when open, no rtl variant); list `hidden` when closed
+  (preflight's `[hidden]` is `!important`, so the `flex` class does not defeat it). Open state: the server
+  renders only the active group open; after mount `usedGroups.ts` opens remembered groups; visiting a page
+  of a collapsible group or expanding it adds the key to `zk_nav_groups` (every access try/catch). The
+  owner may collapse the current page's group by hand — it reopens on the next navigation into it. The
+  side list scrolls on its own (`max-h-[calc(100dvh-69px)]`) — 16 items + headings outgrow a short laptop.
+- `BottomTabs`: with `tabHrefs` → those tabs in order + `MoreSheet`; without → all items (staff/admin
+  unchanged). `MoreSheet.tsx`: native `<dialog>` + `showModal()`, close button, backdrop tap closes (not
+  destructive, unlike ConfirmDialog), tiles ≥72px, 3 columns, under group headings; the sheet stays open
+  while a tile's route loads (so the tile shows the pending look) and closes on the pathname change;
+  tapping the current page closes at once. المزيد has the active look when the page is a sheet item.
+  Slide-up in `globals.css` `.nav-sheet[open]` (sheet-up / route-fade-in under reduced motion, no fill).
+- `NavBadge.tsx`: `badgeText()` hides ≤0/NaN, `99+` above 99; white on money-out; the digit is
+  aria-hidden and the link gets `plural(t.navItem.overdueBadge, n)` as sr-only text. `AppShell` takes
+  `groups`, `tabHrefs?`, `badges?`; owner layout passes `{ "/owner/dues": 0 }` (CP2: getOverdueCount).
+- Shared press/tab classes in `navClasses.ts` (avoids a RoleNav↔MoreSheet import cycle).
+- New icons in `src/components/navIcons.tsx` (+ `NAV_ICONS`, moved there; `Svg` now exported from
+  icons.tsx) — icons.tsx would otherwise pass 290 lines.
+- `nav.test.ts`: groups/order/collapsible, every href once, the tab list, cross-group longest match,
+  `groupOf`, staff label, `badgeText`, `usedGroups` parse/remember/throwing storage. 13 cases.
+
+### N2 — settings split + staff pages (done, awaiting review)
+- `/owner/settings/{categories,join-code,locks,account}` each render the old tab component unchanged under
+  an `<h1>` (`t.navItem.*`), fetching only their own data. `/owner/staff/logins` renders `StaffTab`.
+- `/owner/settings` → `settings/(index)/page.tsx`: `requireOwner()` then `redirect(settingsRedirectPath(tab))`
+  (`features/settings/components/settingsPaths.ts`; unknown/none → categories, `staff` → /owner/staff/logins).
+  It sits in a route group so its `loading.tsx` does not wrap the four subpages (the (list) pattern).
+  Streamed redirect under the loading boundary — the accepted page-level consequence.
+- `/owner/staff` is `staff/(home)/` for the same reason; `/owner/staff` and `/attendance` are «قريباً»
+  cards (`src/components/ComingSoon.tsx`: accent pill, `t.comingSoon.title`, body; staff links to logins
+  via the new `src/components/LinkButton.tsx` — a styled `<Link>` with the 0.97 press).
+- Top-bar account link → `/owner/settings/account`. `settingsTabs.ts` deleted (working tree only; the
+  in-page `Tabs` bar is gone). `SettingsSkeleton` lost its tab strip; `ComingSoonSkeleton` added.
+- Revalidation of the new paths is backend's V9 (`revalidatePath("/owner/settings", "layout")` + logins).
+- Gates: build 0 (under the lock), tsc 0, vitest 555/555.
+
+### N3 — الجهات UI (done, awaiting review)
+- Routes: `parties/(list)`, `parties/new`, `parties/[id]/(detail)`, `parties/[id]/edit`, each with
+  `loading.tsx` (skeletons in `src/components/skeletons/v12a.tsx`; route groups so no loading wraps a
+  child). List: `?type=` via `PartyTypeEnum.safeParse` (anything else = all), `Tabs` with
+  `t.partyTypeTab`, cards < md / table ≥ md, inactive rows greyed + «(موقوف)», phone `dir="ltr"`, balance
+  as «لنا: X» / «علينا: Y» words with neutral amounts, both zero → `t.parties.settled`.
+- Detail: `getParty(estId, routeId)` → `notFound()` on null (foreign ≡ missing); contact card (tel:/mailto:
+  links, ltr), `PartyActions` — تعديل, إيقاف (ConfirmDialog, tone accent) / تفعيل (no dialog), حذف only
+  when `!hasHistory` (ConfirmDialog) else `t.parties.hasHistoryHint`.
+- `PartyForm`: controlled fields (React resets uncontrolled ones after a form action), type as radio
+  cards, `PartyInputSchema` client-side first, create → the new id's page, edit (bound id) → its page.
+
+### N4 — إضافة UI (done, awaiting review)
+- Routes: `projects/(list)` (`?status=` tabs incl. «كل الحالات» = `t.plans.allStatuses`), `new`,
+  `[id]/(detail)`, `[id]/edit`, each with `loading.tsx`.
+- `BudgetMeter`: «{spent} من {budget}» through `fillTemplate()` (placeholders → nodes, no Arabic in
+  code), `aria-hidden` bar (inline width, accent / money-out when over), text line «المتبقي من
+  الميزانية: X» or «تجاوز الميزانية بمقدار: X»; no budget → المصروف + «(بدون ميزانية)».
+- Detail: header, `ProjectActions` (تسجيل تكلفة only while ACTIVE → `/owner/transactions/new?projectId=`;
+  تعديل; تعليم كمكتملة / إلغاء الإضافة or إعادة فتح — reversible, no dialog; طباعة الملخص; حذف only
+  without history), totals + حسب التصنيف as `report-card`s (existing print block), own ledger via
+  `listTransactions(estId, { projectId: routeId, page })` + `LedgerList` + `Pagination` (screen only), and a
+  print-only `ProjectPrintEntries` table of the current page titled «حركات الإضافة — صفحة X من N»
+  (`t.common.page`/`of`; the doc says «الصفحة», the existing key says «صفحة»). `PrintHeader` gained optional
+  `title`/`subject`, and its period row is optional.
+- `ProjectForm`: budget via `AmountField` (new optional props `label/id/name/required/hint`; defaults keep
+  the entry form byte-identical: id `amount`, `amountInput`, `amountHalalas`); typed-but-unparseable budget
+  → `err.amountInvalid` client-side (else it would silently submit "no budget").
+
+### N5 — form + ledger links (done, awaiting review)
+- `LinkFields.tsx` (after التصنيف): الجهة select (no submitted meaning of its own — a hidden `partyId`
+  carries the id, so the «أخرى» sentinel never reaches the server), «بدون جهة», `<optgroup>` per type
+  (`Select` gained `groups` + `trailing`), kept inactive party labelled «(موقوف)», «أخرى (اكتب الاسم)»
+  last → reveals `counterparty` (only submitted then). Edit of text-only entry opens on «أخرى». ضمن إضافة:
+  «بدون إضافة» + ACTIVE + the entry's own labelled with its status.
+- All four form pages load `listPartyOptions`/`listProjectOptions`; both new-entry pages accept
+  `?projectId=` only if it is an ACTIVE option (else ignored). Preset ⇒ صادر and no
+  `readLastDirection()` (S6). Owner: from «تسجيل تكلفة», حفظ returns to the إضافة. «حفظ وإضافة أخرى»
+  clears the party (remount) and keeps the project.
+- `TransactionRow` Pick + `partyId`, `projectId`, `instalmentId` (instalmentId is never submitted: absent
+  on edit means keep, V12).
+- Ledger rows (and the dashboard's recent list): `partyName ?? counterparty`; `ProjectChip` links to the
+  إضافة only when `basePath === "/owner/transactions"`, plain text for staff. `filterParams` now carries
+  `partyId`/`projectId` so paging keeps a link-set filter.
+- Gates: build 0 (lock), tsc 0, vitest 645/645; prerender manifest = `/_global-error` only; no Arabic
+  outside comments/i18n in touched folders.
+
+### S-N1 (lead's ruling) — /owner/plans and /owner/dues placeholders
+`plans/page.tsx` and `dues/page.tsx` (+ `loading.tsx` → `ComingSoonSkeleton`): `requireOwner()`, h1
+`t.navItem.plans` / `t.navItem.dues`, `ComingSoon` with `t.comingSoon.body`, no link. CP2 replaces both.
+When CP2 adds child routes (`plans/new`, `plans/[id]`), move these into `(list)`-style route groups so
+their loading.tsx does not wrap the children. Gates: build 0, tsc 0, vitest 645/645, prerender
+manifest `/_global-error` only.
+
+### Review follow-ups (R-N3/N4/N5 passed; both notes done)
+- NOTE a: the project page's `PrintHeader` now gets `subject={project.name}` (same shape the CP2 statement
+  will use).
+- NOTE b: `Select.name` is optional (documented: only for a select that is not a form field, pass `id`);
+  the الجهة picker has no name, so FormData holds only contract fields.
+- Gates: build 0, tsc 0, vitest 646/646 (one run caught backend's scoping test mid-mutation-verify —
+  1 failure in `parties` balances, green on the rerun a minute later, no change of mine involved),
+  prerender manifest `/_global-error` only.

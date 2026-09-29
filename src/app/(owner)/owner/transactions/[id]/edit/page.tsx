@@ -5,6 +5,8 @@ import { updateTransaction } from "@/features/transactions/components/actions";
 import { getTransaction } from "@/features/transactions/components/data";
 import { listCategories } from "@/features/settings/queries";
 import { listLocks } from "@/features/locks/queries";
+import { listPartyOptions } from "@/features/parties/queries";
+import { listProjectOptions } from "@/features/projects/queries";
 import { TransactionForm } from "@/features/transactions/components/TransactionForm";
 import { t } from "@/i18n/ar";
 import { requireCanEdit } from "@/lib/auth";
@@ -22,10 +24,12 @@ export default async function OwnerEditTransactionPage({
   // reachable by STAFF whose owner has switched the permission on.
   const { establishmentId } = await requireCanEdit();
 
-  const [row, categories, locks] = await Promise.all([
+  const [row, categories, locks, parties, projects] = await Promise.all([
     getTransaction(establishmentId, id),
     listCategories(establishmentId),
     listLocks(establishmentId),
+    listPartyOptions(establishmentId),
+    listProjectOptions(establishmentId),
   ]);
   if (!row) notFound();
   // The form only needs which months are closed, not the whole lock row.
@@ -42,6 +46,8 @@ export default async function OwnerEditTransactionPage({
         // could change to point at someone else's entry.
         action={updateTransaction.bind(null, row.id)}
         categories={categories}
+        parties={parties}
+        projects={projects}
         lockedMonths={lockedMonths}
         today={todayISO()}
         doneHref="/owner/transactions"

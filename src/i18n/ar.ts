@@ -3,6 +3,10 @@
  * Keys are owned by the lead; `frontend` may improve the values.
  * `err.*` keys are the error contract — server actions return these keys.
  */
+import { v12aSections } from "./ar.v12a";
+
+const { errV12a, ...v12a } = v12aSections;
+
 const APP_NAME = "زخم";
 const APP_TAGLINE = "نظام السجل المالي للمنشآت";
 
@@ -159,7 +163,7 @@ export const t = {
   },
 
   transaction: {
-    newTitle: "إضافة حركة",
+    newTitle: "حركة جديدة",
     editTitle: "تعديل حركة",
     amount: "المبلغ",
     date: "التاريخ",
@@ -174,6 +178,9 @@ export const t = {
     deleteConfirm: "سيتم حذف هذه الحركة من السجل. هل تريد المتابعة؟",
     addButton: "إضافة حركة",
     hijriHint: "التاريخ الهجري للعرض فقط",
+    // v1.2a
+    party: "الجهة",
+    project: "ضمن إضافة",
   },
 
   ledger: {
@@ -244,6 +251,9 @@ export const t = {
   /** The printed report (`/owner/reports` → طباعة). */
   print: {
     printedAt: "تاريخ الطباعة",
+    // v1.2a
+    statementTitle: "كشف حساب",
+    projectSummaryTitle: "ملخص الإضافة",
     generatedBy: `تم الإنشاء بواسطة ${APP_NAME}`,
   },
 
@@ -373,6 +383,9 @@ export const t = {
     resendTooSoon: "انتظر حتى ينتهي العد التنازلي ثم أعد الإرسال",
     verifySessionExpired: "انتهت مهلة التحقق، سجّل الدخول مرة أخرى",
     emailNotVerified: "لا يمكن اعتماد حساب لم يُوثّق بريده الإلكتروني بعد",
+
+    // v1.2a — parties, إضافة, agreements (src/i18n/ar.v12a.ts)
+    ...errV12a,
   },
 
   /** v1.1e — sign-up field labels and helper lines. Western digits throughout. */
@@ -437,6 +450,9 @@ export const t = {
     expiry: "الرمز صالح لمدة 10 دقائق.",
     ignore: "إن لم تطلب هذا فتجاهل هذه الرسالة، ولن يتغير شيء في حسابك.",
   },
+
+  // v1.2a sections (navGroup, navItem, parties, projects, plans, dues, …)
+  ...v12a,
 
   a11y: {
     skipToContent: "تجاوز إلى المحتوى",

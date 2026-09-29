@@ -46,6 +46,10 @@ model Establishment {
   categories   Category[]
   transactions Transaction[]
   locks        PeriodLock[]
+  parties      Party[]
+  projects     Project[]
+  plans        Plan[]
+  instalments  Instalment[]
 }
 
 model User {
@@ -113,6 +117,7 @@ model Category {
 
   establishment Establishment @relation(fields: [establishmentId], references: [id])
   transactions  Transaction[]
+  plans         Plan[]
 
   @@index([establishmentId, type])
 }
@@ -131,15 +136,28 @@ model Transaction {
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   deletedAt       DateTime?
+  /// v1.2a links, all optional; existing rows keep null. Each is validated
+  /// against the session's establishment in the action — never trusted.
+  partyId         String?
+  projectId       String?
+  /// The instalment a payment was recorded against. Allocation starts there
+  /// and rolls forward (docs/BACKEND.md, v1.2a). Fixed once set.
+  instalmentId    String?
 
   establishment Establishment @relation(fields: [establishmentId], references: [id])
   category      Category      @relation(fields: [categoryId], references: [id])
   createdBy     User          @relation(fields: [createdById], references: [id])
+  party         Party?        @relation(fields: [partyId], references: [id], onDelete: Restrict)
+  project       Project?      @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  instalment    Instalment?   @relation(fields: [instalmentId], references: [id], onDelete: Restrict)
 
   @@index([establishmentId, date])
   @@index([establishmentId, deletedAt])
   @@index([createdById])
   @@index([categoryId])
+  @@index([partyId])
+  @@index([projectId])
+  @@index([instalmentId])
 }
 
 model PeriodLock {
@@ -172,4 +190,130 @@ model AuditLog {
 
   @@index([establishmentId, createdAt])
   @@index([userId])
+}
+
+// ---------------------------------------------------------------- v1.2a
+// Parties, إضافة (projects), agreements (plans) and their instalments.
+// Every model carries establishmentId itself — Instalment included — so the
+// scoping gate's top-level rule applies to each without a relation filter.
+
+enum PartyType {
+  CUSTOMER
+  SUPPLIER
+  EMPLOYEE
+  OTHER
+}
+
+/// الجهات — customers, suppliers, employees and others the establishment
+/// deals with. Deactivated, never deleted, once anything references it.
+model Party {
+  id              String    @id @default(cuid())
+  establishmentId String
+  name            String
+  type            PartyType
+  phone           String?
+  email           String?
+  notes           String?
+  active          Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  establishment Establishment @relation(fields: [establishmentId], references: [id])
+  transactions  Transaction[]
+  plans         Plan[]
+
+  @@index([establishmentId, type])
+}
+
+enum ProjectStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+/// إضافة (UI label) — an owner-named item with its own costs, e.g. a new
+/// branch or a renovation. Not a category: an entry has a category AND may
+/// belong to one إضافة.
+model Project {
+  id              String        @id @default(cuid())
+  establishmentId String
+  name            String
+  description     String?
+  /// Optional. Halalas, like every amount.
+  budgetHalalas   Int?
+  startDate       DateTime      @db.Date
+  endDate         DateTime?     @db.Date
+  status          ProjectStatus @default(ACTIVE)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  establishment Establishment @relation(fields: [establishmentId], references: [id])
+  transactions  Transaction[]
+
+  @@index([establishmentId, status])
+}
+
+/// Stored state only. The displayed status (قادمة / جارية / مكتملة) is derived
+/// from dates and amounts at read time; مؤرشفة and ملغاة are these two.
+enum PlanState {
+  OPEN
+  ARCHIVED
+  CANCELLED
+}
+
+/// الاتفاقيات — an agreement with one party to pay or be paid a total over a
+/// schedule of instalments.
+model Plan {
+  id              String    @id @default(cuid())
+  establishmentId String
+  partyId         String
+  direction       Direction
+  title           String
+  totalHalalas    Int
+  categoryId      String
+  startDate       DateTime  @db.Date
+  reminderDays    Int       @default(3)
+  state           PlanState @default(OPEN)
+  /// When it was archived or cancelled (an instant, Riyadh-formatted on display).
+  closedAt        DateTime?
+  notes           String?
+  /// Optimistic lock: every payment or schedule change bumps it with
+  /// `updateMany where revision = n`, so two concurrent payments cannot both
+  /// allocate against the same remaining amount.
+  revision        Int       @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  establishment Establishment @relation(fields: [establishmentId], references: [id])
+  party         Party         @relation(fields: [partyId], references: [id])
+  category      Category      @relation(fields: [categoryId], references: [id])
+  instalments   Instalment[]
+
+  @@index([establishmentId, state])
+  @@index([partyId])
+  @@index([categoryId])
+}
+
+/// الدفعات. `paidHalalas` is a cache written only by the plan re-allocation
+/// (docs/BACKEND.md, v1.2a), recomputed from the linked, non-deleted
+/// transactions on every payment create/update/delete and schedule edit.
+/// Status is never stored: it depends on "today".
+model Instalment {
+  id               String   @id @default(cuid())
+  establishmentId  String
+  planId           String
+  /// 1-based display order, renumbered by due date on every schedule save.
+  seq              Int
+  dueDate          DateTime @db.Date
+  amountDueHalalas Int
+  paidHalalas      Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  establishment Establishment @relation(fields: [establishmentId], references: [id])
+  plan          Plan          @relation(fields: [planId], references: [id])
+  transactions  Transaction[]
+
+  @@index([establishmentId, dueDate])
+  @@index([planId])
 }

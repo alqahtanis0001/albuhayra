@@ -30,6 +30,9 @@ export function filterParams(filters: TransactionFilter): Record<string, string>
   if (filters.direction) out.direction = filters.direction;
   if (filters.categoryId) out.categoryId = filters.categoryId;
   if (filters.paymentMethod) out.paymentMethod = filters.paymentMethod;
+  // v1.2a: set only by links (an إضافة's chip); kept so paging keeps them.
+  if (filters.partyId) out.partyId = filters.partyId;
+  if (filters.projectId) out.projectId = filters.projectId;
   if (filters.q) out.q = filters.q;
   return out;
 }

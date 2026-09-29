@@ -29,6 +29,11 @@ export type TransactionRow = Pick<
   | "paymentMethod"
   | "counterparty"
   | "note"
+  // v1.2a links. The names label a kept inactive party / closed إضافة only
+  // through the option lists, which include those rows.
+  | "partyId"
+  | "projectId"
+  | "instalmentId"
 >;
 
 export { getTransaction } from "@/features/transactions/queries";

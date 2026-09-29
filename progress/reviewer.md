@@ -1943,3 +1943,80 @@ Snapshot taken at about 00:16; backend was still editing `src/lib/validation/*` 
 **NOTE**
 - **FS-N1:** `docs/BACKEND.md:321` (A10, lead's) writes the whitespace class with literal characters, including a real U+200B and U+FEFF. It should be written as `[\s  -​  　﻿]+`, as in the SQL.
 - **FS-N2:** `progress/backend.md:741` (new, backend's) contains the real U+200F it describes. `progress/frontend.md:1028` has a U+200D, but that is pre-existing, from commit `7e2e5d66`. Both are cosmetic; the owners can replace them with `‏` / `‍` text.
+
+## 2026-09-30 — v1.2a R-brief (pre-code review of the whole design, CP1 + CP2)
+Checks: `npx tsc --noEmit` 0 · `npx prisma validate` 0 · `npx vitest run` 533/533, exit 0.
+
+**BLOCKER**
+- **B1 — soft-deleted-counting rules vs the gate.** `scoping.test.ts:264` fails any `transaction.*` without `deletedAt: null`; `hasHistory` (BACKEND:353/362), `deleteProject` (:369), `updatePlan` fixed rows (:381) all need such a call. Resolution: named "reference probe" exemption in `scopeFailure` (count/groupBy/findFirst, where keys ⊆ {establishmentId, partyId, projectId, instalmentId}, no deletedAt, no amounts) with its own self-test; static ban on nested `transactions:` in select/include/_count in the new feature files.
+- **B2 — the FK does not "still point at it".** Optional relations default to `ON DELETE SET NULL` (cf. init `User_establishmentId_fkey`). Resolution: `onDelete: Restrict` on `Transaction.party/project/instalment`, map P2003 → `err.*HasHistory`, PGlite test asserts the refusal.
+
+**SHOULD**
+- S1 `Int` (int4) money columns vs `MAX_AMOUNT_HALALAS` 1e10 (money.ts:10): >21.47M SAR → DB error. Cap at 2e9 + Decision; verify Prisma 7 `_sum` over int4 beyond 2^31.
+- S2 revision must be read before/with the guarded amounts; list every bumping mutation incl. cancel/archive.
+- S3 payment on an OPEN plan with an inactive party is impossible under the CP1 party rule — payment path skips the active check; updatePlan keeps party/category (kept-not-newly-assigned).
+- S4 `buildSchedule` count > total → zero rows vs positive schema; the "1 halala × 3" test must expect refusal.
+- S5 updatePlan: duplicate row ids → scheduleInvalid; ids on createPlan refused/ignored; omitted fixed row = schedulePaidRowChanged.
+- S6 `TransactionForm.tsx:66-68` localStorage direction overrides the `?projectId=` preset and payment-mode lock; hide save-and-add in payment mode.
+- S7 `ProjectRow`/`getProject` lacks `hasHistory`.
+- S8 `SETTINGS_PATH` revalidation in establishments/locks/settings actions points at a path with no page after the split; files unowned in CP1.
+- S9 Arabic plurals with `{n}` (ar.v12a.ts:39,183,185,213,262).
+- S10 staff nav «إضافة» collides with إضافة = project; use `t.navItem.newEntry`.
+
+**NOTE**
+- N1 route param must win over `?projectId=`/`?partyId=`. N2 project chip not a link for STAFF. N3 drift-check mechanism unspecified (propose PGlite introspection comparison). N4 `createManyAndReturn` unknown to the harness. N5 layout badge staleness; admin static case to cover `components/chrome/**`. N6 printed project summary shows one page of entries — label it. N7 write-off row ordering after a post-archive correction. N8 clearing optional fields writes null; absent `instalmentId` on edit = keep.
+
+Verified OK: no key collisions in the ar.v12a spread; all referenced err keys exist; rule 10 unaffected; rule 11 keys identical for foreign/missing; allocation overpaid = 0 whenever Σpayments ≤ total; statement closing = list balance given Σrows = total; activeHref longest-match over the new routes; badge contrast 6.5:1.
+- **Spot-check of the lead's resolutions (V1–V12):**
+  - Correct: `onDelete: Restrict` (schema.prisma:150-152), `MAX_AMOUNT_HALALAS` 2e9, `plural.ts` + PluralForms (categories checked in Node, 0–103), `plans.progress` reworded.
+  - One stale line: `docs/FRONTEND.md:140` still says "Staff nav unchanged (… إضافة …)", which contradicts V11.
+  - tsc and prisma validate both exit 0.
+  - Lead's correction: S10 (staff nav label) was not applied in the contract; it is `frontend`'s N1 (nav.ts). Check it in R-N1.
+
+## 2026-09-30 — v1.2a R-K1 (parties/projects queries+actions, LedgerRow links) — PASS
+- Tenancy / rule 2b / rule 11: all scoped at the top level; no unique writes; foreign id → `err.notFound`.
+- V1 probes: groupBy by partyId/projectId and the count calls in deleteParty/deleteProject; where keys limited, no amounts. Amount groupBys keep `deletedAt: null`.
+- V2: P2003 confirmed in the runtime (adapter-pg 23503 → ForeignKeyConstraintViolation → "P2003").
+- updateParty duplicate check only while active — matches the doc.
+- Notes sent to backend:
+  - K5 gate must drive `listParties` with OPEN and ARCHIVED plans so `instalment.groupBy` is observed, plus a numeric balance case.
+  - V3 `_sum` finding needs a recorded basis.
+  - `byCategory` "" fallback is unreachable — worth a comment.
+
+## 2026-09-30 — v1.2a R-N1 (owner navigation) + R-N2 (settings split, staff pages) — PASS
+- tsc 0; component tests 13/13.
+- **N1:** group table, activeHref over flattened items, four tabs + المزيد, V11 label, aria-expanded/controls, `hidden` over `flex`, hydration-safe open state, guarded localStorage, `<dialog>` sheet (closes on path change and backdrop, no-print, reduced-motion fade), badge (0 hidden, 99+, aria-hidden digit + plural sr-only, `-end-3`, 6.47:1).
+- **N2:** each page `requireOwner()` + own data + h1; redirect map for all five tabs; account href; «قريباً» pages; route groups for loading.tsx.
+- **SHOULD S-N1:** CP1 nav/tab bar link to `/owner/plans` and `/owner/dues`, which are CP2 → the CP1 build has a primary tab that 404s. Proposed «قريباً» placeholders in CP1; sent to the lead for a ruling.
+- **NOTE:** a manually collapsed active group is accepted.
+- Still open (backend K3/V9): the SETTINGS_PATH revalidations.
+  - Lead ruling: the S-N1 placeholders are approved (frontend, CP1). Re-check when they land: requireOwner, ComingSoon, loading.tsx, no new keys. V9 is still on K3; the commit is held for it.
+
+## 2026-09-30 — v1.2a R-N3 (الجهات UI) + R-N4 (إضافة UI) + R-N5 (form and ledger links) — PASS
+- tsc 0. No physical utilities, no stray Arabic; every new page has a loading.tsx.
+- Tenancy: route params go to scoped reads, then `notFound()`. The project ledger is filtered by `project.id` and takes only `page` from the URL. `?projectId=` counts only when it matches an ACTIVE option (both roles).
+- Form: the hidden `partyId` never carries the «أخرى» sentinel; counterparty is posted only under «أخرى»; kept inactive party / closed project are labelled; S6 fixed.
+- Ledger: the chip links only for the owner.
+- Budget bar: aria-hidden, number in text.
+- Print: «صفحة X من N» accepted.
+- Notes to frontend: add `subject={project.name}` to the project PrintHeader; drop the `name` from `partyChoice`.
+
+## 2026-09-30 — v1.2a R-K2..K5 + S-N1 placeholders — PASS (one SHOULD)
+- vitest 646/646 (30 files) exit 0; tsc 0.
+- **K2:**
+  - Migration: additions only, LF, all three links RESTRICT.
+  - PGlite test: old insert, dangling 23503, Restrict 23001, drift check via information_schema/pg_indexes/pg_constraint.
+  - A real Prisma client through adapter-pg on PGlite proves V3 (bigint arrives as a JS number) and P2003.
+- **K3/K4:** V9 done; checkLinks scoped, rule 11 keys identical; kept rule from the DB row; instalmentId refused and never written on edit; counterparty null with a party; export uses partyName.
+- **K5:** harness models, createMany per element, createManyAndReturn refused, 9 V1 pins, nested static rule, admin + chrome static case.
+- **SHOULD S-K5a:** `isReferenceProbe` accepts `where: { establishmentId }` alone, or `partyId: null`, so an all-entries count including deleted rows passes. Fix: require a non-null link key; add 2 pins.
+- **NOTE N-K5b:** transactions/actions.ts is 376 lines; split it before CP2.
+- **Placeholders** /owner/plans and /owner/dues: requireOwner, ComingSoon, loading.tsx, no new keys — pass.
+  - Lead ruling: actions.ts at 325 lines is accepted for CP1 (308 at HEAD). CP2 condition: payments go in their own module and actions.ts must not grow. The CP1 re-check is blocked only on S-K5a and the links.ts sweep proof.
+  - R-N3..N5 notes a and b verified (PrintHeader subject; party picker has an id and no name). Nothing open for frontend in CP1.
+  - links.ts split: pass (server-only, in FILES, mutation-proven sweep). V1 pins reshaped: pass. pgliteClient test-only and guarded: pass; lead asked to ratify ownership of the new src/lib/testing file. S-K5a still NOT in (scoping.test.ts:307-321) — the only CP1 blocker; fix re-sent.
+  - Lead ratified pgliteClient.ts and links.ts (ownership addendum in TASKS). S-K5a remains the sole CP1 blocker.
+- **S-K5a verified:**
+  - isReferenceProbe requires at least one link key, and every link key must name ids (string or `{ in: [strings] }`); pins at scoping.test.ts:598-606 cover no link, null and `{ not: null }`.
+  - vitest 654/654, tsc 0.
+  - **CP1 clear from reviewer.** Carried to CP2: the payment module is separate and actions.ts must not grow.

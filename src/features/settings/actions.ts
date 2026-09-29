@@ -28,7 +28,13 @@ import {
 
 export type SettingsState = ActionResult<null> | null;
 
-const SETTINGS_PATH = "/owner/settings";
+/**
+ * Settings is split into pages under one layout since v1.2a (V9), so the whole
+ * segment is revalidated, not the old single page.
+ */
+function revalidateSettings(): void {
+  revalidatePath("/owner/settings", "layout");
+}
 
 const idSchema = z.string().trim().min(1, "err.required").max(64, "err.tooLong");
 
@@ -172,7 +178,7 @@ export async function createCategory(
       before: { active: false },
       after: { active: true },
     });
-    revalidatePath(SETTINGS_PATH);
+    revalidateSettings();
     return { ok: true, data: null };
   }
 
@@ -199,7 +205,7 @@ export async function createCategory(
     after: { nameAr, type },
   });
 
-  revalidatePath(SETTINGS_PATH);
+  revalidateSettings();
   return { ok: true, data: null };
 }
 
@@ -244,7 +250,7 @@ export async function updateCategory(
     after: { nameAr: parsed.data.nameAr },
   });
 
-  revalidatePath(SETTINGS_PATH);
+  revalidateSettings();
   return { ok: true, data: null };
 }
 
@@ -294,7 +300,7 @@ export async function setCategoryActive(
     after: { active: parsed.data.active },
   });
 
-  revalidatePath(SETTINGS_PATH);
+  revalidateSettings();
   return { ok: true, data: null };
 }
 
@@ -354,6 +360,6 @@ export async function setCategoryOrder(
     });
   });
 
-  revalidatePath(SETTINGS_PATH);
+  revalidateSettings();
   return { ok: true, data: null };
 }

@@ -14,6 +14,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { assertUnlocked } from "@/features/locks/assertUnlocked";
+import { checkLinks, linkColumns } from "@/features/transactions/links";
 import { writeAudit } from "@/lib/audit";
 import { requireCanEdit, requireMember, requireOwner } from "@/lib/auth";
 import { dateToISO, isoToDate, monthKey } from "@/lib/dates";
@@ -105,6 +106,9 @@ type Snapshot = {
   amountHalalas: number;
   categoryId: string;
   paymentMethod: string;
+  partyId: string | null;
+  projectId: string | null;
+  instalmentId: string | null;
 };
 
 function snapshot(row: {
@@ -113,6 +117,9 @@ function snapshot(row: {
   amountHalalas: number;
   categoryId: string;
   paymentMethod: string;
+  partyId?: string | null;
+  projectId?: string | null;
+  instalmentId?: string | null;
 }): Snapshot {
   return {
     date: dateToISO(row.date),
@@ -120,8 +127,23 @@ function snapshot(row: {
     amountHalalas: row.amountHalalas,
     categoryId: row.categoryId,
     paymentMethod: row.paymentMethod,
+    partyId: row.partyId ?? null,
+    projectId: row.projectId ?? null,
+    instalmentId: row.instalmentId ?? null,
   };
 }
+
+const EXISTING_SELECT = {
+  id: true,
+  date: true,
+  direction: true,
+  amountHalalas: true,
+  categoryId: true,
+  paymentMethod: true,
+  partyId: true,
+  projectId: true,
+  instalmentId: true,
+} as const;
 
 /** Any ACTIVE member of the establishment may add an entry. */
 export async function createTransaction(
@@ -144,6 +166,9 @@ export async function createTransaction(
     input.direction,
   );
   if (badCategory) return fieldError("categoryId", badCategory);
+  const badLink = await checkLinks(establishmentId, input);
+  if (badLink) return fieldError(badLink.field, badLink.key);
+  const links = linkColumns(input);
 
   await db.$transaction(async (tx) => {
     const row = await tx.transaction.create({
@@ -154,7 +179,7 @@ export async function createTransaction(
         amountHalalas: input.amountHalalas,
         categoryId: input.categoryId,
         paymentMethod: input.paymentMethod,
-        counterparty: input.counterparty ?? null,
+        ...links,
         note: input.note ?? null,
         createdById: user.id,
       },
@@ -166,7 +191,7 @@ export async function createTransaction(
       action: "CREATE",
       entity: "Transaction",
       entityId: row.id,
-      after: { ...snapshot({ ...input, date: when }) },
+      after: { ...snapshot({ ...input, ...links, date: when }) },
       client: tx,
     });
   });
@@ -196,14 +221,7 @@ export async function updateTransaction(
 
   const existing = await db.transaction.findFirst({
     where: { establishmentId, id: parsedId.data, deletedAt: null },
-    select: {
-      id: true,
-      date: true,
-      direction: true,
-      amountHalalas: true,
-      categoryId: true,
-      paymentMethod: true,
-    },
+    select: EXISTING_SELECT,
   });
   if (!existing) return { ok: false, error: "err.notFound" };
 
@@ -220,6 +238,10 @@ export async function updateTransaction(
     existing.categoryId,
   );
   if (badCategory) return fieldError("categoryId", badCategory);
+  const badLink = await checkLinks(establishmentId, input, existing);
+  if (badLink) return fieldError(badLink.field, badLink.key);
+  // instalmentId is not written: an absent one on edit means "keep" (V12).
+  const links = linkColumns(input);
 
   const changed = await db.$transaction(async (tx) => {
     const { count } = await tx.transaction.updateMany({
@@ -230,7 +252,7 @@ export async function updateTransaction(
         amountHalalas: input.amountHalalas,
         categoryId: input.categoryId,
         paymentMethod: input.paymentMethod,
-        counterparty: input.counterparty ?? null,
+        ...links,
         note: input.note ?? null,
       },
     });
@@ -243,7 +265,9 @@ export async function updateTransaction(
       entity: "Transaction",
       entityId: existing.id,
       before: { ...snapshot(existing) },
-      after: { ...snapshot({ ...input, date: when }) },
+      after: {
+        ...snapshot({ ...input, ...links, instalmentId: existing.instalmentId, date: when }),
+      },
       client: tx,
     });
     return count;
@@ -266,14 +290,7 @@ export async function deleteTransaction(
 
   const existing = await db.transaction.findFirst({
     where: { establishmentId, id: parsedId.data, deletedAt: null },
-    select: {
-      id: true,
-      date: true,
-      direction: true,
-      amountHalalas: true,
-      categoryId: true,
-      paymentMethod: true,
-    },
+    select: EXISTING_SELECT,
   });
   if (!existing) return { ok: false, error: "err.notFound" };
 

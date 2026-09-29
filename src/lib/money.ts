@@ -6,8 +6,13 @@
 
 export const HALALAS_PER_SAR = 100;
 
-/** 100,000,000 SAR — the validation ceiling, kept here so callers agree on it. */
-export const MAX_AMOUNT_HALALAS = 10_000_000_000;
+/**
+ * 20,000,000 SAR — the validation ceiling, kept here so callers agree on it.
+ * Every money column is a Postgres int4 (max 2,147,483,647 halalas ≈ 21.47M SAR);
+ * the old 100M SAR ceiling let a valid-looking amount fail at the database
+ * with a 500 (v1.2a review S1).
+ */
+export const MAX_AMOUNT_HALALAS = 2_000_000_000;
 
 const SAR = "ر.س";
 

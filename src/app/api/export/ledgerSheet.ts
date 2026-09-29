@@ -91,7 +91,8 @@ export function addLedgerSheet(
       riyals(signed),
       row.categoryNameAr,
       t.paymentMethod[row.paymentMethod],
-      row.counterparty ?? "",
+      // v1.2a: a linked party is the name; free text only without one.
+      row.partyName ?? row.counterparty ?? "",
       row.note ?? "",
       row.createdByName,
     ];

@@ -28,7 +28,19 @@ import {
 
 export type StaffActionState = ActionResult<null> | null;
 
-const SETTINGS_PATH = "/owner/settings";
+/**
+ * Settings is split into pages under one layout since v1.2a (V9), so the whole
+ * segment is revalidated, not the old single page.
+ */
+function revalidateSettings(): void {
+  revalidatePath("/owner/settings", "layout");
+}
+
+/** Staff rows show on /owner/staff/logins since v1.2a (the settings tab moved there). */
+function revalidateStaff(): void {
+  revalidateSettings();
+  revalidatePath("/owner/staff/logins");
+}
 
 const idSchema = z.string().trim().min(1, "err.required").max(64, "err.tooLong");
 
@@ -101,7 +113,7 @@ export async function approveStaff(userId: string): Promise<ActionResult<null>> 
     after: { status: "ACTIVE" },
   });
 
-  revalidatePath(SETTINGS_PATH);
+  revalidateStaff();
   return { ok: true, data: null };
 }
 
@@ -130,7 +142,7 @@ export async function rejectStaff(userId: string): Promise<ActionResult<null>> {
     after: { status: "DISABLED" },
   });
 
-  revalidatePath(SETTINGS_PATH);
+  revalidateStaff();
   return { ok: true, data: null };
 }
 
@@ -159,7 +171,7 @@ export async function setCanEdit(
     after: { canEdit: parsed.data.value },
   });
 
-  revalidatePath(SETTINGS_PATH);
+  revalidateStaff();
   return { ok: true, data: null };
 }
 
@@ -193,7 +205,7 @@ export async function setStaffActive(
     after: { status },
   });
 
-  revalidatePath(SETTINGS_PATH);
+  revalidateStaff();
   return { ok: true, data: null };
 }
 
@@ -227,7 +239,7 @@ export async function resetStaffPassword(
     entityId: staff.id,
   });
 
-  revalidatePath(SETTINGS_PATH);
+  revalidateStaff();
   return { ok: true, data: null };
 }
 
@@ -261,6 +273,6 @@ export async function regenerateJoinCode(): Promise<
     entityId: establishmentId,
   });
 
-  revalidatePath(SETTINGS_PATH);
+  revalidateSettings();
   return { ok: true, data: { joinCode } };
 }

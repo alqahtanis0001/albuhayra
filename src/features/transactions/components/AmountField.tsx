@@ -14,12 +14,24 @@ export function AmountField({
   onChange,
   error,
   disabled = false,
+  label = t.transaction.amount,
+  id = "amount",
+  name = "amountHalalas",
+  required = true,
+  hint,
 }: {
   value: string;
   onChange: (next: string) => void;
   /** An `err.*` key from fieldErrors. */
   error?: string;
   disabled?: boolean;
+  /** v1.2a reuse (an إضافة's budget): label, field id, the hidden field's name. */
+  label?: string;
+  id?: string;
+  name?: string;
+  /** false: an empty field is "not given" and submits "". */
+  required?: boolean;
+  hint?: string;
 }) {
   const halalas = parseSAR(value);
   // Only complain once something has been typed; an untouched field is not wrong yet.
@@ -28,15 +40,15 @@ export function AmountField({
 
   return (
     <div className="flex flex-col gap-1">
-      <label htmlFor="amount" className="text-sm font-medium text-gray-700">
-        {t.transaction.amount}
-        <span aria-hidden="true"> *</span>
+      <label htmlFor={id} className="text-sm font-medium text-gray-700">
+        {label}
+        {required ? <span aria-hidden="true"> *</span> : null}
       </label>
 
       <div className="relative">
         <input
-          id="amount"
-          name="amountInput"
+          id={id}
+          name={`${id}Input`}
           type="text"
           inputMode="decimal"
           autoComplete="off"
@@ -45,7 +57,7 @@ export function AmountField({
           disabled={disabled}
           onChange={(event) => onChange(event.target.value)}
           aria-invalid={shown ? true : undefined}
-          aria-describedby={shown ? "amount-error" : undefined}
+          aria-describedby={[shown ? `${id}-error` : "", hint ? `${id}-hint` : ""].filter(Boolean).join(" ") || undefined}
           className={`min-h-11 w-full rounded-lg border bg-white px-3 pe-14 text-base text-gray-900 ${
             shown ? "border-money-out" : "border-gray-300"
           }`}
@@ -59,10 +71,15 @@ export function AmountField({
       </div>
 
       {/* What the action actually parses: an integer number of halalas. */}
-      <input type="hidden" name="amountHalalas" value={halalas ?? ""} />
+      <input type="hidden" name={name} value={halalas ?? ""} />
 
+      {hint ? (
+        <p id={`${id}-hint`} className="text-xs text-gray-500">
+          {hint}
+        </p>
+      ) : null}
       {shown ? (
-        <p id="amount-error" className="text-xs font-medium text-money-out">
+        <p id={`${id}-error`} className="text-xs font-medium text-money-out">
           {errorMessage(shown)}
         </p>
       ) : null}

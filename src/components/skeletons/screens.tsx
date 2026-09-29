@@ -11,7 +11,6 @@ import {
   SkeletonPage,
   SkeletonRows,
   SkeletonStatCards,
-  SkeletonTabs,
 } from "./Skeleton";
 
 /** /owner: four stat cards, balance by method, the chart, top OUT, recent. */
@@ -83,8 +82,8 @@ export function LedgerSkeleton() {
 }
 
 /**
- * The add / edit form: direction toggle, amount, date, category, method,
- * counterparty, note, then حفظ (+ حفظ وإضافة أخرى on "new").
+ * The add / edit form: direction toggle, amount, date, category, الجهة,
+ * ضمن إضافة, method, note, then حفظ (+ حفظ وإضافة أخرى on "new").
  */
 export function EntryFormSkeleton({ mode }: { mode: "new" | "edit" }) {
   return (
@@ -94,7 +93,7 @@ export function EntryFormSkeleton({ mode }: { mode: "new" | "edit" }) {
         <Bone onBody className="mb-1 h-4 w-20" />
         <div className="grid min-h-11 grid-cols-2 rounded-lg border border-gray-300 bg-white" />
       </div>
-      {Array.from({ length: 5 }, (_, i) => (
+      {Array.from({ length: 6 }, (_, i) => (
         <SkeletonField key={i} onBody />
       ))}
       <SkeletonField onBody tall />
@@ -131,14 +130,30 @@ export function ReportsSkeleton() {
   );
 }
 
-/** /owner/settings: the five-tab strip over a list. */
+/**
+ * The owner's settings pages (v1.2a: one per former tab — التصنيفات, رمز
+ * الانضمام, إقفال الأشهر — and حسابات الدخول): a heading over a list card.
+ */
 export function SettingsSkeleton() {
   return (
     <SkeletonPage>
       <SkeletonHeader />
-      <SkeletonTabs count={5} />
       <SkeletonCard>
         <SkeletonRows count={5} />
+      </SkeletonCard>
+    </SkeletonPage>
+  );
+}
+
+/** The «قريباً» placeholders (/owner/staff, /owner/staff/attendance). */
+export function ComingSoonSkeleton() {
+  return (
+    <SkeletonPage>
+      <SkeletonHeader />
+      <SkeletonCard className="flex flex-col gap-3 p-4">
+        <Bone className="h-5 w-14" />
+        <Bone className="h-5 w-48 max-w-full" />
+        <Bone className="h-4 w-full" />
       </SkeletonCard>
     </SkeletonPage>
   );

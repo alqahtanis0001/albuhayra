@@ -18,7 +18,13 @@ import { LockInputSchema, invalid, type ActionResult } from "@/lib/validation";
 
 import { isClosedMonth } from "./assertUnlocked";
 
-const SETTINGS_PATH = "/owner/settings";
+/**
+ * Settings is split into pages under one layout since v1.2a (V9), so the whole
+ * segment is revalidated, not the old single page.
+ */
+function revalidateSettings(): void {
+  revalidatePath("/owner/settings", "layout");
+}
 
 export async function lockMonth(
   year: number,
@@ -61,7 +67,7 @@ export async function lockMonth(
     });
   });
 
-  revalidatePath(SETTINGS_PATH);
+  revalidateSettings();
   return { ok: true, data: null };
 }
 
@@ -102,6 +108,6 @@ export async function unlockMonth(
     });
   });
 
-  revalidatePath(SETTINGS_PATH);
+  revalidateSettings();
   return { ok: true, data: null };
 }

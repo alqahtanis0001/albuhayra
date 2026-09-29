@@ -193,6 +193,26 @@ dialog::backdrop {
   }
 }
 
+/* المزيد sheet (src/components/chrome/MoreSheet.tsx, v1.2a): slides up from
+   the bottom edge with the route easing; fades only under reduced motion. No
+   fill mode — the base state is the end state. Block-axis motion, so no RTL
+   variant. */
+@keyframes sheet-up {
+  from {
+    translate: 0 100%;
+  }
+}
+@media screen {
+  .nav-sheet[open] {
+    animation: route-fade-in 280ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+}
+@media screen and (prefers-reduced-motion: no-preference) {
+  .nav-sheet[open] {
+    animation-name: sheet-up;
+  }
+}
+
 /* Navigation progress (src/components/NavProgress.tsx): a 3px bar over the top
    bar's 4px dark strip while a nav link's navigation is pending. #a7cdb6 is
    5.77:1 on that strip; the accent #006c35 would be 1.53:1 and invisible.
