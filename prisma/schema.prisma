@@ -1,0 +1,140 @@
+// Schema for سجل المصروفات. Owner: lead (see CLAUDE.md ownership map).
+// Money is always an integer in halalas. No VAT, no receipts, no attachments.
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+
+}
+
+enum Role {
+  ADMIN
+  OWNER
+  STAFF
+}
+
+enum UserStatus {
+  PENDING
+  ACTIVE
+  DISABLED
+}
+
+enum Direction {
+  IN
+  OUT
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  MADA
+  STC_PAY
+  OTHER
+}
+
+model Establishment {
+  id        String   @id @default(cuid())
+  name      String
+  joinCode  String   @unique
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  users        User[]
+  categories   Category[]
+  transactions Transaction[]
+  locks        PeriodLock[]
+}
+
+model User {
+  id              String     @id @default(cuid())
+  email           String     @unique
+  name            String
+  passwordHash    String
+  role            Role
+  status          UserStatus @default(PENDING)
+  canEdit         Boolean    @default(false)
+  establishmentId String?
+  createdAt       DateTime   @default(now())
+
+  establishment Establishment? @relation(fields: [establishmentId], references: [id])
+  transactions  Transaction[]
+  locks         PeriodLock[]
+  auditLogs     AuditLog[]
+
+  @@index([establishmentId, role, status])
+}
+
+model Category {
+  id              String    @id @default(cuid())
+  establishmentId String
+  nameAr          String
+  type            Direction
+  active          Boolean   @default(true)
+  sortOrder       Int       @default(0)
+
+  establishment Establishment @relation(fields: [establishmentId], references: [id])
+  transactions  Transaction[]
+
+  @@index([establishmentId, type])
+}
+
+model Transaction {
+  id              String        @id @default(cuid())
+  establishmentId String
+  date            DateTime      @db.Date
+  direction       Direction
+  amountHalalas   Int
+  categoryId      String
+  paymentMethod   PaymentMethod
+  counterparty    String?
+  note            String?
+  createdById     String
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  deletedAt       DateTime?
+
+  establishment Establishment @relation(fields: [establishmentId], references: [id])
+  category      Category      @relation(fields: [categoryId], references: [id])
+  createdBy     User          @relation(fields: [createdById], references: [id])
+
+  @@index([establishmentId, date])
+  @@index([establishmentId, deletedAt])
+  @@index([createdById])
+  @@index([categoryId])
+}
+
+model PeriodLock {
+  id              String   @id @default(cuid())
+  establishmentId String
+  year            Int
+  month           Int
+  lockedById      String
+  lockedAt        DateTime @default(now())
+
+  establishment Establishment @relation(fields: [establishmentId], references: [id])
+  lockedBy      User          @relation(fields: [lockedById], references: [id])
+
+  @@unique([establishmentId, year, month])
+  @@index([lockedById])
+}
+
+model AuditLog {
+  id              String   @id @default(cuid())
+  establishmentId String?
+  userId          String
+  action          String
+  entity          String
+  entityId        String
+  before          Json?
+  after           Json?
+  createdAt       DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([establishmentId, createdAt])
+  @@index([userId])
+}

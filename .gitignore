@@ -1,0 +1,26 @@
+node_modules/
+.next/
+out/
+build/
+dist/
+coverage/
+
+.env
+.env.local
+.env.*.local
+
+src/generated/
+
+npm-debug.log*
+yarn-error.log*
+*.tsbuildinfo
+next-env.d.ts
+
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# quality-gate hook logs
+.claude/build.log
+.claude/test.log

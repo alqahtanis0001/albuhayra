@@ -49,7 +49,7 @@ Team shape: **lead** + `backend` + `frontend` + `reviewer`. Do not spawn more wi
 | Path | Owner |
 |---|---|
 | `prisma/**`, `src/lib/**`, `src/i18n/ar.ts` (keys only, after Phase 0) | lead (Phase 0), then `backend` for `prisma/seed.ts` and `src/lib/*` fixes |
-| `src/features/*/actions.ts`, `src/features/*/queries.ts`, `src/app/api/**`, `src/middleware.ts`, `src/**/*.test.ts` | `backend` |
+| `src/features/*/actions.ts`, `src/features/*/queries.ts`, `src/app/api/**`, `src/proxy.ts`, `src/**/*.test.ts` | `backend` |
 | `src/app/**/page.tsx`, `src/app/**/layout.tsx`, `src/components/**`, `src/features/*/components/**`, `public/**`, `src/app/globals.css` | `frontend` |
 | `src/i18n/ar.ts` string *values* | `frontend` may add/edit values; new *keys* must be announced to `backend` by message |
 | everything else | lead |

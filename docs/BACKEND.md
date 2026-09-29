@@ -123,7 +123,7 @@ Rules:
   - `requireOwner()`, `requireAdmin()` → `requireUser()` + role check.
   - `requireCanEdit()` → OWNER, or STAFF with `canEdit: true`.
 - Login rate limit: in-memory map keyed `ip + email`, 5 failures / 15 min. Same limiter for sign-up and join-code attempts keyed by ip.
-- `src/middleware.ts`: no session → `/login` for everything except `/login`, `/signup`, `/pending`, `/api/health`, `/_next/*`, `/manifest.json`, `/icons/*`, `/sw.js`. Role-based route groups: `/admin/*` needs ADMIN, `/owner/*` needs OWNER, `/staff/*` needs STAFF. Middleware is a convenience; the real checks are in `requireX()`.
+- `src/proxy.ts` (Next.js 16 renamed `middleware.ts` to `proxy.ts`; same API, export `proxy`): no session → `/login` for everything except `/login`, `/signup`, `/pending`, `/api/health`, `/_next/*`, `/manifest.json`, `/icons/*`, `/sw.js`. Role-based route groups: `/admin/*` needs ADMIN, `/owner/*` needs OWNER, `/staff/*` needs STAFF. Middleware is a convenience; the real checks are in `requireX()`.
 
 ## Server actions — the contract (`src/features/<feature>/actions.ts`)
 Every action: `requireX()` → zod parse → business rules → Prisma (scoped by establishmentId) → AuditLog → `revalidatePath`. Return type is always `ActionResult<T> = { ok: true, data: T } | { ok: false, error: string /* i18n key */, fieldErrors?: Record<string,string> }`.
@@ -179,7 +179,10 @@ Exports zod schemas and inferred types: `SignupOwnerSchema`, `SignupStaffSchema`
 4. Generic error messages for login, sign-up, and join code — never reveal whether an email exists or which field was wrong. Sign-up with an existing email returns the same generic failure key as any other invalid sign-up.
 5. Cookie flags as above; logout clears the cookie; session invalid if user becomes DISABLED or establishment becomes inactive (checked in `requireUser()`).
 6. bcrypt cost 12.
-7. Headers in `next.config.js`: `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `Permissions-Policy: camera=(), geolocation=()`, `Strict-Transport-Security: max-age=63072000; includeSubDomains`, CSP `default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'` — if Next.js needs a nonce for its inline scripts, implement nonce-based CSP and log a Decision.
+7. Constant headers in `next.config.mjs`: `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `Permissions-Policy: camera=(), geolocation=(), microphone=()`, `Strict-Transport-Security: max-age=63072000; includeSubDomains`.
+   CSP is set in `src/proxy.ts`, not in the config, because it carries a per-request nonce: Next.js emits two inline `<script>` tags for the hydration payload, so a flat `script-src 'self'` blocks hydration (verified on this version — see the Decision in `PROGRESS.md`). The policy is
+   `default-src 'self'; script-src 'self' 'nonce-<n>' 'strict-dynamic'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests`
+   (dev swaps `'strict-dynamic'` for `'unsafe-eval'`, which React needs only in development). **A nonce only reaches a dynamically rendered page** — every page that calls `requireX()` is dynamic already, so do not add `export const revalidate` or make any page static.
 8. Never log bodies, passwords, sessions. Never return stack traces. No external runtime calls, analytics, or third-party scripts.
 9. `.env` gitignored; `.env.example` shipped.
 10. ADMIN endpoints never return `amountHalalas` or transaction rows.

@@ -8,16 +8,24 @@
       "Edit",
       "Write",
       "Bash(npm install*)",
+      "Bash(npm ci*)",
       "Bash(npm run *)",
       "Bash(npm test*)",
       "Bash(npx prisma generate*)",
+      "Bash(npx prisma validate*)",
+      "Bash(npx prisma format*)",
       "Bash(npx prisma migrate dev*)",
+      "Bash(npx prisma migrate deploy*)",
+      "Bash(npx prisma migrate diff*)",
+      "Bash(npx prisma migrate status*)",
       "Bash(npx vitest*)",
+      "Bash(npx tsc*)",
       "Bash(git status*)",
       "Bash(git add*)",
       "Bash(git commit*)",
       "Bash(git diff*)",
-      "Bash(git log*)"
+      "Bash(git log*)",
+      "Bash(git show*)"
     ],
     "deny": [
       "Bash(npx prisma migrate reset*)",
@@ -34,7 +42,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npm run build >/tmp/build.log 2>&1 && npm test >/tmp/test.log 2>&1 || { echo 'Build or tests failed. Fix before completing the task. See /tmp/build.log and /tmp/test.log'; exit 2; }"
+            "command": "npm run build > .claude/build.log 2>&1 && npm test > .claude/test.log 2>&1 || { echo 'Build or tests failed. Fix before completing the task. See .claude/build.log and .claude/test.log'; exit 2; }"
           }
         ]
       }
