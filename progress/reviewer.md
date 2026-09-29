@@ -730,6 +730,20 @@ changes its mind later*, rather than resting on what the actions do today.
   spending a pass on the question. The lead has asked to be treated this way
   explicitly, having been corrected on three factual claims in one session, each
   asserted from memory where a check was cheap.
+- **Verify a convenience too — not just claims and corrections.** I relayed the
+  lead's "I already added `t.transaction.retiredCategory`" to `frontend` as fact
+  and then filed a review note complaining the key was unused. It does not exist;
+  `grep -in "retired|متوقف" src/i18n/ar.ts` is empty, and the current `ar.ts` had
+  scrolled past me earlier with the `transaction:` block visible. `frontend`
+  caught it by reading the file. The near-cost: I asked them to change working
+  code to use a key that did not exist — had they deferred to me as readily as I
+  deferred to the lead, the build would have broken and been attributed to their
+  task. **`grep` for the symbol, not `ls` for the file.**
+- **Triage tree-versus-claim mismatches by whether they fail loudly or silently**
+  (`frontend`'s distinction). Four this session: the action shape, `zzsmoke`'s
+  first deletion, `getOwnStatus`, this key. The missing key fails loudly — `tsc`
+  rejects it — so it was cheap; the action shape could have stayed quiet. Spend
+  verification effort on the silent ones first.
 - **Verify a correction too, not just a claim.** I accepted "this is a
   specification defect" as a ruling and wrote it into these notes — about a line
   of `docs/BACKEND.md` I had already read correctly and had derived my own prep

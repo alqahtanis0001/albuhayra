@@ -557,3 +557,35 @@ error rather than a silent mismatch.
 
 Status: F1, F2, F2b, F3, F4 and W1 all delivered. Build 0, `tsc` 0, `npm test` 137/137. Holding for
 Checkpoint 2; F4 and F2b are with the reviewer.
+
+## F4 review closed — two notes, one fix
+
+**Empty amount now says "required", not "must be greater than zero".** The hidden field submits `""`,
+`Number("")` is `0`, and the schema answers `err.amountPositive` — verified directly with a
+`safeParse`, not reasoned about. The guard in the reducer tells the two cases apart using the
+*visible* field, which is in the form data as `amountInput`: empty → `err.required`,
+non-empty-but-unparseable → `err.amountInvalid`. That distinction matters because `AmountField`'s
+`localError` already shows "invalid" while typing, and a blanket "required" would contradict it
+mid-keystroke.
+
+**`t.transaction.retiredCategory` was added and then removed while we were all looking.** The lead
+added it pre-emptively, the reviewer read `ar.ts` during that window and told me it was there, and
+the lead removed it as unused once I said I had not needed it. Three reads of one file at three
+moments, three different answers. The label stays `t.status.DISABLED` → "صيانة (معطل)", which the
+lead endorsed: one state should read the same word everywhere — a category, a staff member and an
+establishment being معطل are the same idea, and a reader who learns the word once should not meet a
+second word for it. The reviewer's objection (that `t.status.*` is account vocabulary) is reasonable
+and recorded, not dismissed.
+
+**Confirmed by the reviewer as the real risks in this form**, all handled: the hidden/visible amount
+split (without it "1234.50" arrives non-integer and fails `.int()`); `DirectionToggle` using real
+`sr-only` radios rather than a button group, so the value is submitted and the control stays
+keyboard-navigable; and `today` arriving as a **server** prop so the date cap cannot disagree with a
+client whose clock or timezone differs.
+
+**Method worth copying from that review:** they checked each of the seven fields individually in the
+locked-original case rather than trusting the pattern — `disabled` is applied per field, so a
+pattern-level read would pass a form with one field left live, which is exactly the shape of bug that
+ships.
+
+Gates: build 0, `tsc` 0, `npm test` 137/137. F4 and F2b both reviewed clean; holding for Checkpoint 2.

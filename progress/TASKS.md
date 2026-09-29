@@ -47,7 +47,7 @@ backend task lands. Stubs are removed in the wire-up task.
 | F8 | Owner settings, 5 tabs: categories, staff, join code, month locks, account. | `src/app/(owner)/owner/settings/page.tsx`, `src/features/settings/components/**` | todo |
 | F9 | Admin pages: requests, establishments (search), account. **Never render an amount.** | `src/app/(admin)/admin/**`, `src/features/admin/components/**` | todo |
 | F2b | **done.** "already have an account?" link to `/login` on the sign-up form — the leak-free mitigation for B10 telling an employee with a registered email that the join code is wrong. | `src/features/auth/components/**` | done |
-| F4b | One cosmetic from the F4 review: an empty amount reports `err.amountPositive` ("must be greater than zero") rather than `err.required`, because the hidden field submits `""` and `Number("")` is `0`. It lands under the right field by the right mechanism; it just names the wrong problem for an untouched form. | `src/features/transactions/components/**` | todo |
+| F4b | One cosmetic from the F4 review: an empty amount reports `err.amountPositive` ("must be greater than zero") rather than `err.required`, because the hidden field submits `""` and `Number("")` is `0`. It lands under the right field by the right mechanism; it just names the wrong problem for an untouched form. | `src/features/transactions/components/**` | done |
 | F10 | PWA + print CSS: `manifest.json`, icons 192/512, minimal service worker (app shell only, never `/api/*`), print stylesheet. | `public/manifest.json`, `public/icons/**`, `public/sw.js`, `src/app/globals.css` | todo |
 
 ## Wire-up tasks (`frontend`) — blocked until both sides land
