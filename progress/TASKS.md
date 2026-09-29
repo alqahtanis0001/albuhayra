@@ -60,8 +60,8 @@ Each removes the `USE_STUBS` path for its screen and calls the real action/query
 |---|---|---|---|
 | W1 | Auth pages | B1 + F2 | done — one line, as predicted |
 | W2 | Owner dashboard | B3 + F3 | done — two type renames, no drift |
-| W3 | Add / edit entry — flips all three transaction actions together | B3 + B4 + F4 | todo (Checkpoint 5) |
-| W4 | Ledger list | B3 + B4 + F5 | todo (Checkpoint 5) |
+| W3 | Add / edit entry — flips `getTransaction` **and** `updateTransaction`/`deleteTransaction` together; `getTransaction` is the last stub in the tree | B3 + B4 + F4 | **next** |
+| W4 | Ledger list | B3 + B4 + F5 | **next** |
 | W5 | **done.** **Wire reports + export** — point the reports page at the real `getReport`, confirm the تصدير Excel link reaches B6's route and downloads a workbook | B6 + F6 | done |
 | W6 | **done (a confirmation, not a swap — every settings component imports the real modules).** **Wire settings** — point the settings tabs at the real queries and actions | B2 + B4 + B8 + F7 + F8 | done |
 | W7 | Wire staff — a confirmation, not a swap | B3 + F9 | done |

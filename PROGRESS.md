@@ -5,7 +5,8 @@ Single source of truth for project state across sessions. A new lead must be abl
 
 ## How to run
 ```
-cp .env.example .env     # DATABASE_URL, SESSION_SECRET, SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD
+# .env ALREADY EXISTS on this machine with real Neon credentials — do NOT overwrite it.
+# On a FRESH clone only:  cp .env.example .env   (DATABASE_URL, SESSION_SECRET, SEED_ADMIN_*)
 npm install              # then: npm approve-scripts --allow-scripts-pending  (prisma + esbuild need their install scripts)
 npx prisma migrate deploy   # applies prisma/migrations/20260929000000_init (already applied to Neon)
 npm run seed             # creates the ADMIN account (idempotent)
@@ -16,11 +17,25 @@ npm run typecheck        # tsc --noEmit, not part of build
 `DATABASE_URL` is read by `prisma.config.ts` (which loads `.env` via dotenv) for migrate/seed, and by `src/lib/db.ts` at runtime. `prisma generate` and `npm run build` work without it.
 
 ## Current phase
-**Phase:** 0 — Scaffold and contract (lead alone)
-**Status:** Phase 1, Checkpoint 5 committed. Waiting on the user's first sign-in before Phase 2. Phase 0 complete and database-verified; — `npm run build` and `npm test` pass (59 tests, 5 files); migration + seed applied to the live Neon database
-**Exactly where we stopped:** Checkpoint 5 committed. The user is exercising the app by hand before Phase 2 — that single pass closes the two verification gaps no test here can reach.
-**Next concrete action:** W3 and W4 — the transaction wire-ups. `getTransaction` is the last stub in the tree and must flip together with the edit page's actions. Then Phase 2: integration pass, README with Render deploy steps, final PROGRESS.md. **The PWA icons are placeholder art and must be replaced before anyone installs this.**
-**Teammates spawned:** `backend`, `frontend`, `reviewer` — all three running, all idle pending approval.
+**Phase:** Checkpoint 5 done. Next: W3/W4 (flip `getTransaction` and edit-page actions from stub to real together), then user first sign-in test, then Phase 2.
+**Status:** 265 tests in 14 files, `npm run build`, `npm test` and `tsc --noEmit` all exit 0. Tree clean at `7e2e5d6`.
+**Exactly where we stopped:** Checkpoint 5 committed and handed over. All three teammates shut down.
+**Next concrete action:** W3/W4 — `getTransaction` is the last stub in the tree. It must flip **together** with `updateTransaction`/`deleteTransaction` on the edit page, because a swap point pointing at one real query and one stub tells two stories. Then the user's first sign-in test (checklist below), then Phase 2: integration pass, README with Render deploy steps, final PROGRESS.md.
+**Teammates:** `backend`, `frontend`, `reviewer` — all shut down at handover. Their full notes are in `progress/*.md`; everything durable is merged here.
+
+## First sign-in test — the two gaps no test in this repo can reach
+Server actions have never been submitted end to end (every action test calls the function directly), and the export is proven to *reach* its route but not to *return a workbook*. Both close in one manual pass:
+1. `npm install`, then `npm approve-scripts --allow-scripts-pending`. **Do NOT run `cp .env.example .env`** — see Known issues. Then `npm run build && npm start` (not `npm run dev` — step 8 needs a production build).
+2. Sign in as ADMIN. Change the password, then delete `SEED_ADMIN_PASSWORD` from `.env`.
+3. Sign up an owner in a second browser profile; approve from `/admin`. Expect **13 categories** created, 4 IN and 9 OUT.
+4. As the owner add one IN and one OUT entry, edit one, delete the other. Watch for Western digits, `+`/`−` on every amount, Hijri beneath Gregorian.
+5. `/owner/reports` → **تصدير Excel**. Confirm a file downloads, opens, has two sheets, and its amounts are **numbers** (the column sums) rather than text.
+6. Print the report. Establishment name and range present, nav absent, IN/OUT distinguishable in black and white — `+`/`−` is the only signal left.
+7. Sign up staff with the join code, approve, toggle **السماح بالتعديل** off. The edit button must disappear **and** a direct edit URL must redirect; the second is the real check.
+8. Regenerate the join code; confirm the old one stops working.
+9. Install the PWA, then DevTools → Application → Service Workers: confirm it registered. **Do not skip** — the only place the `worker-src` fix is observable, and invisible in `npm run dev` by construction.
+10. Lock last month. Try editing an entry in it, then try moving an entry *into* it from an open month. Both must refuse.
+11. Disable the establishment from admin; confirm the owner is signed out on their next request.
 
 ## Done
 | Phase | Task | Who | Date |
@@ -139,6 +154,9 @@ Failing builds, bugs, must-not-forget TODOs. Remove when fixed.
 - Owner sign-up reveals whether an email is already registered (existence leak, accepted for v1 — email is not a credential; staff join-code rule B10 still stands because the code is).
 - **A `"use server"` module may only export async functions.** `isClosedMonth` had to move out of `locks/actions.ts` into `assertUnlocked.ts` for this reason. It breaks the **build**, not the typecheck, so `tsc --noEmit` passes and `npm run build` fails — worth knowing before hunting for a type error.
 - **The B3 scoping gate is stronger than review but is not a proof.** A mocked client only sees the calls the test actually drives, so an unscoped `groupBy` on a branch no test reaches leaves the suite green — the same blind spot the gate exists to fix, one level up. Two mitigations are in: every query function is driven twice (empty filters and all filters populated) so both sides of each conditional run, and a static layer regexes the four source files for `db.<model>.<method>(` and fails if any pair found in source was never observed at runtime. **What remains uncovered:** a *second* call site with the same `(model, method)` pair on an unexercised branch. Closing that needs a coverage threshold on those four files, which would mean adding a coverage dependency to a frozen stack. Do not read a green suite as "no unscoped call exists".
+- **Do NOT run `cp .env.example .env`.** A `.env` already exists holding the real Neon credentials and the generated `SESSION_SECRET`; copying the example over it replaces working values with placeholders and the app stops connecting. The line appears in older set-up instructions and in the first-sign-in checklist I originally gave the user — it is wrong for this machine. `.env.example` is for a *fresh* clone only.
+- **The PWA icons are placeholder art** — plain accent-coloured squares at 192 and 512. Valid PNGs, so the manifest works, but they must be replaced before anyone installs this.
+- **W3 and W4 are not done.** `getTransaction` is the last stub in the tree, in `src/features/transactions/components/stubData.ts`. It must be flipped together with the edit page's `updateTransaction`/`deleteTransaction`, not separately.
 - `pg` warns that `sslmode=require` changes meaning in pg v9 / pg-connection-string v3: today it still verifies the certificate, but it will fall back to weaker libpq semantics. Harmless now. When we upgrade `pg`, switch `DATABASE_URL` to `sslmode=verify-full` to keep the current strength.
 - `npm audit` reports 6 findings (2 moderate, 4 high) with no non-downgrading fix: `mysql2` and `deepmerge-ts` reach us only through the **Prisma CLI** (a devDependency; we never connect to MySQL), and `uuid` only through `exceljs`. None is reachable from the deployed app. Re-check when Prisma 8 is stable.
 - **Two** routes are statically prerendered, both Next.js built-ins: `/_not-found` and `/_global-error` (confirmed from `.next/prerender-manifest.json`, not from the route table). Their inline scripts carry no nonce, so neither hydrates under the CSP. Harmless — both are plain text — but **every page we write must stay dynamically rendered**: no `export const revalidate`, no `force-static`, no `generateStaticParams`. A page calling `requireX()` is dynamic already; the auth pages, which call none, declare `export const dynamic = "force-dynamic"` once in `src/app/(auth)/layout.tsx`.
@@ -157,6 +175,8 @@ Failing builds, bugs, must-not-forget TODOs. Remove when fixed.
 - `parseSAR` returns `null` rather than throwing, and rejects zero as well as negatives — an amount of 0 is never valid.
 - Tests run with `TZ=Asia/Riyadh` (set in `vitest.config.mts`) so they do not depend on the machine's clock settings.
 - `npm install` on a fresh clone leaves Prisma and esbuild uninstalled until `npm approve-scripts --allow-scripts-pending` runs; the approvals are recorded in `package.json` under `allowScripts`.
+- **`?signedOut=1` is load-bearing, not decoration.** It is what lets the proxy bounce a signed-in visitor off `/login` without looping: `requireUser()` adds the marker when *it* is the reason they are there, and the proxy skips the bounce when it sees it. Remove either half and the loop returns for a user the database has since disabled.
+- **A passing test proves nothing about whether it would catch the regression it was written for; only breaking the code on purpose does.** Every gate in this project was mutation-verified — that is why "the criterion is met" can be treated as information rather than as a claim.
 - **The proxy cannot import `src/lib/session.ts`** — that file is `server-only` and reads `cookies()` from `next/headers`, neither of which exists in the proxy runtime. It reads the session with `getIronSession(nextProxyCookies(request, response), …)` instead. The cookie name and TTL both sides need now live in `src/lib/sessionConfig.ts`, imported by both; do not re-inline them.
 - **Never redirect a signed-in visitor away from `/login` on the cookie alone** — that is a loop, because the proxy sees only the cookie while authority lives in the DB, so a since-disabled user bounces `/login` → `/owner` → `/login` forever. The bounce that exists is safe only because of the `signedOut` marker `requireUser()` adds when it is the reason the visitor is there.
 - **`updateCategory` refuses a changed `type`** (`err.categoryDirectionMismatch`): existing entries already point at the category and carry its direction, so renaming is the only safe edit.
