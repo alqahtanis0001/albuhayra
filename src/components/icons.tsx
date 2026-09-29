@@ -188,6 +188,13 @@ export const SearchIcon = (p: IconProps) => (
   </Svg>
 );
 
+/** A three-quarter ring; the caller spins it (`motion-safe:animate-spin`). */
+export const SpinnerIcon = (p: IconProps) => (
+  <Svg strokeWidth={2.5} {...p}>
+    <path d="M12 3a9 9 0 1 1-9 9" />
+  </Svg>
+);
+
 /** Nav items cross the server/client boundary, so they name their icon. */
 export const NAV_ICONS = {
   home: HomeIcon,

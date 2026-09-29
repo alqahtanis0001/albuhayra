@@ -79,28 +79,117 @@ dialog::backdrop {
   background: rgb(0 0 0 / 0.5);
 }
 
-/* Page transition (docs/FRONTEND.md, Transitions v1.1c): page content fades
-   in and rises 4px. `#main > *` is the page's (or its skeleton's) root element,
-   which React recreates on every route change but not on a search-param
-   change, so the ledger filters and the settings tabs do not flash. id="main"
-   sits on the element whose children are the page roots: the <main> in
-   AppShell and in the root not-found/error, the inner column in the (auth)
-   layout. No fill mode: with no delay it changes nothing visible, and a filling
-   opacity/transform animation would leave the page root a stacking context
-   (and a containing block for fixed children) for good, trapping the fixed
-   z-50 Toast beneath the tab bar and top bar. While the ~220ms run, a Toast is
-   positioned against the page root — it cannot outlive the animation.
-   `screen and` keeps print literally out of it. */
-@keyframes fade-in {
+/* Route transitions (docs/FRONTEND.md, Motion v1.1d). Only the content area
+   moves; the top bar and the nav never do.
+
+   Incoming — a CSS animation on `#main > *`, the page's (or its skeleton's)
+   root, which React recreates on every route change but not on a search-param
+   change, so the ledger filters and the settings tabs do not replay it. The
+   page crossfades in and slides 16px from the inline-start side (the right, in
+   RTL) over 280ms, ease-out. A loading skeleton (role="status") only fades, so
+   the real page's arrival is the one that slides. Under reduced motion,
+   everything only fades. id="main" sits on the element whose children are the
+   page roots: the <main> in AppShell and in the root not-found/error, the inner
+   column in the (auth) layout.
+
+   No fill mode: a filling opacity/translate animation would leave the page root
+   a stacking context (and a containing block for fixed children) for good,
+   trapping the fixed z-50 Toast beneath the bars. While the 280ms run, a Toast
+   is positioned against the page root — it cannot outlive the animation.
+   `screen` keeps print literally out of it. */
+:root {
+  --route-shift: -16px;
+}
+:root[dir="rtl"] {
+  --route-shift: 16px;
+}
+
+@keyframes route-fade-in {
   from {
     opacity: 0;
-    transform: translateY(4px);
+  }
+}
+@keyframes route-slide-in {
+  from {
+    opacity: 0;
+    translate: var(--route-shift) 0;
+  }
+}
+@keyframes route-fade-out {
+  to {
+    opacity: 0;
   }
 }
 
-@media screen and (prefers-reduced-motion: no-preference) {
+@media screen {
   #main > * {
-    animation: fade-in 220ms ease-out;
+    animation: route-fade-in 280ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+}
+@media screen and (prefers-reduced-motion: no-preference) {
+  #main > :not([role="status"]) {
+    animation-name: route-slide-in;
+  }
+}
+
+/* Outgoing — the View Transitions API, via <RouteTransition> (a <ViewTransition>
+   keyed on the pathname). The old content's snapshot fades out; the new
+   content's snapshot has no animation of its own because it is a live picture
+   of the element above, which is already sliding in. The root (top bar, nav,
+   tab bar, progress bar) is swapped without animation, so nothing but the
+   content moves. The overlay lets clicks through to the live page. Without
+   browser support this whole block is inert and the incoming animation still
+   plays. */
+::view-transition {
+  pointer-events: none;
+}
+::view-transition-group(root),
+::view-transition-new(root) {
+  animation: none;
+}
+::view-transition-old(root) {
+  display: none;
+}
+::view-transition-old(.route-exit) {
+  animation: route-fade-out 160ms ease-in both;
+}
+::view-transition-new(.route-enter) {
+  animation: none;
+}
+
+/* Button ripple (src/components/Button.tsx, primary only): a disc that grows
+   from the pointer-down point and fades. Placed with inset-inline-start by the
+   component; z-index -1 inside the button's isolated stacking context puts it
+   above the button's fill and under its label. The span is removed on
+   animationend; under reduced motion the component never creates it. */
+.btn-ripple {
+  position: absolute;
+  z-index: -1;
+  border-radius: 9999px;
+  background: rgb(255 255 255 / 0.35);
+  pointer-events: none;
+  transform: scale(0);
+  animation: btn-ripple 450ms ease-out forwards;
+}
+@keyframes btn-ripple {
+  to {
+    transform: scale(1);
+    opacity: 0;
+  }
+}
+
+/* Nav item pending (RoleNav.tsx): after pointer-down, while the route loads,
+   the item breathes between accent-soft and a slightly deeper green (#d2e7da;
+   accent-dark text stays 7.7:1 at the peak). Static accent-soft under reduced
+   motion. */
+@keyframes nav-pulse {
+  50% {
+    background-color: #d2e7da;
+  }
+}
+@media screen and (prefers-reduced-motion: no-preference) {
+  .nav-item:has([data-pending]) {
+    animation: nav-pulse 1.1s ease-in-out infinite;
   }
 }
 

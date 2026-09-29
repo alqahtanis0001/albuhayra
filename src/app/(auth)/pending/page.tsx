@@ -36,7 +36,7 @@ export default async function PendingPage({
         <p className="text-sm text-gray-500">{t.pending.hint}</p>
 
         <form action={logout}>
-          <Button type="submit" variant="secondary" block>
+          <Button type="submit" variant="secondary" block pendingLabel={t.common.signingOut}>
             <LogoutIcon size={18} className="rtl:-scale-x-100" />
             {t.common.logout}
           </Button>

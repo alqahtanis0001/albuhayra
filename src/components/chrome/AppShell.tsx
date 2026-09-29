@@ -12,6 +12,7 @@ import { t } from "@/i18n/ar";
 import { NavProgress, NavProgressProvider } from "../NavProgress";
 import { Footer } from "./Footer";
 import { BottomTabs, SideNav } from "./RoleNav";
+import { RouteTransition } from "./RouteTransition";
 import { TopBar } from "./TopBar";
 import type { NavItem } from "./nav";
 
@@ -53,7 +54,7 @@ export function AppShell({
 
           <div className="flex min-w-0 flex-1 flex-col">
             <main id="main" className="mx-auto w-full max-w-3xl flex-1 p-4 md:pb-6">
-              {children}
+              <RouteTransition>{children}</RouteTransition>
             </main>
             {/* The room the tab bar needs on phones now sits under the footer,
                 so the footer stays readable above the bar. */}

@@ -50,6 +50,7 @@ export const t = {
     logout: "تسجيل الخروج",
     loading: "جارٍ التحميل…",
     saving: "جارٍ الحفظ…",
+    signingOut: "جارٍ تسجيل الخروج…",
     saved: "تم الحفظ",
     deleted: "تم الحذف",
     copy: "نسخ",

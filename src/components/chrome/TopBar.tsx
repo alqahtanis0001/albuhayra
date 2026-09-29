@@ -58,7 +58,7 @@ export function TopBar({ userName, establishmentName, accountHref }: TopBarProps
 
         {/* logout() clears the cookie and redirects, so a plain form is enough. */}
         <form action={logout}>
-          <Button type="submit" variant="secondary" size="sm">
+          <Button type="submit" variant="secondary" size="sm" pendingLabel={t.common.signingOut}>
             <LogoutIcon size={18} className="rtl:-scale-x-100" />
             <span className="sr-only sm:not-sr-only">{t.common.logout}</span>
           </Button>

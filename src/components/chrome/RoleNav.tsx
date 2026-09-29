@@ -4,11 +4,13 @@
  * Bottom tab bar on phones, side nav from md. Client-side only because it reads
  * the current path to mark the active tab; it fetches nothing.
  *
- * A tapped item takes the active *look* at once, while its navigation is
- * pending: <LinkPending> inside the Link sets data-pending, and the
- * `has-data-pending:` classes repeat the active style. aria-current still
+ * Three visible steps (docs/FRONTEND.md, Motion v1.1d): pressed on pointer-down
+ * (`active:` — darker green, 0.97 scale); pending while the route loads
+ * (<LinkPending> sets data-pending; the `has-data-pending:` classes repeat the
+ * active look and `.nav-item:has([data-pending])` breathes in globals.css);
+ * then the real active state once the route commits. aria-current still
  * follows the real page (activeHref), so for a moment two items can look
- * active — accepted (docs/FRONTEND.md, Transitions v1.1c).
+ * active — accepted.
  */
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -35,7 +37,7 @@ export function BottomTabs({ items, label }: { items: NavItem[]; label: string }
               <Link
                 href={item.href}
                 aria-current={isActive ? "page" : undefined}
-                className={`flex min-h-14 flex-col items-center justify-center gap-0.5 border-t-2 px-1 py-2 text-xs font-medium ${
+                className={`nav-item transition-[scale,background-color] duration-[80ms] ease-out active:scale-[0.97] active:bg-accent-line active:text-accent-dark flex min-h-14 flex-col items-center justify-center gap-0.5 border-t-2 px-1 py-2 text-xs font-medium ${
                   isActive
                     ? "border-accent bg-accent-soft text-accent-dark"
                     : "border-transparent text-gray-600 has-data-pending:border-accent has-data-pending:bg-accent-soft has-data-pending:text-accent-dark"
@@ -72,7 +74,7 @@ export function SideNav({ items, label }: { items: NavItem[]; label: string }) {
               <Link
                 href={item.href}
                 aria-current={isActive ? "page" : undefined}
-                className={`flex min-h-11 items-center gap-2 border-s-4 px-3 text-sm font-medium ${
+                className={`nav-item transition-[scale,background-color] duration-[80ms] ease-out active:scale-[0.97] active:bg-accent-line active:text-accent-dark flex min-h-11 items-center gap-2 border-s-4 px-3 text-sm font-medium ${
                   isActive
                     ? "border-accent bg-accent-soft font-semibold text-accent-dark"
                     : "border-transparent text-gray-700 hover:bg-gray-100 has-data-pending:border-accent has-data-pending:bg-accent-soft has-data-pending:font-semibold has-data-pending:text-accent-dark"
