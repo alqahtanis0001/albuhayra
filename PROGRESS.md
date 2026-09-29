@@ -17,10 +17,10 @@ npm run typecheck        # tsc --noEmit, not part of build
 `DATABASE_URL` is read by `prisma.config.ts` (which loads `.env` via dotenv) for migrate/seed, and by `src/lib/db.ts` at runtime. `prisma generate` and `npm run build` work without it.
 
 ## Current phase
-**Phase:** v1.1d done — visible route transitions and press feedback. Committed locally, awaiting the user's review before push. Next: v1.1 (b) social sign-in.
-**Status:** Live at https://ledger-8c5g.onrender.com (Phase 2 look until the user pushes the v1.1 commits). 286 tests in 15 files; `npm run build`, `npm test`, `tsc --noEmit` all exit 0.
-**Exactly where we stopped:** v1.1d committed by the lead alone (no team, under the no-team Decision), not pushed.
-**Next concrete action:** the user reviews the motion signed in (route change between السجل and التقارير on DevTools "Fast 3G", nav press/pending, submit spinners), plus the three v1.1c checks still open, then pushes.
+**Phase:** v1.1d done — next: email verification, then Google sign-in.
+**Status:** Live at https://ledger-8c5g.onrender.com (Phase 2 look until the user pushes the v1.1 commits: v1.1a, v1.1a-2, v1.1c, v1.1d). 286 tests in 15 files; `npm run build`, `npm test`, `tsc --noEmit` all exit 0. Tree clean after `docs: v1.1d handover`.
+**Exactly where we stopped:** v1.1d committed and handed over, not pushed. All teammates (brand, ux, reviewer, frontend, backend, reviewer-2) asked to shut down. The user is testing v1.1d on localhost.
+**Next concrete action:** email verification, then Google sign-in (v1.1 plan (b)). **Before any code on email verification:** it conflicts with `CLAUDE.md` *Out of scope* ("notifications/email, password-reset by email") and needs an email provider, which the frozen stack does not have — so it first needs the user's scope ruling, an amended `CLAUDE.md`, and a stack Decision (provider, sender domain, where the secret lives on Render). Google sign-in keeps its three logged conflicts (join code across the redirect, vendor error copy vs B10, account-linking rule — link only on `email_verified`) and still needs real https redirect URLs (the Render URL above). Still open from v1.1c/v1.1d for the user: a real print of `/owner/reports`, the export opened in real Excel, and the signed-in motion checks (السجل → التقارير on "Fast 3G").
 **Teammates:** `backend`, `frontend`, `reviewer` — all shut down at handover. Their full notes are in `progress/*.md`; everything durable is merged here. **`PROGRESS.md` is the source of truth where they disagree** — a teammate's notes stop being updated at shutdown, so a claim there can be true-when-written and stale now. One such correction is annotated in `progress/backend.md` (it recorded `src/lib/auth.test.ts` as held out of the commit; the user ruled it stays, and it is in `7417419`).
 
 ## First sign-in test — PASSED in full on localhost (2026-09-29)
