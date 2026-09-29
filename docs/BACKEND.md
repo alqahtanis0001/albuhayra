@@ -238,30 +238,11 @@ Exports zod schemas and inferred types: `SignupOwnerSchema`, `SignupStaffSchema`
 ## Render deployment
 Render runs the **web service only**. The database is **Neon** (external, serverless Postgres), so `render.yaml` has no `databases:` block and `DATABASE_URL` is a plain secret you paste into the Render dashboard.
 
-`render.yaml` (backend verifies plan names against current Render docs before committing):
-```yaml
-services:
-  - type: web
-    name: ledger
-    runtime: node
-    plan: starter
-    region: frankfurt
-    buildCommand: npm ci && npx prisma generate && npx prisma migrate deploy && npm run build
-    startCommand: npm start
-    healthCheckPath: /api/health
-    envVars:
-      - key: NODE_ENV
-        value: production
-      - key: DATABASE_URL
-        sync: false          # Neon pooled connection string, set in the dashboard
-      - key: SESSION_SECRET
-        generateValue: true
-      - key: SEED_ADMIN_EMAIL
-        sync: false
-      - key: SEED_ADMIN_PASSWORD
-        sync: false
-```
-- **Use Neon's pooled connection string in production** (the host with `-pooler`), not the direct one. Render opens a connection per instance and Neon's free tier caps direct connections. `sslmode=require` is mandatory; keep `channel_binding=require` if Neon supplies it.
+`render.yaml` in the repo root is the source of truth; it is not copied here, because the copy that used to live here drifted (`plan: starter`, a generated `SESSION_SECRET`, seed variables). What it must keep:
+- `plan: free`, no `databases:` block, `healthCheckPath: /api/health`.
+- `buildCommand: npm ci --include=dev && npx prisma migrate deploy && npm run build`. `--include=dev` is required: `NODE_ENV=production` is visible at build time, and without it `npm ci` skips the devDependencies the build needs (`prisma`, `typescript`, `tailwindcss`). **No seed in the build** — the ADMIN already exists in Neon.
+- `DATABASE_URL`, `DIRECT_URL` and `SESSION_SECRET` are all `sync: false`, pasted in the dashboard. No `SEED_ADMIN_*` on Render.
+- **`DATABASE_URL` is Neon's pooled string** (host with `-pooler`), used by the app at runtime: Render opens a connection per instance and Neon's free tier caps direct connections. **`DIRECT_URL` is the direct string** (no `-pooler`), used only by `prisma migrate deploy` via `prisma.config.ts`, because migrate takes a session-level advisory lock that the pooler's transaction mode cannot hold. Locally `DIRECT_URL` may be unset; the config falls back to `DATABASE_URL`. `sslmode=require` is mandatory on both; keep `channel_binding=require` if Neon supplies it.
 - `migrate deploy` runs in the build command, so a deploy applies pending migrations automatically. It is safe to re-run: applied migrations are skipped.
-- After first deploy: run `npm run seed` once from the Render shell, log in as ADMIN, change the password from the admin page, then delete `SEED_ADMIN_PASSWORD` from env.
+- The seed never runs on Render (the free plan has no shell). If an ADMIN ever has to be created again, run `npm run seed` from a developer machine whose `.env` points at the Neon database, then remove `SEED_ADMIN_PASSWORD` from that `.env`.
 - Never `prisma db push` or `migrate reset` against the Neon database. **Backups are Neon's job, not Render's** — the old "enable daily backups in the Render dashboard" step does not apply. Set the retention window in the Neon console (free tier keeps a short history), and note that the free tier also suspends an idle compute, so the first request after a quiet period pays a cold start.

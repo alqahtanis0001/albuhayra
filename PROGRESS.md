@@ -17,14 +17,14 @@ npm run typecheck        # tsc --noEmit, not part of build
 `DATABASE_URL` is read by `prisma.config.ts` (which loads `.env` via dotenv) for migrate/seed, and by `src/lib/db.ts` at runtime. `prisma generate` and `npm run build` work without it.
 
 ## Current phase
-**Phase:** Phase 1 complete. Checkpoint 5b committed: W3/W4 done, no stub remains anywhere in `src/`.
-**Status:** 274 tests in 15 files; `npm run build`, `npm test` and `tsc --noEmit` all exit 0, verified on real exit codes in the 5b session.
-**Exactly where we stopped:** Checkpoint 5b committed. No team running.
-**Next concrete action:** the user's first sign-in test (checklist below) — steps 1–3 passed, 4–11 remain. Test on `http://localhost:3000` (see Gotchas). Then Phase 2: integration pass, README with Render deploy steps, final PROGRESS.md.
+**Phase:** Phase 2 done — awaiting first deploy.
+**Status:** 274 tests in 15 files; `npm run build`, `npm test` and `tsc --noEmit` all exit 0 (Phase 2 session, real exit codes). First sign-in checklist passed in full on localhost.
+**Exactly where we stopped:** Phase 2 committed locally (integration pass, `render.yaml` fixed for the free plan, README with the Render Blueprint guide). Not pushed — the user pushes.
+**Next concrete action:** the user pushes and deploys from the Blueprint per `README.md`, then re-runs the sign-in checklist's steps 2, 4, 5 and 9 against the Render URL (https changes the cookie and service-worker picture). After that: v1.1 plan (a) theme pass, then (b) social sign-in.
 **Teammates:** `backend`, `frontend`, `reviewer` — all shut down at handover. Their full notes are in `progress/*.md`; everything durable is merged here. **`PROGRESS.md` is the source of truth where they disagree** — a teammate's notes stop being updated at shutdown, so a claim there can be true-when-written and stale now. One such correction is annotated in `progress/backend.md` (it recorded `src/lib/auth.test.ts` as held out of the commit; the user ruled it stays, and it is in `7417419`).
 
-## First sign-in test — the two gaps no test in this repo can reach
-Server actions have never been submitted end to end (every action test calls the function directly), and the export is proven to *reach* its route but not to *return a workbook*. Both close in one manual pass:
+## First sign-in test — PASSED in full on localhost (2026-09-29)
+Closed the two gaps no test in this repo can reach: server actions submitted end to end through a browser, and the export returning a real workbook. Kept as the re-run list for the first Render deploy.
 1. `npm install`, then `npm approve-scripts --allow-scripts-pending`. **Do NOT run `cp .env.example .env`** — see Known issues. Then `npm run build && npm start` (not `npm run dev` — step 8 needs a production build).
 2. Sign in as ADMIN. Change the password, then delete `SEED_ADMIN_PASSWORD` from `.env`.
 3. Sign up an owner in a second browser profile; approve from `/admin`. Expect **13 categories** created, 4 IN and 9 OUT.
@@ -80,6 +80,10 @@ Server actions have never been submitted end to end (every action test calls the
 | 5b | W3/W4 — the form's swap points (`components/actions.ts`, `components/data.ts`) re-export the real actions and `getTransaction`; `stubActions.ts` and `stubData.ts` deleted | lead | 2026-09-29 |
 | 5b | `transactions/actions.test.ts` (9 cases): each mutation's guard, both months on update, lock on delete — mutation-verified | lead | 2026-09-29 |
 | 5b | First sign-in checklist steps 1–3 pass: admin login, owner sign-up, admin approval, owner dashboard | user | 2026-09-29 |
+| 5b | First sign-in checklist passes in full on localhost — every server action submitted from a browser, export opens as a real two-sheet workbook | user | 2026-09-29 |
+| 2 | Integration pass: all 18 pages under (owner)/(staff)/(admin)/(auth) dynamic; no TODO, stub, console call or test-only route in `src/` | lead | 2026-09-29 |
+| 2 | `render.yaml` fixed for the free plan (plan, `--include=dev`, `DIRECT_URL`, secrets `sync: false`, seed vars removed); `prisma.config.ts` prefers `DIRECT_URL` | lead | 2026-09-29 |
+| 2 | `README.md`: what the app is, local run, step-by-step Render Blueprint deploy for a non-developer, free-tier behaviour, v1.1 sign-in URLs | lead | 2026-09-29 |
 
 ## v1.1 plan
 Not started. Runs after Phase 2. In this order.
@@ -168,12 +172,13 @@ Format: date — decision — reason. Anything that changed from the docs or cho
 - 2026-09-29 — `@prisma/adapter-pg` and `dotenv` pinned exactly, removing the two `^` ranges npm wrote when they were installed. They contradicted the pin-everything Decision above; the rule now matches the file.
 - 2026-09-29 — **When no team is running, the lead may do a single small task directly (user's ruling),** applying the reviewer's checklist itself: the Security list in `docs/BACKEND.md`, the RTL rules in `docs/FRONTEND.md`, and a brief-vs-doc pass over every claim the task makes. "Small" means one task-list item touching a handful of files. It does not reopen the rule that the lead waits for teammates while a team *is* running, and a claim the lead cannot point to a test for gets one, mutation-verified, since there is no second pair of eyes. First used for W3/W4.
 - 2026-09-29 — **Correcting the handover record: `getTransaction` was not the last stub.** `createTransaction`, `updateTransaction` and `deleteTransaction` were all still stubs behind `components/actions.ts`, so until 5b every save, edit and delete from the UI returned success and wrote nothing. The handover had tracked only the *read* side of W3. The real actions existed and were tested; only the wiring was missing. The first-sign-in checklist would have caught it at step 4.
+- 2026-09-29 — **`render.yaml` corrected for the free plan; three of the fixes would have broken the first deploy.** (1) `npm ci` → `npm ci --include=dev`: `NODE_ENV=production` is a service env var and therefore visible at build time, so `npm ci` omits devDependencies — `prisma`, `typescript`, `tailwindcss`, `@tailwindcss/postcss` — and the build fails, or `npx prisma` quietly fetches an unpinned Prisma from the registry. (2) **`DIRECT_URL` added** (`sync: false`) and `prisma.config.ts` now uses `DIRECT_URL || DATABASE_URL`: Prisma's own Neon guide points the CLI at the direct string, because `migrate` takes a session-level advisory lock that PgBouncer's transaction mode cannot hold, and our `DATABASE_URL` on Render is the pooled string by our own rule. The fallback leaves local runs unchanged (verified: `migrate status` → up to date). (3) `SEED_ADMIN_*` removed — the seed is not in the build and the ADMIN exists, so the Blueprint would have asked a non-developer to paste the admin password into Render for nothing. Also: `plan: starter` → `free`; `SESSION_SECRET` `generateValue` → `sync: false` (user's instruction — one value the user holds, pasted once); `NODE_VERSION: "24"` to match local; the redundant `npx prisma generate` dropped (`npm run build` runs it). `docs/BACKEND.md` no longer carries a copy of `render.yaml` — its copy had drifted on four lines and told people to seed from the Render shell, which the free plan does not have; it now states the invariants and points at the file.
 - 2026-09-29 — The quality-gate hook writes to `.claude/build.log` / `.claude/test.log` instead of `/tmp/*.log` — this is a Windows machine and `/tmp` is not writable from the hook's shell. Both files are gitignored.
 
 ## Known issues
 Failing builds, bugs, must-not-forget TODOs. Remove when fixed.
 - The frozen action-signature section and the `updateCategory` / `resetStaffPassword` signatures were briefly out of step; the doc is amended to describe the bound-id form. If a third such drift appears, the cause is the doc being edited while actions are being written, not the actions being wrong.
-- **No server action has ever been submitted end to end through a browser, and by project decision none will be.** `CLAUDE.md` lists "E2E suite" as out of scope, so browser automation is not being added. What *is* verified: the four auth actions are registered in `.next/server/server-reference-manifest.json` against the right pages (`login` → login, both signups → signup, `logout` → pending + every role page); the client components typecheck against the real action signatures; and a POST with a **correct** action id reaches Next's action pipeline while a wrong id 404s, which proves id resolution and routing. What is **not** verified: an actual form submit. Hand-crafting the RSC request body failed with "Connection closed" for both an argument-taking and a zero-argument action, so that is a limitation of a curl harness, not evidence about the app. **Before the first real deploy, a human should sign in once in a browser** — that single action exercises dispatch, argument decoding, bcrypt, the session cookie, `requireUser()` and the proxy in one go. Flagged by `frontend`, which correctly declined to claim it had tested this.
+- **Render free plan: the service spins down after 15 minutes without traffic.** The next request wakes it and can take up to about a minute; Neon's idle suspend adds a little on top. No data is lost (it all lives in Neon). Accepted for v1; the fix is a paid instance type in the dashboard, no code change. Explained for owners in `README.md`.
 - **`npm run build` can exit 139 (SIGSEGV) inside the npm CLI on this machine**, producing a ~150-byte log that dies before `prisma generate` prints anything. An immediate retry with no changes exits 0. Re-run once before hunting for a compile error that is not there.
 - Owner sign-up reveals whether an email is already registered (existence leak, accepted for v1 — email is not a credential; staff join-code rule B10 still stands because the code is).
 - **A `"use server"` module may only export async functions.** `isClosedMonth` had to move out of `locks/actions.ts` into `assertUnlocked.ts` for this reason. It breaks the **build**, not the typecheck, so `tsc --noEmit` passes and `npm run build` fails — worth knowing before hunting for a type error.
@@ -302,3 +307,12 @@ Append one entry per lead session (newest at bottom).
 - Teammate notes merged from: none (no team running).
 - Build passes: yes.
 - Next: the user's first sign-in test, then Phase 2.
+
+### 2026-09-29 — lead session (Phase 2)
+- Recorded: the user's first sign-in checklist passes in full on localhost; the "no browser submission / export untested" Known issue cleared.
+- Integration pass: build route table and `.next/prerender-manifest.json` agree — every one of the 18 pages under the four route groups is dynamic; only `/_not-found` and `/_global-error` prerender (known). `git grep` for `force-static` / `revalidate` / `generateStaticParams`, TODO/FIXME/XXX/HACK, `console.*`, `debugger`, `.only`/`.skip`, and "stub" (outside comments saying the stubs are gone) finds nothing. API routes are only `health` and `export`; nothing untracked in `src/`.
+- **Found in `render.yaml`:** the build would have failed on Render (devDependencies skipped under `NODE_ENV=production`), and `migrate deploy` would have run through Neon's pooler. Both fixed — see the Decision. Neither can be proven without a real deploy; the first build log is the check.
+- README written for a non-developer.
+- Gates: build 0, `npm test` 274/274 in 15 files, `tsc` 0 — before and after (only config/docs changed, gates re-run after).
+- Not pushed, by instruction.
+- Next: the user deploys.
