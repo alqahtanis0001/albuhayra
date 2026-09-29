@@ -6,12 +6,20 @@ import { db } from "./db";
 import { getSession } from "./session";
 import {
   canEditTransactions,
+  homePathFor,
   isActive,
   type PermissionSubject,
   type Role,
 } from "./permissions";
 
 export const BCRYPT_COST = 12;
+
+/**
+ * Appended when a stale session is turned away. The proxy cannot see `status`,
+ * only the cookie, so without this marker it would send the request straight
+ * back to the area requireUser() just refused — a redirect loop.
+ */
+export const SIGNED_OUT_LOGIN_PATH = "/login?signedOut=1";
 
 export async function hashPassword(plain: string): Promise<string> {
   return bcrypt.hash(plain, BCRYPT_COST);
@@ -42,6 +50,20 @@ export type AuthContext = {
 };
 
 /**
+ * Dropping the cookie is a courtesy, not the protection: cookies can only be
+ * written from a Server Action or a Route Handler, so calling destroy() during a
+ * server component render throws. The redirect below is what actually closes the
+ * route, and every later request re-runs this whole check.
+ */
+function forget(session: { destroy: () => void }): void {
+  try {
+    session.destroy();
+  } catch {
+    // Read-only cookie store. Nothing to clear here.
+  }
+}
+
+/**
  * The gate every server action and every data-reading server component starts
  * with. Reads status, canEdit and the establishment's active flag straight from
  * the database — the cookie is only trusted for the user id.
@@ -65,18 +87,18 @@ export async function requireUser(): Promise<AuthContext> {
   });
 
   if (!row) {
-    session.destroy();
-    redirect("/login");
+    forget(session);
+    redirect(SIGNED_OUT_LOGIN_PATH);
   }
   if (row.status === "PENDING") redirect("/pending");
   if (!isActive(row)) {
-    session.destroy();
-    redirect("/login");
+    forget(session);
+    redirect(SIGNED_OUT_LOGIN_PATH);
   }
   // A disabled establishment locks out its owner and all of its staff.
   if (row.role !== "ADMIN" && row.establishment?.active !== true) {
-    session.destroy();
-    redirect("/login");
+    forget(session);
+    redirect(SIGNED_OUT_LOGIN_PATH);
   }
 
   const user: AuthedUser = {
@@ -93,13 +115,19 @@ export async function requireUser(): Promise<AuthContext> {
   return { user, establishmentId: row.establishmentId };
 }
 
+/**
+ * The role gates below send a signed-in user with the wrong role to their own
+ * area rather than to /login: a STAFF who follows an /owner/… link needs /staff,
+ * not a login form for the account they are already using.
+ */
+
 /** Same as requireUser but guarantees a non-null establishmentId. */
 export async function requireMember(): Promise<{
   user: AuthedUser;
   establishmentId: string;
 }> {
   const { user, establishmentId } = await requireUser();
-  if (user.role === "ADMIN" || !establishmentId) redirect("/admin");
+  if (user.role === "ADMIN" || !establishmentId) redirect(homePathFor(user.role));
   return { user, establishmentId };
 }
 
@@ -108,7 +136,7 @@ export async function requireOwner(): Promise<{
   establishmentId: string;
 }> {
   const { user, establishmentId } = await requireUser();
-  if (user.role !== "OWNER" || !establishmentId) redirect("/login");
+  if (user.role !== "OWNER" || !establishmentId) redirect(homePathFor(user.role));
   return { user, establishmentId };
 }
 
@@ -117,13 +145,13 @@ export async function requireStaff(): Promise<{
   establishmentId: string;
 }> {
   const { user, establishmentId } = await requireUser();
-  if (user.role !== "STAFF" || !establishmentId) redirect("/login");
+  if (user.role !== "STAFF" || !establishmentId) redirect(homePathFor(user.role));
   return { user, establishmentId };
 }
 
 export async function requireAdmin(): Promise<{ user: AuthedUser }> {
   const { user } = await requireUser();
-  if (user.role !== "ADMIN") redirect("/login");
+  if (user.role !== "ADMIN") redirect(homePathFor(user.role));
   return { user };
 }
 
@@ -139,6 +167,8 @@ export async function requireCanEdit(): Promise<{
     canEdit: user.canEdit,
     establishmentId,
   };
-  if (!canEditTransactions(subject) || !establishmentId) redirect("/login");
+  if (!canEditTransactions(subject) || !establishmentId) {
+    redirect(homePathFor(user.role));
+  }
   return { user, establishmentId };
 }

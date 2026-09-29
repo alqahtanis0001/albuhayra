@@ -1,11 +1,15 @@
 @import "tailwindcss";
 
-/* Design tokens from docs/FRONTEND.md. `frontend` owns this file from Phase 1. */
+/* Design tokens from docs/FRONTEND.md. Tailwind v4 is CSS-first: there is no
+   tailwind.config.ts, so every token lives in this @theme block. */
 @theme {
   --color-accent: #0f766e;
   --color-accent-dark: #115e59;
+  --color-accent-soft: #f0fdfa;
   --color-money-in: #15803d;
+  --color-money-in-soft: #f0fdf4;
   --color-money-out: #b91c1c;
+  --color-money-out-soft: #fef2f2;
   --font-sans: var(--font-arabic), system-ui, sans-serif;
 }
 
@@ -18,13 +22,44 @@ body {
   color: var(--color-gray-900);
 }
 
-/* Print: reports only, black on white, no navigation. */
+/* One visible focus ring for the whole app (docs/FRONTEND.md, Accessibility). */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* The bottom tab bar sits on top of the iOS home indicator without covering it. */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Room under the last row of content so the tab bar never hides it. */
+.safe-bottom-space {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 4.5rem);
+}
+
+dialog::backdrop {
+  background: rgb(0 0 0 / 0.5);
+}
+
+/* Print: reports only, black on white, no navigation (docs/FRONTEND.md). */
+.print-only {
+  display: none;
+}
+
 @media print {
   .no-print {
     display: none !important;
   }
+  .print-only {
+    display: block;
+  }
   body {
     background: #fff;
     color: #000;
+  }
+  main {
+    padding: 0 !important;
+    max-width: none !important;
   }
 }

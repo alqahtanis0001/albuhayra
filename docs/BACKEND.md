@@ -128,19 +128,44 @@ Rules:
 ## Server actions — the contract (`src/features/<feature>/actions.ts`)
 Every action: `requireX()` → zod parse → business rules → Prisma (scoped by establishmentId) → AuditLog → `revalidatePath`. Return type is always `ActionResult<T> = { ok: true, data: T } | { ok: false, error: string /* i18n key */, fieldErrors?: Record<string,string> }`.
 
+**Signature convention — FROZEN 2026-09-29. Do not change without a lead Decision.**
+An action that backs a form takes the `useActionState` shape
+`(prevState: State, formData: FormData) => Promise<ActionResult<T>>` where `State = ActionResult<T> | null`,
+and converts `FormData` → object itself (`Object.fromEntries(formData)`) before handing it to the zod
+schema. The form component runs the *same* schema client-side first, so the two cannot drift.
+That covers `login`, `signupOwner`, `signupStaff`, `changeOwnPassword`, `createCategory`,
+`updateCategory`, `resetStaffPassword`. A form-backed action that operates on a specific row may
+take its id **before** the state — `updateCategory(categoryId, prevState, formData)`,
+`resetStaffPassword(userId, prevState, formData)` — so the component can bind it with
+`.bind(null, id)`; the id then comes from the server component that rendered the row, not from the
+submitted form. An action invoked from a button keeps a plain argument list —
+`approveStaff(userId)`, `setCanEdit(userId, bool)`, `setCategoryActive(id, bool)`,
+`setCategoryOrder(id, dir)`, `regenerateJoinCode()`.
+
+**Auth actions redirect server-side on success** and return `{ ok: false, error }` with a generic key
+on failure. `login` redirects to the role home, or to `/pending?as=owner|staff` for a PENDING account;
+`signupOwner` / `signupStaff` redirect to `/pending?as=owner|staff`; `logout(): Promise<void>` destroys
+the session and redirects to `/login`. `login` never returns `fieldErrors` — naming the wrong field on
+a login form is an enumeration leak.
+
+**A PENDING account never gets a session.** That is why the role travels in the `?as=` query
+parameter: `/pending` needs it only to say who approves them, and a value a visitor can forge changes
+nothing but that sentence. The consequence is accepted deliberately — see the Decision in
+`PROGRESS.md` — and `/pending` therefore cannot auto-redirect when the account becomes ACTIVE.
+
 | Action | Who | Rules |
 |---|---|---|
 | `signupOwner(input)` | public | creates establishment + pending owner |
 | `signupStaff(input)` | public | valid join code; pending staff |
-| `login(input)` / `logout()` | public / any | ACTIVE only |
+| `login(prev, formData)` / `logout()` | public / any | ACTIVE gets a session; PENDING redirects to `/pending?as=…` with no session; DISABLED and inactive establishment get the generic key |
 | `createTransaction(input)` | any ACTIVE user in establishment | month not locked; amount > 0; date ≤ today; category active, same establishment, same direction |
 | `updateTransaction(id, input)` | `requireCanEdit()` | same as create; both old and new month unlocked; STAFF with canEdit may edit any entry of the establishment |
 | `deleteTransaction(id)` | OWNER | month unlocked; soft delete |
 | `lockMonth(y,m)` / `unlockMonth(y,m)` | OWNER | not current or future month |
-| `createCategory` / `updateCategory` / `setCategoryActive` | OWNER | at least one active category per direction must remain |
-| `approveStaff(userId)` / `rejectStaff(userId)` / `setCanEdit(userId, bool)` / `setStaffActive(userId, bool)` / `resetStaffPassword(userId, pw)` | OWNER | target must be STAFF of own establishment |
+| `createCategory` / `updateCategory` / `setCategoryActive` / `setCategoryOrder(id, "UP"\|"DOWN")` | OWNER | at least one active category per direction must remain. Duplicate names are compared against **active** categories only; `createCategory` **reactivates** a matching inactive category rather than inserting a second row, and `setCategoryActive` refuses to reactivate a name an active category already uses. `setCategoryOrder` swaps `sortOrder` with the adjacent category of the same direction |
+| `approveStaff(userId)` / `rejectStaff(userId)` / `setCanEdit(userId, bool)` / `setStaffActive(userId, bool)` / `resetStaffPassword(userId, prev, formData)` | OWNER | target must be STAFF of own establishment. `resetStaffPassword` is form-backed with a bound id (see the signature convention); the rest are button actions |
 | `regenerateJoinCode()` | OWNER | — |
-| `changeOwnPassword(old, new)` | any | bcrypt compare old |
+| `changeOwnPassword(prev, formData)` | any | `ChangePasswordSchema`: current + new + confirm; bcrypt compare current |
 | `approveOwner(userId)` / `rejectOwner(userId)` | ADMIN | creates default categories on approve |
 | `setEstablishmentActive(id, bool)` | ADMIN | disabling blocks login for all its users |
 | `resetOwnerPassword(userId, pw)` | ADMIN | — |

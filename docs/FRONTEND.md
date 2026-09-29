@@ -1,6 +1,6 @@
 # FRONTEND.md
 
-Read `CLAUDE.md` and `PROGRESS.md` first. Owner of this doc: lead. Implementer: `frontend`. Data comes only from `queries.ts` functions and server actions defined in `docs/BACKEND.md`; until backend lands, build against their signatures with local stub data behind a `USE_STUBS` flag, then remove the stubs in the "wire up" task.
+Read `CLAUDE.md` and `PROGRESS.md` first. Owner of this doc: lead. Implementer: `frontend`. Data comes only from `queries.ts` functions and server actions defined in `docs/BACKEND.md`. Until the matching backend task lands, build against their signatures with local stub data behind a **single swap-point module** per feature — one module the screens import from, whose last line re-exports either the stubs or the real actions. The "wire up" task then repoints that one line and deletes the stub file. (A `USE_STUBS` boolean was the original plan; a swap point is better, because a flag and a re-export can disagree while a single re-export cannot.)
 
 ## Language and direction
 - Arabic only. `<html lang="ar" dir="rtl">`.
@@ -34,7 +34,7 @@ src/app/page.tsx                  redirects to the role's home
 ### Auth
 - `/login`: email, password, submit; link to sign-up. Generic error on failure.
 - `/signup`: two large choice cards first — **صاحب منشأة** / **موظف** — then the form. Owner form: name, email, password, اسم المنشأة. Staff form: name, email, password, رمز الانضمام (8 chars, uppercase, auto-uppercase input). On success → `/pending`.
-- `/pending`: "حسابك بانتظار الموافقة" with who approves (المدير / صاحب المنشأة) and a logout button. Auto-redirects to the role home when status becomes ACTIVE (check on page load only, no polling).
+- `/pending`: "حسابك بانتظار الموافقة" with who approves (المدير for an owner, صاحب المنشأة for staff) and a logout button. The role comes from the `?as=owner|staff` parameter that `login` / `signupOwner` / `signupStaff` redirect with, falling back to the session role for an ACTIVE visitor who lands here; when neither is known, **omit** the who-approves line rather than guess. There is **no** auto-redirect when the account becomes ACTIVE: a PENDING account deliberately has no session, so the page cannot identify the visitor. The user signs in again to discover they are approved.
 
 ### Owner area (`/owner`)
 - **`/owner` Dashboard**: StatCards: الرصيد الإجمالي, وارد هذا الشهر, صادر هذا الشهر, الصافي. Below: الرصيد حسب طريقة الدفع (small table: نقد / بنك / مدى / STC Pay / أخرى). Bar chart last 6 months وارد vs صادر (recharts). أعلى المصروفات هذا الشهر (top 5 OUT categories with amounts and % of month OUT). آخر الحركات (10). Primary button + إضافة حركة.

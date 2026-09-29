@@ -11,16 +11,13 @@ import { todayISO } from "./dates";
 
 /* ---------------------------------------------------------------- primitives */
 
-export const DirectionEnum = z.enum(["IN", "OUT"]);
+export const DirectionEnum = z.enum(["IN", "OUT"], { error: "err.invalidInput" });
 export type DirectionValue = z.infer<typeof DirectionEnum>;
 
-export const PaymentMethodEnum = z.enum([
-  "CASH",
-  "BANK_TRANSFER",
-  "MADA",
-  "STC_PAY",
-  "OTHER",
-]);
+export const PaymentMethodEnum = z.enum(
+  ["CASH", "BANK_TRANSFER", "MADA", "STC_PAY", "OTHER"],
+  { error: "err.invalidInput" },
+);
 export type PaymentMethodValue = z.infer<typeof PaymentMethodEnum>;
 
 export const MIN_PASSWORD_LENGTH = 10;
@@ -78,13 +75,17 @@ const amountHalalas = z
 
 const optionalText = (max: number) =>
   z
-    .string()
+    .string({ error: "err.invalidInput" })
     .trim()
     .max(max, "err.tooLong")
     .transform((v) => (v === "" ? undefined : v))
     .optional();
 
-const cuid = z.string().trim().min(1, "err.required").max(64, "err.tooLong");
+const cuid = z
+  .string({ error: "err.required" })
+  .trim()
+  .min(1, "err.required")
+  .max(64, "err.tooLong");
 
 /* -------------------------------------------------------------------- schemas */
 
@@ -106,7 +107,7 @@ export type SignupStaffInput = z.infer<typeof SignupStaffSchema>;
 
 export const LoginSchema = z.object({
   email,
-  password: z.string({ error: "err.required" }).min(1, "err.required").max(200),
+  password: z.string({ error: "err.required" }).min(1, "err.required").max(200, "err.tooLong"),
 });
 export type LoginInput = z.infer<typeof LoginSchema>;
 
@@ -128,16 +129,30 @@ export const CategoryInputSchema = z.object({
 export type CategoryInput = z.infer<typeof CategoryInputSchema>;
 
 export const LockInputSchema = z.object({
-  year: z.number().int().min(2000, "err.dateInvalid").max(2100, "err.dateInvalid"),
-  month: z.number().int().min(1, "err.dateInvalid").max(12, "err.dateInvalid"),
+  year: z
+    .number({ error: "err.dateInvalid" })
+    .int("err.dateInvalid")
+    .min(2000, "err.dateInvalid")
+    .max(2100, "err.dateInvalid"),
+  month: z
+    .number({ error: "err.dateInvalid" })
+    .int("err.dateInvalid")
+    .min(1, "err.dateInvalid")
+    .max(12, "err.dateInvalid"),
 });
 export type LockInput = z.infer<typeof LockInputSchema>;
 
 export const ChangePasswordSchema = z
   .object({
-    currentPassword: z.string({ error: "err.required" }).min(1, "err.required").max(200),
+    currentPassword: z
+      .string({ error: "err.required" })
+      .min(1, "err.required")
+      .max(200, "err.tooLong"),
     newPassword: password,
-    confirmPassword: z.string({ error: "err.required" }).min(1, "err.required").max(200),
+    confirmPassword: z
+      .string({ error: "err.required" })
+      .min(1, "err.required")
+      .max(200, "err.tooLong"),
   })
   .refine((v) => v.newPassword === v.confirmPassword, {
     path: ["confirmPassword"],
@@ -160,8 +175,13 @@ export const TransactionFilterSchema = z
     direction: DirectionEnum.optional(),
     categoryId: cuid.optional(),
     paymentMethod: PaymentMethodEnum.optional(),
-    q: z.string().trim().max(200, "err.tooLong").optional(),
-    page: z.coerce.number().int().min(1).max(10_000).default(1),
+    q: z.string({ error: "err.invalidInput" }).trim().max(200, "err.tooLong").optional(),
+    page: z.coerce
+      .number({ error: "err.invalidInput" })
+      .int("err.invalidInput")
+      .min(1, "err.invalidInput")
+      .max(10_000, "err.invalidInput")
+      .default(1),
   })
   .refine((v) => !v.from || !v.to || v.from <= v.to, {
     path: ["to"],

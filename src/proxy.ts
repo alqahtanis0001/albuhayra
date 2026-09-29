@@ -1,27 +1,60 @@
+import { getIronSession, nextProxyCookies } from "iron-session";
 import { NextResponse, type NextRequest } from "next/server";
 
+import { homePathFor, type Role } from "@/lib/permissions";
+import { SESSION_COOKIE, SESSION_TTL_SECONDS } from "@/lib/sessionConfig";
+
 /**
- * Phase 0 (lead): per-request nonce-based Content-Security-Policy.
+ * Two jobs, in this order:
  *
- * Next.js App Router ships two inline <script> tags carrying the hydration
- * payload, so a flat `script-src 'self'` breaks every page. The nonce is placed
- * on the *request* header, which is where Next.js looks for it before stamping
- * its own inline scripts — see the Decision logged in PROGRESS.md.
+ * 1. Phase 0 (lead): a per-request nonce-based Content-Security-Policy.
+ *    Next.js App Router ships two inline <script> tags carrying the hydration
+ *    payload, so a flat `script-src 'self'` breaks every page. The nonce is
+ *    placed on the *request* header, which is where Next.js looks for it before
+ *    stamping its own inline scripts — see the Decision logged in PROGRESS.md.
  *
- * Phase 1 (`backend`): add the session/role routing described in
- * docs/BACKEND.md ("Auth" → middleware) around the response below. Keep the
- * CSP block intact. The real authorisation checks stay in requireX().
+ * 2. Phase 1 (`backend`): session/role routing (docs/BACKEND.md → Auth). This is
+ *    a convenience only — it keeps signed-out visitors off the app shell and
+ *    sends people to their own area. Every real authorisation check lives in the
+ *    requireX() helpers, which re-read role and status from the database.
  */
 
-/** Paths that must stay reachable without a session. */
-export const PUBLIC_PATHS = [
-  "/login",
-  "/signup",
+/** Reachable without a session, and pointless once you have one. */
+export const SIGNED_OUT_PATHS = ["/login", "/signup"] as const;
+
+/**
+ * Reachable with or without a session, and never redirected either way.
+ * `/pending` belongs here rather than above because requireUser() sends PENDING
+ * users to it. `/_next`, `/icons` and `/favicon.ico` are listed for the sake of
+ * docs/BACKEND.md even though `config.matcher` already keeps most of them out.
+ */
+export const OPEN_PATHS = [
   "/pending",
   "/api/health",
   "/manifest.json",
   "/sw.js",
+  "/_next",
+  "/icons",
+  "/favicon.ico",
 ] as const;
+
+/** Everything reachable without a session. */
+export const PUBLIC_PATHS = [...SIGNED_OUT_PATHS, ...OPEN_PATHS] as const;
+
+/**
+ * requireUser() appends this when it turns a stale session away. The proxy can
+ * only see the cookie, never `status`, so without the marker it would send that
+ * request straight back to the area requireUser() just refused — a loop that
+ * would trap every disabled user until their cookie expired.
+ */
+const SIGNED_OUT_PARAM = "signedOut";
+
+/** Route prefixes each role owns. */
+const ROLE_AREAS: ReadonlyArray<{ prefix: string; role: Role }> = [
+  { prefix: "/admin", role: "ADMIN" },
+  { prefix: "/owner", role: "OWNER" },
+  { prefix: "/staff", role: "STAFF" },
+];
 
 function contentSecurityPolicy(nonce: string, isDev: boolean): string {
   // Dev needs eval for the Turbopack HMR runtime; production must not have it.
@@ -44,7 +77,66 @@ function contentSecurityPolicy(nonce: string, isDev: boolean): string {
   ].join("; ");
 }
 
-export function proxy(request: NextRequest): NextResponse {
+function matches(pathname: string, paths: readonly string[]): boolean {
+  return paths.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}
+
+/**
+ * Everything a *read* needs. The cookie name and lifetime come from
+ * sessionConfig.ts so they cannot drift from src/lib/session.ts, which the proxy
+ * cannot import. The proxy never saves or destroys a session.
+ */
+function sessionReadOptions() {
+  return {
+    password: process.env.SESSION_SECRET ?? "",
+    cookieName: SESSION_COOKIE,
+    ttl: SESSION_TTL_SECONDS,
+  };
+}
+
+/** The signed-in role, or null for anyone the cookie cannot vouch for. */
+async function sessionRole(
+  request: NextRequest,
+  response: NextResponse,
+): Promise<Role | null> {
+  try {
+    const session = await getIronSession<{ userId?: string; role?: Role }>(
+      nextProxyCookies(request, response),
+      sessionReadOptions(),
+    );
+    return session.userId && session.role ? session.role : null;
+  } catch {
+    // Missing secret, expired seal, tampered cookie: all simply "no session".
+    return null;
+  }
+}
+
+/** The path to send this request to, or null to let it through. */
+async function destinationFor(
+  request: NextRequest,
+  response: NextResponse,
+): Promise<string | null> {
+  const { pathname } = request.nextUrl;
+  if (matches(pathname, OPEN_PATHS)) return null;
+
+  const role = await sessionRole(request, response);
+  if (!role) return matches(pathname, SIGNED_OUT_PATHS) ? null : "/login";
+
+  if (matches(pathname, SIGNED_OUT_PATHS)) {
+    // Signed in already, so the login and sign-up forms are of no use — unless
+    // requireUser() is the reason they are here.
+    return request.nextUrl.searchParams.has(SIGNED_OUT_PARAM)
+      ? null
+      : homePathFor(role);
+  }
+
+  // Wrong area for this role: send them to their own instead of a bare refusal.
+  const area = ROLE_AREAS.find((a) => matches(pathname, [a.prefix]));
+  if (area && area.role !== role) return homePathFor(role);
+  return null;
+}
+
+export async function proxy(request: NextRequest): Promise<NextResponse> {
   const nonce = crypto.randomUUID().replace(/-/g, "");
   const csp = contentSecurityPolicy(nonce, process.env.NODE_ENV !== "production");
 
@@ -54,6 +146,13 @@ export function proxy(request: NextRequest): NextResponse {
 
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set("Content-Security-Policy", csp);
+
+  const destination = await destinationFor(request, response);
+  if (destination && destination !== request.nextUrl.pathname) {
+    const redirect = NextResponse.redirect(new URL(destination, request.url));
+    redirect.headers.set("Content-Security-Policy", csp);
+    return redirect;
+  }
   return response;
 }
 

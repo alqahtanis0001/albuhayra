@@ -15,3 +15,27 @@ export function generateJoinCode(): string {
   }
   return out;
 }
+
+/**
+ * A join code no establishment holds yet. Codes are 31^8 wide, so a collision is
+ * already unlikely; a handful of tries makes it not worth thinking about. Pass a
+ * transaction client when allocating inside one.
+ */
+export async function allocateJoinCode(client: {
+  establishment: {
+    findUnique(args: {
+      where: { joinCode: string };
+      select: { id: true };
+    }): Promise<{ id: string } | null>;
+  };
+}): Promise<string> {
+  for (let i = 0; i < 5; i++) {
+    const joinCode = generateJoinCode();
+    const taken = await client.establishment.findUnique({
+      where: { joinCode },
+      select: { id: true },
+    });
+    if (!taken) return joinCode;
+  }
+  throw new Error("could not allocate a unique join code");
+}

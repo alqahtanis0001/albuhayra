@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import { todayISO } from "./dates";
 import {
+  CategoryInputSchema,
   ChangePasswordSchema,
+  LockInputSchema,
   LoginSchema,
   ReportRangeSchema,
+  SetPasswordSchema,
   SignupOwnerSchema,
   SignupStaffSchema,
   TransactionFilterSchema,
@@ -271,6 +274,73 @@ describe("toFieldErrors", () => {
         "password",
       ]);
       expect(Object.values(errors).every((v) => v.startsWith("err."))).toBe(true);
+    }
+  });
+});
+
+/**
+ * Every message in validation.ts is an i18n key, never zod's English default:
+ * errorMessage() would otherwise fall back to "حدث خطأ غير متوقع" and the user
+ * would be told nothing. A bare `z.string()` or `z.enum()` is the usual way one
+ * slips in, so each case below feeds a schema the *wrong type*, not just a bad
+ * value, which is what triggers those defaults.
+ */
+describe("every zod message is an err.* i18n key", () => {
+  const long = "x".repeat(201);
+
+  const cases: Array<[string, { safeParse: (input: unknown) => unknown }, unknown]> = [
+    ["Login/longPassword", LoginSchema, { email: "a@b.com", password: long }],
+    ["Login/wrongTypes", LoginSchema, { email: 1, password: true }],
+    [
+      "ChangePassword/long",
+      ChangePasswordSchema,
+      { currentPassword: long, newPassword: long, confirmPassword: long },
+    ],
+    ["ChangePassword/empty", ChangePasswordSchema, {}],
+    ["Filter/pageZero", TransactionFilterSchema, { page: "0" }],
+    ["Filter/pageFraction", TransactionFilterSchema, { page: "1.5" }],
+    ["Filter/pageText", TransactionFilterSchema, { page: "abc" }],
+    ["Filter/direction", TransactionFilterSchema, { direction: "BOTH" }],
+    ["Filter/method", TransactionFilterSchema, { paymentMethod: "CRYPTO" }],
+    ["Filter/qWrongType", TransactionFilterSchema, { q: 5 }],
+    ["Lock/fraction", LockInputSchema, { year: 1999.5, month: 13 }],
+    ["Lock/wrongTypes", LockInputSchema, { year: "x", month: null }],
+    [
+      "Transaction/enums",
+      TransactionInputSchema,
+      {
+        date: today,
+        direction: "X",
+        amountHalalas: 1,
+        categoryId: "c",
+        paymentMethod: "Y",
+      },
+    ],
+    ["Transaction/empty", TransactionInputSchema, {}],
+    [
+      "Transaction/optionalWrongType",
+      TransactionInputSchema,
+      { ...validTransaction(), counterparty: 7, note: {} },
+    ],
+    ["SignupOwner/empty", SignupOwnerSchema, {}],
+    ["SignupStaff/empty", SignupStaffSchema, {}],
+    ["Category/bad", CategoryInputSchema, { nameAr: "", type: "Z" }],
+    ["Report/bad", ReportRangeSchema, { from: "bad", to: "worse" }],
+    ["SetPassword/bad", SetPasswordSchema, { userId: "", newPassword: "s" }],
+    ["SetPassword/wrongTypes", SetPasswordSchema, { userId: 3, newPassword: null }],
+  ];
+
+  it.each(cases)("%s", (_label, schema, input) => {
+    const result = schema.safeParse(input) as {
+      success: boolean;
+      error?: { issues: Array<{ message: string; path: PropertyKey[] }> };
+    };
+
+    expect(result.success).toBe(false);
+    for (const issue of result.error!.issues) {
+      expect(issue.message, `${String(issue.path)} → ${issue.message}`).toMatch(
+        /^err\./,
+      );
     }
   });
 });

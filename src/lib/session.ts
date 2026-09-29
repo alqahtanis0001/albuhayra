@@ -2,6 +2,8 @@ import "server-only";
 import { cookies } from "next/headers";
 import { getIronSession, type IronSession, type SessionOptions } from "iron-session";
 
+import { SESSION_COOKIE, SESSION_TTL_SECONDS } from "./sessionConfig";
+
 /**
  * The cookie carries identity only. `status` and `canEdit` are deliberately
  * absent: they are re-read from the database on every request that needs them
@@ -13,9 +15,9 @@ export type SessionData = {
   establishmentId?: string | null;
 };
 
-export const SESSION_COOKIE = "ledger_session";
-
-export const SESSION_TTL_SECONDS = 12 * 60 * 60;
+// Re-exported so existing importers of this module keep working; the values
+// themselves live in sessionConfig.ts, which the proxy can also import.
+export { SESSION_COOKIE, SESSION_TTL_SECONDS };
 
 function sessionOptions(): SessionOptions {
   const password = process.env.SESSION_SECRET;
