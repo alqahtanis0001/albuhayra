@@ -260,6 +260,7 @@ export const t = {
     dateInvalid: "التاريخ غير صحيح",
     dateFuture: "لا يمكن اختيار تاريخ في المستقبل",
     rangeInvalid: "الفترة غير صحيحة",
+    rangeTooLong: "المدة طويلة جدا. اختر فترة لا تتجاوز سنة.",
     amountInvalid: "المبلغ غير صحيح",
     amountPositive: "المبلغ يجب أن يكون أكبر من صفر",
     amountTooLarge: "المبلغ كبير جدا",

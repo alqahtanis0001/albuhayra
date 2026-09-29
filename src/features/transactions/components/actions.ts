@@ -15,4 +15,4 @@ export type TransactionFormAction = (
   formData: FormData,
 ) => Promise<ActionResult<null>>;
 
-export { createTransaction, updateTransaction } from "./stubActions";
+export { createTransaction, updateTransaction, deleteTransaction } from "./stubActions";

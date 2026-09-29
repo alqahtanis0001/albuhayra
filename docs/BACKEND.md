@@ -84,7 +84,7 @@ model PeriodLock {
 
 model AuditLog {
   id              String   @id @default(cuid())
-  establishmentId String?  // null for admin actions
+  establishmentId String?  // the TARGET establishment on admin actions; null only for an admin action concerning no establishment (none exist today)
   userId          String
   user            User     @relation(fields: [userId], references: [id])
   action          String   // see list below
@@ -96,6 +96,8 @@ model AuditLog {
   @@index([establishmentId, createdAt])
 }
 ```
+**`AuditLog.establishmentId` on ADMIN actions carries the TARGET establishment, not null.** The schema comment says "null for admin actions", which is right only for an admin action with no establishment (none exist today). `APPROVE_OWNER`, `REJECT_OWNER`, `DISABLE_ESTABLISHMENT`, `ENABLE_ESTABLISHMENT` and `RESET_PASSWORD` all concern one establishment, and writing null would leave an establishment's audit trail without its own approval in it.
+
 Audit actions: `LOGIN`, `SIGNUP`, `APPROVE_OWNER`, `REJECT_OWNER`, `APPROVE_STAFF`, `REJECT_STAFF`, `SET_CAN_EDIT`, `DISABLE_USER`, `ENABLE_USER`, `RESET_PASSWORD`, `REGENERATE_JOIN_CODE`, `CREATE`, `UPDATE`, `DELETE`, `LOCK`, `UNLOCK`, `CATEGORY_CREATE`, `CATEGORY_UPDATE`, `DISABLE_ESTABLISHMENT`, `ENABLE_ESTABLISHMENT`.
 
 Rules:
@@ -166,8 +168,8 @@ nothing but that sentence. The consequence is accepted deliberately — see the 
 | `approveStaff(userId)` / `rejectStaff(userId)` / `setCanEdit(userId, bool)` / `setStaffActive(userId, bool)` / `resetStaffPassword(userId, prev, formData)` | OWNER | target must be STAFF of own establishment. `resetStaffPassword` is form-backed with a bound id (see the signature convention); the rest are button actions |
 | `regenerateJoinCode()` | OWNER | — |
 | `changeOwnPassword(prev, formData)` | any | `ChangePasswordSchema`: current + new + confirm; bcrypt compare current |
-| `approveOwner(userId)` / `rejectOwner(userId)` | ADMIN | creates default categories on approve |
-| `setEstablishmentActive(id, bool)` | ADMIN | disabling blocks login for all its users |
+| `approveOwner(userId)` / `rejectOwner(userId)` | ADMIN | **target must be `status: PENDING`, else `err.forbidden`** — `approveOwner` inserts 13 default categories directly, so a second approval creates a second complete set that no action in the app can clean up, and `rejectOwner` on an ACTIVE owner would deactivate a business with live data. Approve creates the default categories; reject sets the user DISABLED and the establishment inactive |
+| `setEstablishmentActive(id, bool)` | ADMIN | disabling blocks login for all its users (enforced in `requireUser()`; do not duplicate). **ADMIN actions are the one place an id legitimately comes from the client** — ADMIN has `establishmentId: null`, so Security rules 1-2 and the B3 gate do not apply. What replaces the session scope: zod on the id, a `findUnique`/`findFirst` confirming the row exists before the write, and `requireAdmin()` as the sole authorisation. Do not invent a session scope here, and do not omit the existence check |
 | `resetOwnerPassword(userId, pw)` | ADMIN | — |
 
 ## Read queries (`src/features/<feature>/queries.ts`)
@@ -179,7 +181,7 @@ reserved word. Non-money fields (counts, `ym`, ids) keep their plain names.
 
 - `getOwnerDashboard(estId)` → `{ balanceTotalHalalas, balanceByMethod[] {method, balanceHalalas}, monthInHalalas, monthOutHalalas, monthNetHalalas, topOutCategories[] {categoryId, nameAr, totalHalalas} (this month, top 5 — **no percentage**, that is a presentation decision because of the divide-by-zero case), last6Months[] {ym, inHalalas, outHalalas}, recent[] (10) }`
 - `getStaffDashboard(estId, userId)` → `{ monthInHalalas, monthOutHalalas, myRecent[] (10), canEdit }`
-- `listTransactions(estId, filters)` → `{ rows[], total, pageTotals { inHalalas, outHalalas, netHalalas } }` (`PAGE_SIZE` 50). **No third `page` argument** — `TransactionFilterSchema` already carries `page` with a default of 1, and F5 parses URL search params straight through that schema, so a separate parameter would give one value two sources that can disagree.
+- `listTransactions(estId, filters)` → `{ rows[], total, filterTotals { inHalalas, outHalalas, netHalalas } }` (`PAGE_SIZE` 50). **Renamed from `pageTotals`**: it holds the totals of the whole *filtered* set, and the old name argued against its own invariant — a reader seeing `pageTotals` beside "footer totals" reaches for the page's rows, which is exactly the bug the multi-page test guards. The name now enforces the requirement without needing the comment. **No third `page` argument** — `TransactionFilterSchema` already carries `page` with a default of 1, and F5 parses URL search params straight through that schema, so a separate parameter would give one value two sources that can disagree.
 - **Every exported query return type must be serialisable.** No `Date` (and no Prisma `Decimal`) may appear in a shape a server component passes to a client component — it throws at the boundary. Dates cross as ISO strings. Which helper depends on the column: a `@db.Date` calendar date uses `dateToISO()` (UTC getters, correct for a stored day), while a `DateTime` **instant** — `lockedAt`, `createdAt` — uses `todayISO(instant)`, the Riyadh formatter. Using `dateToISO()` on an instant reports the previous day for anything before 03:00 Riyadh.
 - `getTransaction(estId, id)`
 - `getReport(estId, from, to)` → `{ byCategoryIn[] {categoryId, nameAr, totalHalalas}, byCategoryOut[] {…}, totalInHalalas, totalOutHalalas, netHalalas }`
@@ -195,7 +197,10 @@ Exports zod schemas and inferred types: `SignupOwnerSchema`, `SignupStaffSchema`
 
 ## API routes (the only ones)
 - `GET /api/health` → `{ ok: true }` (no auth)
-- `GET /api/export?from=&to=` → OWNER only; exceljs; sheet 1 transactions, sheet 2 totals by category; filename `ledger_<from>_<to>.xlsx`; `Cache-Control: private, no-store`.
+- `GET /api/export?from=&to=` → OWNER only; `ReportRangeSchema` on the params; exceljs; **sheet 1 transactions, sheet 2 totals by category**; filename `ledger_<from>_<to>.xlsx` via `Content-Disposition: attachment`; `Cache-Control: private, no-store`.
+  - **It must reuse `listTransactions` / `getReport` rather than querying Prisma directly**, so it inherits `ledgerWhere` and is covered by the B3 scoping gate by construction. The export writes *every matching row* to a file the owner keeps and forwards, so a soft-deleted entry reappearing there is the undetectable-wrong-number class in the format most likely to be treated as authoritative. Add `src/app/api/export/route.ts` to the gate's `FILES` list either way.
+  - `ReportRangeSchema` caps the span at `MAX_REPORT_SPAN_DAYS` (366) with `err.rangeTooLong` — exceljs holds the whole workbook in memory, and an unbounded range on a free-tier database is a timeout rather than a slow download.
+  - `requireOwner()` works by `redirect()`, so a signed-out or wrong-role request returns **307 to `/login`, not 403**. That fails closed and is intended, but it is the first time these helpers run outside a page or action — confirm it rather than assume it.
 
 ## Money and dates (`src/lib/money.ts`, `src/lib/dates.ts`)
 - `formatSAR(halalas)` → `"1,234.50 ر.س"` with Western digits (format with `en-US` grouping, never `ar-SA`).

@@ -10,8 +10,9 @@ import { Select } from "@/components/Select";
 import { Textarea } from "@/components/Textarea";
 import { Toast } from "@/components/Toast";
 import { t } from "@/i18n/ar";
-import { TransactionInputSchema, invalid } from "@/lib/validation";
 import type { DirectionValue } from "@/lib/validation";
+
+import { validateEntry } from "./validateEntry";
 
 import { AmountField } from "./AmountField";
 import { DirectionToggle, readLastDirection, rememberDirection } from "./DirectionToggle";
@@ -67,30 +68,8 @@ export function TransactionForm({
 
   const [state, formAction, pending] = useActionState(
     async (prev: TransactionState, formData: FormData): Promise<TransactionState> => {
-      const raw = Object.fromEntries(formData);
-
-      // An untouched amount submits "" for the hidden field, and Number("") is 0,
-      // which the schema answers with err.amountPositive — "must be greater than
-      // zero" for a field nobody has typed in. The visible field is in the form
-      // data too, so the two cases can be told apart: empty means required,
-      // non-empty-but-unparseable means invalid.
-      if (String(raw.amountHalalas ?? "") === "") {
-        const typed = String(raw.amountInput ?? "").trim();
-        return {
-          ok: false,
-          error: "err.invalidInput",
-          fieldErrors: {
-            amountHalalas: typed === "" ? "err.required" : "err.amountInvalid",
-          },
-        };
-      }
-
-      const parsed = TransactionInputSchema.safeParse({
-        ...raw,
-        // FormData is all strings; the action coerces the same way.
-        amountHalalas: Number(raw.amountHalalas),
-      });
-      if (!parsed.success) return invalid(parsed.error);
+      const problem = validateEntry(formData);
+      if (problem) return problem;
 
       // Deliberately no try/catch around this call. A server action that
       // redirects does so by *throwing*, so catching here would swallow the

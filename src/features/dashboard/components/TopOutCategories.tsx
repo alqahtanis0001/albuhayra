@@ -4,14 +4,14 @@ import { MoneyText } from "@/components/MoneyText";
 import { TBody, Table, Td, Th, Tr } from "@/components/Table";
 import { t } from "@/i18n/ar";
 
-import type { TopOutCategory } from "./data";
+import type { CategoryTotal } from "./data";
 import { formatPercent, percentOfTotal } from "./percent";
 
 export function TopOutCategories({
   rows,
   monthOutHalalas,
 }: {
-  rows: TopOutCategory[];
+  rows: CategoryTotal[];
   /** The denominator. Zero in a month with no OUT entries at all. */
   monthOutHalalas: number;
 }) {

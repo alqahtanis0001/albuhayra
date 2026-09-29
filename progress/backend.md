@@ -263,3 +263,170 @@ Open contract question raised with the lead: `docs/BACKEND.md` writes
 `listTransactions(estId, filters, page)`, but `TransactionFilterSchema` already carries
 `page` with a default of 1, so a third argument would duplicate it. Implemented as
 `listTransactions(estId, filters)` with `filters.page`.
+
+---
+
+## Checkpoint 3 — B5, B11, B6
+
+| Task | Files | Gates |
+|---|---|---|
+| B5 | `admin/{actions,queries}.ts`, `admin/admin.test.ts` | build, 181/181, tsc |
+| B11 | `establishments/actions.ts`, `settings/actions.ts`, `transactions/scoping.test.ts` | same |
+| B6 | `src/app/api/export/route.ts`, `export.test.ts` | same |
+
+### B5 — rule 10 has its own gate
+`admin/admin.test.ts` (19 cases) holds "no amounts, ever", because the admin area is
+deliberately **not** establishment-scoped and so is excluded from the B3 gate. It checks
+three separate ways: no argument to any Prisma call mentions `amountHalalas`, no key
+anywhere in the returned structure matches `/amount|halalas|total|sum|balance/i`, and every
+call on the `transaction` model is a `groupBy` whose `_max` is exactly `{ createdAt: true }`
+with no `_sum` or `_avg`.
+
+`lastActivityAt` is the field that makes this necessary. It is derived *from* transactions
+without being one, so the natural implementation — "find the newest entry" — pulls a whole
+row and its amount into a competitor's view. **Mutation-tested**: replacing the `groupBy`
+with the obvious `findMany({ select: { …, amountHalalas: true } })` failed **5** of the 19.
+
+The static half strips comments before checking, so the rule can be explained in the file
+without the explanation failing it — with a third case asserting the stripper does not blank
+the file, or the other two would be vacuous.
+
+### B11 — ten writes migrated, both files now swept
+All ten `update({ where: { id } })` calls in `establishments/actions.ts` and
+`settings/actions.ts` are now `updateMany` carrying the scope, via two helpers
+(`updateOwnStaff`, `updateOwnCategory`) so the 0-row check cannot be forgotten at a call
+site. `grep` for unique-where writes across `src/features/` returns **0**.
+
+The lead's condition — a 0-row write must not become a silent success — has its own
+describe block: five actions each asserted to return `err.notFound` when `updateMany`
+reports `count: 0`.
+
+Adding both files to the static sweep needed 14 new drivers and surfaced two things the
+runtime layer had never seen:
+- **`listStaff` was the only unexercised pair** (`user.findMany`) — the sweep working as
+  designed, catching a call site no test reached.
+- **Two legitimate exceptions to the scope rule**, both encoded narrowly rather than by
+  loosening it. `changeOwnPassword` scopes by the session's own user id, which it must,
+  since an ADMIN has no establishment — allowed only when `where.id` is the session user
+  *and* `establishmentId` is absent. And `allocateJoinCode` probes join-code uniqueness,
+  which is global by nature — allowed only for `establishment.findUnique` by `joinCode`
+  selecting exactly `{ id: true }`, so it can answer "taken or not" and read nothing.
+
+The sweep now covers 11 files. `src/features/admin/**` is the one deliberate absence, and
+the exclusion comment says why and names the test that covers it instead.
+
+### B6 — the export route
+`requireOwner()` first, then `ReportRangeSchema` on `from`/`to`. The establishment comes
+from the session; the URL is trusted for the range and nothing else. `export.test.ts`
+asserts that directly — a request carrying `?establishmentId=est_belonging_to_someone_else`
+must leave both queries called with the session's id, checked by value *and* by the string
+never appearing in the recorded arguments.
+
+It also round-trips the bytes: the response starts with `PK\x03\x04`, loads back through
+exceljs with two sheets, and cell C2 is the **number** 1234.5 rather than "1,234.50" text,
+so an owner can sum the column. Amounts are written in riyals with a `#,##0.00` format;
+halalas would be arithmetically correct and unreadable.
+
+### Gotchas
+- **The route takes a plain `Request`, not `NextRequest`.** It read `request.nextUrl`
+  first, which only exists on `NextRequest` and made the handler untestable without
+  constructing a Next-specific object. `new URL(request.url).searchParams` is equivalent at
+  runtime and callable from a test.
+- `allRows` pages through `listTransactions` rather than adding an unpaginated query, so the
+  export cannot drift from what the ledger screen shows.
+- An `approveOwner` that runs twice must not double the categories, so the insert is
+  guarded by `category.count === 0`. It also sets `establishment.active = true`, because an
+  owner rejected and later approved needs their establishment switched back on.
+
+### Reconciliation against the corrected B5/B11/B6 briefs
+Four of the seven items were already in place; three needed work.
+
+**Already correct.** The `status !== "PENDING"` guards on `approveOwner`/`rejectOwner` (and
+the category insert is additionally guarded by `category.count === 0`, so the duplicate-set
+bug the lead described was blocked twice). `writeAudit` on all four admin actions, each
+carrying the **target** establishment rather than null. Every `findFirst` kept through the
+B11 migration — only the write changed, so the audit `before` payloads and the status guards
+are intact and the 0-row `updateMany` is a second guard, not the primary one. The self-write
+rule the lead ruled on is exactly what was implemented.
+
+**Changed.**
+- The export route now returns the schema's **own** key instead of flattening every parse
+  failure to `err.rangeInvalid` — so a three-year request says `err.rangeTooLong` and a
+  malformed date says `err.dateInvalid`. This broke my own earlier test, which had asserted
+  the flattened key; it now asserts per case, plus one at exactly the 366-day cap.
+- `src/app/api/export/route.ts` added to the gate's `FILES`. It contributes no pairs, since
+  it reuses `listTransactions`/`getReport` — being listed is what fails the suite if it ever
+  gains a direct Prisma call.
+- The admin file header now names the three guards that stand in for a session scope where
+  the id legitimately comes from the client: zod on the id, an existence check *before* the
+  write, and `requireAdmin()` as sole authorisation.
+
+### `pageTotals` across pages (asked for by `frontend`, F5's criterion)
+Three cases in `scoping.test.ts` on a **60-row** fixture, so page 2 exists: rows page 50/10,
+`total` 60 on both, `pageTotals` identical across pages and equal to the full sum, and the
+`groupBy` asserted to carry no `skip`/`take`. **Mutation-tested** with the exact regression
+`frontend` predicted — deriving the totals from the rows already fetched — which failed all
+three. Page 1 alone would have passed it, which is the whole point of the larger fixture.
+
+This needed the harness to accept a **function** as a canned response so `findMany` can
+honour `skip`/`take`; that is what makes any paging behaviour testable here.
+
+### Confirmed by request rather than assumed: the signed-out export is 307, not 403
+`requireOwner()` works by `redirect()`, so against a running production build:
+- signed out → `307 /login`
+- signed out **with a `purpose: prefetch` header**, which the proxy matcher deliberately
+  skips → still `307 /login`. That one came from `requireOwner()` itself, since the proxy
+  never ran, which is the useful half of the result.
+- a **forged** but well-formed sealed cookie naming a user who does not exist → `307
+  /login?signedOut=1` on both paths.
+
+So the route fails closed with and without the proxy, and the reviewer's earlier L4 note
+about the prefetch bypass does not reach this route: `requireX()` is doing the work, exactly
+as `docs/BACKEND.md` says it should.
+
+### Order-dependence in `scoping.test.ts` — real, found by asking
+The lead asked whether a suite that failed 7 then passed was order-dependent or just
+mid-edit. It was mid-edit — the 7 were `createCategory`/`categoryForm` import errors from an
+incomplete edit, not flakiness. **But the question found a genuine latent fragility anyway.**
+
+Run under `--sequence.shuffle`, seed 3 fails: the static sweep reads the `allObserved` set
+that the driver blocks populate, so it must run **last**. Two of three seeds passed, which is
+exactly the profile that later gets dismissed as flakiness.
+
+The project does not shuffle (`vitest.config.mts` does not set it, and that file is the
+lead's), so this is latent rather than live. Mitigation: a floor assertion on
+`allObserved.size` whose message names the cause — under shuffle the failure now reads "the
+static sweep ran before the driver blocks … it is not a scoping failure" instead of printing
+every pair as unexercised, which looks exactly like a scoping regression.
+
+Not fixed by making the sweep self-driving, because that would duplicate every driver's
+response fixture. Reported to the lead as a constraint on ever enabling shuffle.
+
+### Both encoded exceptions are now pinned (reviewer finding)
+Nine rules in `describe("the scope rule actually bites")` had pinning cases; the two
+exceptions I added did not. Five cases now, three refusals and two accepted shapes, each
+**mutation-verified** by widening the exception it guards:
+
+| Widening | Case that fails |
+|---|---|
+| drop `Object.keys(select).length === 1` | refuses a join-code probe that selects more than the id |
+| relax `where.id === USER` to a typeof check | refuses a self-write naming somebody else |
+| delete `where.establishmentId === undefined` | refuses a self-write carrying a foreign establishment |
+
+Each mutation failed exactly one case, so the pins are precise rather than broadly
+overlapping. All three reverted and the originals confirmed by `grep`.
+
+Needed a new `OTHER_USER` constant beside `OTHER_EST`, and the reason is the reviewer's,
+worth keeping: the tenant rule has always been protected by a foreign **id existing in the
+fixture to fail against**, and the self-write rule had no equivalent — a rule asserted only
+against the id it accepts can be widened to accept everything without failing anything.
+That asymmetry is why the gap was easy to miss.
+
+The governance point behind it: a logged Decision catches a **new** exception, because that
+is visible in a diff. Only a pinning case catches the silent **widening** of an existing one,
+which adds no exception and so triggers no Decision — and reads as a tidy-up.
+
+Also recorded: the 307 status on a refused export is **inference plus a manual check**, not
+test-backed. `requireOwner` is mocked in `export.test.ts` and resolves, so the refusal path
+never runs there. The property is safe structurally — `redirect()` throws, so the handler
+cannot fall through to building a workbook — but nobody should cite the suite as evidence.

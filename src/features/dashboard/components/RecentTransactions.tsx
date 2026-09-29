@@ -5,10 +5,10 @@ import { EmptyState } from "@/components/EmptyState";
 import { MoneyText } from "@/components/MoneyText";
 import { t } from "@/i18n/ar";
 
-import type { RecentTransaction } from "./data";
+import type { LedgerRow } from "./data";
 
 /** Stacked rows rather than a table: this list is read on a phone. */
-export function RecentTransactions({ rows }: { rows: RecentTransaction[] }) {
+export function RecentTransactions({ rows }: { rows: LedgerRow[] }) {
   return (
     <Card title={t.dashboard.recent} bodyClassName="">
       {rows.length === 0 ? (

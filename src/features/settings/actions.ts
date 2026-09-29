@@ -13,6 +13,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import type { Prisma } from "@/generated/prisma";
 import { writeAudit } from "@/lib/audit";
 import { hashPassword, requireOwner, requireUser, verifyPassword } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -58,10 +59,13 @@ export async function changeOwnPassword(
     return { ok: false, error: "err.passwordWrong" };
   }
 
-  await db.user.update({
+  // The caller's own id is the scope: this action changes nobody else's password,
+  // and an ADMIN has no establishment to scope by.
+  const { count } = await db.user.updateMany({
     where: { id: user.id },
     data: { passwordHash: await hashPassword(parsed.data.newPassword) },
   });
+  if (count === 0) return { ok: false, error: "err.unexpected" };
   await writeAudit({
     establishmentId: user.establishmentId,
     userId: user.id,
@@ -71,6 +75,22 @@ export async function changeOwnPassword(
   });
 
   return { ok: true, data: null };
+}
+
+/**
+ * Rule 2b: the scope is in the SQL rather than in the `findFirst` above it, and
+ * a 0-row result is the same `err.notFound` the scoped read produced before.
+ */
+async function updateOwnCategory(
+  establishmentId: string,
+  categoryId: string,
+  data: Prisma.CategoryUpdateManyMutationInput,
+): Promise<boolean> {
+  const { count } = await db.category.updateMany({
+    where: { id: categoryId, establishmentId },
+    data,
+  });
+  return count > 0;
 }
 
 type CategoryTarget = {
@@ -136,10 +156,10 @@ export async function createCategory(
     select: { id: true },
   });
   if (retired) {
-    await db.category.update({
-      where: { id: retired.id },
-      data: { active: true },
+    const revived = await updateOwnCategory(establishmentId, retired.id, {
+      active: true,
     });
+    if (!revived) return { ok: false, error: "err.notFound" };
     await writeAudit({
       establishmentId,
       userId: owner.id,
@@ -207,10 +227,10 @@ export async function updateCategory(
     return { ok: false, error: "err.categoryDuplicate" };
   }
 
-  await db.category.update({
-    where: { id: current.id },
-    data: { nameAr: parsed.data.nameAr },
+  const renamed = await updateOwnCategory(establishmentId, current.id, {
+    nameAr: parsed.data.nameAr,
   });
+  if (!renamed) return { ok: false, error: "err.notFound" };
   await writeAudit({
     establishmentId,
     userId: owner.id,
@@ -257,10 +277,10 @@ export async function setCategoryActive(
     return { ok: false, error: "err.categoryDuplicate" };
   }
 
-  await db.category.update({
-    where: { id: current.id },
-    data: { active: parsed.data.active },
+  const switched = await updateOwnCategory(establishmentId, current.id, {
+    active: parsed.data.active,
   });
+  if (!switched) return { ok: false, error: "err.notFound" };
   await writeAudit({
     establishmentId,
     userId: owner.id,

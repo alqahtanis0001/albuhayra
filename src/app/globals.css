@@ -62,4 +62,36 @@ dialog::backdrop {
     padding: 0 !important;
     max-width: none !important;
   }
+
+  /* Ink, not screen: the accent and the money colours are legible on a backlit
+     display and muddy in greyscale, so everything prints black on white. The
+     +/- sign is what still distinguishes وارد from صادر on paper, which is the
+     reason that rule exists. */
+  * {
+    color: #000 !important;
+    background: transparent !important;
+  }
+
+  /* Rules, since the on-screen borders are light grey and vanish in print. */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  th,
+  td {
+    border: 1px solid #000;
+    padding: 4px 6px;
+  }
+
+  /* A category table must not be split across a page break mid-total. */
+  table,
+  tfoot,
+  tr {
+    break-inside: avoid;
+  }
+
+  /* No physical-direction value is needed anywhere in this block: the logical
+     properties Tailwind emits print correctly, and `text-start` resolves
+     against the document's dir="rtl" in print exactly as on screen. Recorded
+     because the doc permits one here — we did not need to take it. */
 }

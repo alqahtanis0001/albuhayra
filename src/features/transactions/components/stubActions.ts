@@ -26,3 +26,10 @@ export async function updateTransaction(
 ): Promise<ActionResult<null>> {
   return { ok: true, data: null };
 }
+
+/** OWNER only, and soft-deletes. The stub reports success and changes nothing. */
+export async function deleteTransaction(
+  _transactionId: string,
+): Promise<ActionResult<null>> {
+  return { ok: true, data: null };
+}

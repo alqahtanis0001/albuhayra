@@ -34,8 +34,14 @@ export type LedgerRow = {
 export type LedgerPage = {
   rows: LedgerRow[];
   total: number;
-  /** Totals for the whole filter, not just the visible page — the list footer. */
-  pageTotals: {
+  /**
+   * Totals of the whole filtered set, which is what the list footer shows — not
+   * the visible page. Named `filterTotals` rather than `pageTotals` because the
+   * old name argued against its own invariant: anyone reading it beside "footer
+   * totals" reaches for the page's rows, which is the bug the multi-page test in
+   * scoping.test.ts exists to catch.
+   */
+  filterTotals: {
     inHalalas: number;
     outHalalas: number;
     netHalalas: number;
@@ -162,7 +168,7 @@ export async function listTransactions(
     sumByDirection(where),
   ]);
 
-  return { rows: rows.map(toRow), total, pageTotals: totals };
+  return { rows: rows.map(toRow), total, filterTotals: totals };
 }
 
 /**

@@ -189,12 +189,24 @@ export const TransactionFilterSchema = z
   });
 export type TransactionFilter = z.infer<typeof TransactionFilterSchema>;
 
+/** One year. The export builds the whole workbook in memory, so an unbounded
+ *  span is a timeout rather than a slow download. An owner needing more
+ *  exports year by year. */
+export const MAX_REPORT_SPAN_DAYS = 366;
+
 export const ReportRangeSchema = z
   .object({
     from: anyISODate,
     to: anyISODate,
   })
-  .refine((v) => v.from <= v.to, { path: ["to"], message: "err.rangeInvalid" });
+  .refine((v) => v.from <= v.to, { path: ["to"], message: "err.rangeInvalid" })
+  .refine(
+    (v) =>
+      (Date.parse(`${v.to}T00:00:00Z`) - Date.parse(`${v.from}T00:00:00Z`)) /
+        86_400_000 <=
+      MAX_REPORT_SPAN_DAYS,
+    { path: ["to"], message: "err.rangeTooLong" },
+  );
 export type ReportRange = z.infer<typeof ReportRangeSchema>;
 
 /* --------------------------------------------------------------- action result */

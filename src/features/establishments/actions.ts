@@ -14,6 +14,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import type { Prisma } from "@/generated/prisma";
 import { writeAudit } from "@/lib/audit";
 import { hashPassword, requireOwner } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -42,6 +43,27 @@ type StaffTarget = {
   canEdit: boolean;
 };
 
+/**
+ * Rule 2b: the tenant boundary lives in the SQL, not in the `findFirst` above it.
+ * `update` cannot express it — Prisma demands a *unique* where and
+ * `{ id, establishmentId }` is not unique — so every write here is an
+ * `updateMany` carrying the scope, and a 0-row result means the id was not this
+ * establishment's. That is the same answer the scoped read gave before, which is
+ * what makes the migration behaviour-preserving rather than merely equivalent on
+ * the happy path.
+ */
+async function updateOwnStaff(
+  establishmentId: string,
+  userId: string,
+  data: Prisma.UserUpdateManyMutationInput,
+): Promise<boolean> {
+  const { count } = await db.user.updateMany({
+    where: { id: userId, establishmentId, role: "STAFF" },
+    data,
+  });
+  return count > 0;
+}
+
 /** The STAFF row `userId` names — but only inside the caller's establishment. */
 async function findOwnStaff(
   establishmentId: string,
@@ -62,7 +84,10 @@ export async function approveStaff(userId: string): Promise<ActionResult<null>> 
   if (!staff) return { ok: false, error: "err.notFound" };
   if (staff.status !== "PENDING") return { ok: false, error: "err.forbidden" };
 
-  await db.user.update({ where: { id: staff.id }, data: { status: "ACTIVE" } });
+  const updated = await updateOwnStaff(establishmentId, staff.id, {
+    status: "ACTIVE",
+  });
+  if (!updated) return { ok: false, error: "err.notFound" };
   await writeAudit({
     establishmentId,
     userId: owner.id,
@@ -87,10 +112,11 @@ export async function rejectStaff(userId: string): Promise<ActionResult<null>> {
   if (staff.status !== "PENDING") return { ok: false, error: "err.forbidden" };
 
   // Rejection is a disabled account, not a deletion: the audit trail stays.
-  await db.user.update({
-    where: { id: staff.id },
-    data: { status: "DISABLED", canEdit: false },
+  const updated = await updateOwnStaff(establishmentId, staff.id, {
+    status: "DISABLED",
+    canEdit: false,
   });
+  if (!updated) return { ok: false, error: "err.notFound" };
   await writeAudit({
     establishmentId,
     userId: owner.id,
@@ -116,10 +142,10 @@ export async function setCanEdit(
   const staff = await findOwnStaff(establishmentId, parsed.data.userId);
   if (!staff) return { ok: false, error: "err.notFound" };
 
-  await db.user.update({
-    where: { id: staff.id },
-    data: { canEdit: parsed.data.value },
+  const updated = await updateOwnStaff(establishmentId, staff.id, {
+    canEdit: parsed.data.value,
   });
+  if (!updated) return { ok: false, error: "err.notFound" };
   await writeAudit({
     establishmentId,
     userId: owner.id,
@@ -148,11 +174,12 @@ export async function setStaffActive(
   if (staff.status === "PENDING") return { ok: false, error: "err.forbidden" };
 
   const status = parsed.data.value ? "ACTIVE" : "DISABLED";
-  await db.user.update({
-    where: { id: staff.id },
+  const updated = await updateOwnStaff(establishmentId, staff.id, {
+    status,
     // Losing the account also loses the edit permission it carried.
-    data: { status, canEdit: parsed.data.value ? staff.canEdit : false },
+    canEdit: parsed.data.value ? staff.canEdit : false,
   });
+  if (!updated) return { ok: false, error: "err.notFound" };
   await writeAudit({
     establishmentId,
     userId: owner.id,
@@ -182,10 +209,10 @@ export async function resetStaffPassword(
   const staff = await findOwnStaff(establishmentId, parsed.data.userId);
   if (!staff) return { ok: false, error: "err.notFound" };
 
-  await db.user.update({
-    where: { id: staff.id },
-    data: { passwordHash: await hashPassword(parsed.data.newPassword) },
+  const updated = await updateOwnStaff(establishmentId, staff.id, {
+    passwordHash: await hashPassword(parsed.data.newPassword),
   });
+  if (!updated) return { ok: false, error: "err.notFound" };
   // The hash never reaches the audit payload.
   await writeAudit({
     establishmentId,
@@ -214,10 +241,12 @@ export async function regenerateJoinCode(): Promise<
     return { ok: false, error: "err.unexpected" };
   }
 
-  await db.establishment.update({
+  // The establishment's own id *is* the scope here.
+  const { count } = await db.establishment.updateMany({
     where: { id: establishmentId },
     data: { joinCode },
   });
+  if (count === 0) return { ok: false, error: "err.notFound" };
   // The code itself is a shared secret, so it stays out of the audit payload.
   await writeAudit({
     establishmentId,

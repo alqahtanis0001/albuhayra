@@ -86,6 +86,32 @@ Run against every completed backend task. One line per item; a miss is a finding
 15. **ADMIN never sees money.** `getAdminOverview()` and every admin action
     return counts and statuses only — no `amountHalalas`, no transaction rows.
 16. `.env` gitignored and untracked; `.env.example` shipped with placeholders.
+18. **An exception in `scopeFailure` needs a logged Decision *and* a pinning
+    case.** The lead's governance rule (2026-09-29) is that each new exception
+    requires a Decision; treat an unlogged one as a finding. I am adding the
+    second half: an exception **without a harness case that fails when it is
+    widened** is also a finding. A *new* exception is visible in a diff and a
+    reviewer can demand its Decision; the silent **widening** of an existing one
+    adds no exception, triggers no Decision, and reads as a small
+    simplification — only a pinning case catches it. Encoding beats excluding
+    (an excluded file stops being watched; an encoded exception is
+    machine-checked), and this is not in tension with rule 2b's blanket ban on
+    `update`: that banned *per-call waivers* which need a human to re-verify at
+    each site and rot, whereas a typed, narrow, machine-checked exception is a
+    rule. Corollary: every rule needs a **foreign value in the fixture to fail
+    against** — `OTHER_EST` protects the tenant rule; the self-write rule needed
+    an `OTHER_USER` and did not have one. **The habit that finds this is not
+    "read the rule harder" but "find the case that would fail if this rule were
+    deleted" — if there is none, the rule is decoration.** `backend` and I had
+    each read the predicate carefully; only looking for the pin found the gap.
+    Ask for **one mutation → exactly one failing case**, not merely "some case
+    fails": that proves the pins are *precise*, so a future failure names the
+    clause that was dropped instead of just reporting that the gate broke.
+19. **An exclusion must name what covers it instead.** An excluded file is
+    indistinguishable from an overlooked one unless the comment says which test
+    holds the rule that applies there (`src/features/admin/**` →
+    `admin.test.ts`). Hold every future exclusion to that; an unnamed exclusion
+    is a hole until proven otherwise.
 17. **No single source is authoritative; the commit object is what decides what
     ships.** A file can be absent from disk and still staged in the index, an
     untracked file is invisible in a diff, and a hash can be amended out from
@@ -684,8 +710,136 @@ than `err.required` because `Number("")` is `0`.
 own item 13b than mine: it says the no-`try` rule must hold *for whichever action
 changes its mind later*, rather than resting on what the actions do today.
 
+### 2026-09-29 — Checkpoint 2 committed (`2826a0a`, plus `3d838dd`)
+
+No open findings from me. F3, F4 and F2b clean; B3/B4/B8/B10 clean after the
+`deletedAt` gate patch. `3d838dd` is the empty-amount message on its own commit,
+because it changes user-visible text and deserved to be findable.
+
+Decisions recorded by the lead from this checkpoint: `t.status.DISABLED` is the
+single word for that state across staff, establishments **and** categories (one
+state, one word, beats a per-context synonym), and the `Halalas` suffix stays
+because it converted label/value pairing from a runtime-only bug into a
+reviewable one.
+
+The lead has adopted the commitment `backend` made after `getOwnStatus`: when
+they reverse something they have told me, they say so. That is the actual fix for
+the stale-key episode, and it sits on their side rather than mine.
+
+### 2026-09-29 — Checkpoint 3 brief-vs-doc pass (before any code)
+
+Order: W2 → B5 ∥ F5 ∥ F6 → B11 → B6 → W4. Sent the lead 4 items needing a
+decision and 9 dropped doc rules. What to verify when the code lands:
+
+**B5**
+- `approveOwner` **must guard on PENDING**. It creates 13 categories, so a second
+  approval of an ACTIVE owner creates a second complete set — duplicate active
+  categories that `nameTaken` cannot prevent (it lives in `createCategory`) and
+  no action can clean up. `rejectOwner` needs the same guard: rejecting an ACTIVE
+  owner disables a live business. Neither doc nor brief said so.
+- **ADMIN actions are the one place an establishment id legitimately comes from
+  the client** — ADMIN has `establishmentId: null`, so item 2 and the B3 gate do
+  not apply. Replacement guard: zod on the id, confirm the row exists, and
+  `requireAdmin()` as the only authorisation. Do not flag the absent session
+  scope here as a finding.
+- `writeAudit` absent from the brief; `APPROVE_OWNER` / `REJECT_OWNER` /
+  `DISABLE_ESTABLISHMENT` / `ENABLE_ESTABLISHMENT` / `RESET_PASSWORD` are
+  reserved for it. Ambiguity flagged: schema says `AuditLog.establishmentId` is
+  "null for admin actions", but `approveOwner`'s natural value is the target.
+- Category counts in the brief (4 IN, 9 OUT) match the doc.
+
+**B11**
+- The scoped `findFirst` **stays** — it supplies the audit `before` payload and
+  the status guards. Only the write changes. A 0-row `updateMany` is a *second*
+  guard (concurrent delete), not the primary one.
+- **`changeOwnPassword` cannot be scoped by `establishmentId`** and lives in a
+  file being added to the sweep: it serves ADMIN too, whose `establishmentId` is
+  null. The correct scope is the session's own user id. `scopeFailure` needs a
+  **self-write rule** (`user` model: `where.establishmentId === EST` **or**
+  `where.id === <session user id>`) decided before the migration, or the last
+  step of B11 cannot be completed without weakening the rule or breaking ADMIN.
+
+**B6**
+- **The export route is a Transaction read outside the gate** — `scoping.test.ts`
+  `FILES` has seven entries and `api/export/route.ts` is not one. Recommended it
+  call `getReport`/`listTransactions` so it inherits `ledgerWhere` by
+  construction; otherwise add the file to `FILES` in the same task. An exported
+  workbook is the format most likely to be treated as authoritative.
+- Brief drops the sheet contents (1 = transactions, 2 = totals by category) and
+  the filename `ledger_<from>_<to>.xlsx`, which needs `Content-Disposition`.
+- `ReportRangeSchema` has **no maximum span**; exceljs holds the whole workbook
+  in memory. Cap it or record the decision.
+- `requireOwner()` works by `redirect()` — first time these helpers run outside a
+  page or action. Fails closed (307 to `/login`), but confirm rather than assume.
+
+**F5** — brief drops stacked cards on mobile, delete via `ConfirmDialog`,
+`LockBadge` hiding actions on locked months, and "أضافه: `<name>`" per row. The
+LockBadge rule is the *visible* half of the user's server-derived-actions
+criterion; the gating and the affordance must agree.
+
+**F6** — brief drops the current-month default, a total row per table, and the
+print header (establishment name + range; `t.reports.printedFor` and
+`rangeLabel` exist for it). **Unstated and the most valuable: print is
+black-on-white, so the IN/OUT colour signal disappears and `+`/`−` becomes the
+only carrier of direction.** `MoneyText` emits a sign only when `direction` is
+passed, so every amount in the report tables must pass it explicitly. Print is
+not an edge case for "never colour alone" — it is the case that proves the rule.
+Read the print stylesheet **by hand**; a justified physical-direction value with
+a comment is not a finding there.
+
+### 2026-09-29 — R-B5 / R-B11 / R-B6 / R-F5 / R-F6
+
+**One finding (B5/B11/B6): the two encoded `scopeFailure` exceptions are tight
+but unpinned by any harness case** — nine pre-existing rules each have one, these
+two have none, so widening them later fails nothing. Sent `backend` three cases;
+`OTHER_USER` beside `OTHER_EST` is the missing half. This produced Checklist A
+item 18, and the lead amended the governance rule to "a logged Decision **and** a
+pinning case". The general shape worth reusing: **a rule with no foreign value in
+the fixture to fail against is a rule that cannot be tested.**
+
+**F5/F6 clean.** The range separation holds past the parser — the page queries the
+safe range and the **export link inherits it**, so a rejected span can be neither
+queried nor exported. The print case I raised is handled: every report row and
+both table totals pass `direction`, so `+`/`−` survives black-on-white. The
+`@media print` block took **no** physical-direction exemption — `frontend`
+checked whether the permission implied a need. All four F5 doc rules present, and
+both renderings pass `locked=`, so the two layouts cannot disagree.
+
+**Two judgement calls I made rather than reflexive findings:**
+- `categoryId` from the URL is **not** re-checked against the establishment, so
+  the user's criterion is literally unmet — but `ledgerWhere` carries
+  `establishmentId` in the same `where`, so a forged category yields **zero rows,
+  not anyone else's**. Recommended amending the criterion rather than adding a
+  lookup per page load to make an empty list nicer. Trace the guarantee before
+  reporting a missing check: the protection may be structural.
+- `pageTotals` correctly holds *filtered-set* totals (the doc's name), but the
+  name argues for the bug the user made a criterion. Raised as a rename for the
+  lead, not a finding against `frontend`.
+
+**My error, recorded:** I attributed the `// null for admin actions` comment to
+`prisma/schema.prisma`; it exists only in `docs/BACKEND.md`'s schema copy. The
+substance held, but I put a finding on a file `backend` owns instead of one the
+lead owns. **Grep for *which file* as well as for what is in it** — a
+misattributed finding lands on the wrong person's task.
+
 ## In progress
-- Task: Checkpoint 2 under way — `frontend` on W1 then F3 ∥ F4, `backend` on B3.
+- Task: Checkpoint 2 committed. Holding for the user's approval of Checkpoint 3
+  (proposed: W2, F5, B5). **Advance brief-vs-doc pass comes first** — it has been
+  worth more than the reviews both times.
+- What to prepare for when the briefs arrive:
+  - **W2** — the swap I already verified compiles: `data.ts` re-exports from
+    `dashboard/queries.ts`, `stubDashboard.ts` deleted. Churn should be type
+    names only (`TopOutCategory`→`CategoryTotal`,
+    `RecentTransaction`→`LedgerRow`). More than that means the contract drifted.
+  - **F5** (ledger list) — filters arrive from **URL search params**, so they are
+    attacker-controlled: `TransactionFilterSchema` must parse them, and
+    `pageTotals` must be the filtered totals rather than the page's. Row actions
+    gated by role *and* lock. 50/page against `PAGE_SIZE`.
+  - **B5** (admin) — Checklist A item 15 is the whole task: `getAdminOverview()`
+    returns counts and statuses only. Check every `select` for `amountHalalas`
+    and every return shape for transaction rows, and re-sweep
+    `src/app/(admin)` for a rendered amount even if a query leaks one.
+    `approveOwner` creating the default categories is the other half. — `frontend` on W1 then F3 ∥ F4, `backend` on B3.
   Reviewing code as it lands. Brief-vs-doc pass done and fully adopted; the
   "Rulings" block above is my checklist for these reviews.
 - Order: W1 → B3 ∥ F3 ∥ F4 → B4, B8, B10 → W2.
@@ -730,15 +884,29 @@ changes its mind later*, rather than resting on what the actions do today.
   spending a pass on the question. The lead has asked to be treated this way
   explicitly, having been corrected on three factual claims in one session, each
   asserted from memory where a check was cheap.
-- **Verify a convenience too — not just claims and corrections.** I relayed the
-  lead's "I already added `t.transaction.retiredCategory`" to `frontend` as fact
-  and then filed a review note complaining the key was unused. It does not exist;
-  `grep -in "retired|متوقف" src/i18n/ar.ts` is empty, and the current `ar.ts` had
-  scrolled past me earlier with the `transaction:` block visible. `frontend`
-  caught it by reading the file. The near-cost: I asked them to change working
-  code to use a key that did not exist — had they deferred to me as readily as I
-  deferred to the lead, the build would have broken and been attributed to their
-  task. **`grep` for the symbol, not `ls` for the file.**
+- **A moving tree is not the same as a wrong claim, and the remedy is the same.**
+  `t.transaction.retiredCategory` was added by the lead, then removed as unused
+  after `frontend` said it was not needed. The lead's claim, my read and
+  `frontend`'s grep were each accurate *at the moment they were made*. That is
+  why the rule is **re-read immediately before asserting**, not "read once
+  carefully" — no amount of care at time T survives an edit at T+1. What was
+  genuinely mine: relaying the claim without checking at all.
+- **Verify before a claim becomes a *finding*.** This is the narrow, correct
+  lesson from the `t.transaction.retiredCategory` episode — the lead ruled that
+  the stale claim was theirs (they added the key, told me, removed it, and did
+  not tell me), and that a reviewer cannot re-check every fact a teammate reports
+  about a file they own and just edited; if it could, review would cost more than
+  it returns. Agreed. But two acts got conflated and only one was reasonable:
+  *believing* the lead was fine; *filing a review note that asked `frontend` to
+  change working code* on the strength of it was not. A finding is where my word
+  carries weight, so that is the point at which the cheap check is owed — not on
+  every fact I hear. **`grep` for the symbol, not `ls` for the file — before
+  writing it down as a finding.**
+- **Deference propagating down a chain turns one stale fact into someone else's
+  bug.** Had `frontend` complied as readily as I had, the build would have broken
+  and been attributed to *their* task. They checked instead. A teammate who
+  verifies rather than complies is a safety mechanism, and telling them so is
+  part of keeping it.
 - **Triage tree-versus-claim mismatches by whether they fail loudly or silently**
   (`frontend`'s distinction). Four this session: the action shape, `zzsmoke`'s
   first deletion, `getOwnStatus`, this key. The missing key fails loudly — `tsc`

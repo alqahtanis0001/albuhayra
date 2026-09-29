@@ -589,3 +589,232 @@ pattern-level read would pass a form with one field left live, which is exactly 
 ships.
 
 Gates: build 0, `tsc` 0, `npm test` 137/137. F4 and F2b both reviewed clean; holding for Checkpoint 2.
+
+## A better framing than "reports keep being wrong"
+
+I had been counting instances where a teammate's description did not match the tree — the action
+shape, `zzsmoke`'s first deletion, `getOwnStatus`, `retiredCategory` — as a reliability problem. The
+reviewer's account of the last one is more useful: the key **was** added, they read a claim about it
+while it existed, I read the file after it was removed, and all three reads were accurate when they
+were made. That is not people being careless; it is a tree four agents are editing concurrently.
+
+Two consequences worth keeping for whoever works this repo next:
+
+1. **Re-read immediately before asserting, rather than reading once carefully.** A fact about a
+   shared tree has a shelf life measured in minutes. The same applies to a commit hash — `9b48932`
+   was correct when I verified it and dangling twenty minutes later.
+2. **Triage by whether the tree lies loudly or silently.** A missing i18n key or a changed action
+   signature fails at `tsc` and costs minutes. A file reported present that is absent, or a renamed
+   money field paired with the wrong label, compiles and ships. The first kind needs no process; the
+   second is what the verification habits are for.
+
+The habits that actually caught these: `grep` for the symbol rather than `ls` for the file (an
+emptied or renamed file passes an `ls`), `git ls-tree`/`git grep HEAD` rather than the working tree
+when the question is what is committed, and reading label/value pairs by hand when every field in the
+rename is the same type.
+
+## W2 — owner dashboard wired to the real query
+
+`stubDashboard.ts` deleted; my local `TopOutCategory` and `RecentTransaction` deleted rather than
+kept as near-duplicates. The churn was exactly what the reviewer predicted: two type *names*
+(`TopOutCategory`→`CategoryTotal`, `RecentTransaction`→`LedgerRow`), both of which failed loudly at
+`tsc`. No shape drift.
+
+**`data.ts` survived, but its job changed — and the new job is load-bearing.** It is now
+**type-only** re-exports. Both `@/features/dashboard/queries` and `@/features/transactions/queries`
+begin with `import "server-only"`, and `SixMonthChart` is a client component; `export type` is erased
+by TypeScript, so nothing can reach the client bundle. The file says in a comment that nothing
+importable as a *value* may live there, because the day someone adds one, that boundary stops being
+safe without anything looking wrong. `getOwnerDashboard` is imported straight from the query module
+by the page, which is a server component and may hold it.
+
+Worth noting the build is a real check here rather than a formality: `server-only` throws at build
+time if a client component reaches it, so a green build *is* the evidence that no query module
+crossed the boundary.
+
+One cascade worth recognising next time: renaming the type produced a second, unrelated-looking error
+— `t.paymentMethod[row.paymentMethod]` "can't be used to index" — purely because `row` had become
+`any` once its type failed to resolve. Fixing the real error cleared both; chasing the index error on
+its own would have been wasted effort.
+
+Gates: build 0, `tsc` 0, `npm test` 137/137.
+
+## F5 — ledger list
+
+Files: `src/app/(owner)/owner/transactions/page.tsx`, and in
+`src/features/transactions/components/`: `ledgerParams.ts`, `LedgerFilters.tsx`, `LedgerList.tsx`,
+`LedgerTotals.tsx`, `LedgerRowActions.tsx`, `DeleteEntryButton.tsx`, `validateEntry.ts`.
+
+**Criterion 1 — `pageTotals` cover the whole filtered set.** `listTransactions` computes
+`sumByDirection(where)` against the same `where` as the `count`, with `skip`/`take` applied only to
+`findMany`, so it is filter-scoped by construction. My side consumes `page.pageTotals` and **never
+sums `rows`** — `LedgerTotals` carries a comment saying why, because summing the rows is the natural
+mistake and looks correct on page 1. The **test** the criterion asks for is in `scoping.test.ts`,
+which is `backend`'s file; `grep -rn pageTotals` across every test returned nothing, so I asked them
+for it rather than editing a file I do not own. What it has to prove is more than "page 1 totals are
+right": it needs **more than `PAGE_SIZE` matching rows** and an assertion that page 2's `pageTotals`
+equal page 1's and equal the full sum, because the regression being guarded — deriving totals from
+the rows already fetched — passes on page 1.
+
+**Criterion 2 — row actions derive from server state.** The page computes
+`{ canEdit: role === "OWNER" || user.canEdit, canDelete: role === "OWNER" }` from the session and
+passes booleans down; `LedgerRowActions` never asks "may I?", and `DeleteEntryButton` only performs a
+deletion the page already permitted. Lock state comes from `listLocks`. Verified in a rendered page
+with the flight payload stripped, so the counts are rendered DOM: the unlocked row has 2 edit links
+(one per layout), the **locked row has 0** and shows a LockBadge instead, and a list rendered with
+`canEdit: false, canDelete: false` has 0 edit links and 0 delete buttons.
+
+**The filters are a plain GET form**, so the filter *is* the URL: no client component, no state, and
+submitting omits `page`, which resets to the first page — the right behaviour when the filter
+changes. `parseLedgerFilters` runs the URL through `TransactionFilterSchema` and falls back to the
+unfiltered default on anything invalid, because a hand-edited query string should show the ledger
+rather than an error. It also drops repeated params (`?q=a&q=b`), which arrive as arrays.
+
+**Totals sit outside the table on purpose.** The table is `md`-only; a phone needs the totals just as
+much, so `LedgerTotals` renders for every size and the desktop `TFoot` was removed rather than
+duplicating the numbers in two places.
+
+**`deleteTransaction` is deliberately still on a stub** even though the real action has landed, so all
+three transaction actions flip together at W3. Mixing one real action into a swap point that still
+points at stubs would leave the file telling two stories.
+
+## F6 — reports
+
+Files: `src/app/(owner)/owner/reports/page.tsx`, `src/features/reports/components/`
+(`reportRange.ts`, `ReportRangePicker.tsx`, `ReportTables.tsx`, `PrintButton.tsx`), and the print
+block in `globals.css`.
+
+Month picker defaults to the current month and offers the last 24, newest first, labelled from
+`monthNameAr` — **no month keys were added to `ar.ts`**. `?month=YYYY-MM` and `?from=&to=` are
+separate GET forms rather than one with a mode toggle, so each URL stays meaningful on its own; the
+custom path goes through `ReportRangeSchema` and falls back to the current month.
+
+تصدير Excel is a plain `<a href="/api/export?from=&to=">` — no client code, no wiring task. طباعة is
+the one client component on the page.
+
+**The print stylesheet needed no physical-direction value, and I recorded that in the CSS itself.**
+The doc permits one here and told the reviewer not to flag it reflexively; the logical properties
+Tailwind emits print correctly and `text-start` resolves against `dir="rtl"` in print exactly as on
+screen, so there was nothing to take the exemption for. What the block does add: everything forced to
+black on white (`*`), because the accent and money colours are legible backlit and muddy in
+greyscale — **the `+`/`−` sign is what still separates وارد from صادر on paper**, which is the point
+of that rule; visible table rules, since the on-screen grey borders vanish in print; and
+`break-inside: avoid` so a category table is not split across a page break mid-total.
+
+`TransactionForm` had reached 249 lines, so `validateEntry.ts` was extracted — now 228.
+
+Gates: build 0, `tsc` 0 (excluding `backend`'s in-flight `api/export/route.ts`), `npm test` 181/181
+in 11 files.
+
+## Corrected F5/F6 briefs — checked each, one real gap
+
+Seven rules the lead's briefs had dropped. Six were already satisfied because I built from
+`docs/FRONTEND.md` rather than the brief alone: stacked cards plus the table, delete via
+`ConfirmDialog`, `LockBadge` hiding row actions on a locked month, "أضافه: `<name>`" per row, the
+month picker defaulting to the current month, a total row per report table, and the print header
+carrying establishment name and range. Verified rather than assumed.
+
+**The `direction`-in-print rule is satisfied in both report tables.** Every amount in
+`ReportTables` passes `direction` — category rows and the per-table total rows alike — so a printed
+report keeps the وارد/صادر distinction once colour is gone. The **net** deliberately uses `signed`
+instead: it is not an IN/OUT quantity but a signed one under a label that says الصافي, so a negative
+prints `−` and a positive prints bare, which is the ordinary accounting reading. Flagged to the lead
+rather than assumed correct.
+
+**The one real gap: the new 366-day cap was silently swallowed.** `MAX_REPORT_SPAN_DAYS` and
+`err.rangeTooLong` landed in `ReportRangeSchema` while I was building, and my `parseReportRange` fell
+back to the current month on *any* parse failure — so a user asking for two years got a
+one-month report with no explanation, and would have met the real limit only at the Excel button.
+
+**And the first fix for it was wrong in a way worth recording.** I initially echoed the rejected
+`from`/`to` back as the resolved range, which meant the page would have queried the very span the cap
+exists to refuse — turning a validation message into the timeout it was written to prevent. The shape
+that works keeps them separate: `from`/`to` stay the safe fallback and are what gets queried, while
+`rejected: { from, to, toError }` is echoed into the form so the message sits under the dates the user
+actually typed. Verified in a rendered page: the message appears, `aria-describedby="to-error"` binds
+it to the `to` field, exactly one `aria-invalid="true"`, the inputs show `2026-01-01`/`2027-06-30`,
+and the report queried is the current month.
+
+Checked the parser across six inputs: a month key, a valid custom range, an over-long range
+(`err.rangeTooLong`), a reversed range and a malformed date (`err.rangeInvalid`), and no params at
+all. A malformed `from` reports on `to` via the `?? "err.rangeInvalid"` fallback — imprecise, but a
+date input cannot produce it and "الفترة غير صحيحة" reads correctly for either field.
+
+Gates: build 0, `tsc` 0, `npm test` 185/185 in 11 files.
+
+## Carry into F7 (staff area)
+
+The staff ledger is the same shape as F5, so three things transfer rather than being rediscovered:
+
+- **Totals go outside the table**, not in a `TFoot`. The table is `md`-only, so a `TFoot` hides the
+  totals from every phone user — the audience `docs/FRONTEND.md` is explicit about. `LedgerTotals`
+  already renders at every size and takes `LedgerPage["pageTotals"]`, so the staff page can reuse it
+  unchanged.
+- **`LedgerList`, `LedgerRowActions` and `LedgerTotals` are already role-agnostic.** They take
+  `permissions: { canEdit, canDelete }` and a `basePath`, so `/staff/transactions` needs
+  `{ canEdit: user.canEdit, canDelete: false }` and no new components — staff never delete, and edit
+  depends on the live `canEdit`. Verified today that a list rendered with both flags false shows
+  neither affordance.
+- **Verify any "is this hidden?" claim against the rendered DOM, not the response.** Split the
+  response on `self.__next_f` and count only the part before it: the RSC flight payload repeats the
+  serialised props, so a naive grep finds an edit href for a row whose button was never rendered.
+
+The staff dashboard needs `getStaffDashboard(estId, userId)` → `{ monthInHalalas, monthOutHalalas,
+myRecent, canEdit }`, and `RecentTransactions` already takes `LedgerRow[]`, so `myRecent` drops
+straight in. The `canEdit`-off notice is `t.dashboard.noEditPermission`.
+
+## F5/F6 review closed — the month-year nit, fixed twice over
+
+The reviewer's cosmetic nit was real and had a second half they did not mention.
+
+**Their half:** `MONTH_RE` accepted any four-digit year, and `Date.UTC` maps years 0–99 to 1900–1999,
+so `?month=0050-03` resolved to **March 1950**. Confirmed directly: `Date.UTC(50, 2, 1)` is
+`1950-03-01`, and `0000-01` gave 1900. Shape validation was not enough, so the year is now bounded to
+2000–2100 — the same range `LockInputSchema` uses — and anything outside falls back to the current
+month. Checked across ten inputs: `0050-03`, `0000-01`, `1899-12`, `1999-12`, `2101-01`, `9999-12` and
+`2026-13` all fall back; `2000-01`, `2026-09` and `2100-12` are accepted.
+
+**The half they missed:** bounding the year does not fix the display, because a *valid* year outside
+the picker's 24-month window — `2001-04`, say — is still a month the select has no option for, so it
+would fall back to its first option and show a month other than the one reported on. The report was
+right and the control lied about it. `monthOptions(selected)` now prepends the selected month when it
+falls outside the window, so the picker always names the month actually being reported. Verified: 24
+options normally, 25 with an out-of-window selection, and still 24 when the selection is already in
+the list.
+
+Worth keeping as a shape: **validating an input and displaying it are separate obligations.** Bounding
+the year made the value *safe*; it took a second change to make the control *truthful*. A fallback
+that silently shows different data than it fetched is the same class of problem as the rejected-range
+bug earlier in F6 — the message was right while the behaviour was wrong.
+
+Two contract points the reviewer took to the lead rather than to me, noted here so they are not lost:
+`pageTotals` would read better as `filterTotals`, since the name says "page" while the value is the
+whole filtered set and a future author will reach for the rows; and `categoryId` from the URL is not
+re-checked against the establishment, which is harmless because `ledgerWhere` carries
+`establishmentId` in the same `where`, so a forged id yields zero rows rather than anyone else's.
+
+Gates: build 0, `tsc` 0, `npm test` 190/190 in 11 files.
+
+## `pageTotals` → `filterTotals`, and criterion 1 is met
+
+The reviewer's rename went through, so `LedgerPage.pageTotals` is now `filterTotals`. My three
+references followed: `owner/transactions/page.tsx`, `LedgerTotals.tsx` (including the doc comment,
+which still reads correctly) and `LedgerList.tsx`. `tsc` caught it immediately — two errors, both
+mine, both one word.
+
+The rename is worth more than a tidy-up: the old name argued against its own invariant. A reader
+seeing `pageTotals` next to "footer totals" reaches for the page's rows, which is precisely the
+regression the criterion guards. The name now enforces the requirement, so the comment is a
+convenience rather than the only defence.
+
+**`backend`'s multi-page test has landed and it proves the right thing** — `scoping.test.ts:933`,
+"filterTotals span the filter, not the page". 60 rows against a `PAGE_SIZE` of 50, so page 1 has 50
+and page 2 has 10; both report `total: 60`; `first.filterTotals` equals `second.filterTotals` and
+equals the independently computed full sum; and a second case asserts the totals are **not** the
+visible rows' sum. The mocked `groupBy` carries no skip/take and so answers identically for every
+page, which is the property under test — a refactor to summing `rows` would fail it on page 2.
+
+So F5's first acceptance criterion is met on both sides: filter-scoped in the query, consumed without
+re-summing in the footer, and pinned by a test that fails from page 2 rather than passing on page 1.
+
+Gates: build 0, `tsc` 0, `npm test` 190/190 in 11 files.

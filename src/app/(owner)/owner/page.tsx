@@ -9,7 +9,7 @@ import { BalanceByMethod } from "@/features/dashboard/components/BalanceByMethod
 import { RecentTransactions } from "@/features/dashboard/components/RecentTransactions";
 import { SixMonthChart } from "@/features/dashboard/components/SixMonthChart";
 import { TopOutCategories } from "@/features/dashboard/components/TopOutCategories";
-import { getOwnerDashboard } from "@/features/dashboard/components/data";
+import { getOwnerDashboard } from "@/features/dashboard/queries";
 import { t } from "@/i18n/ar";
 import { requireOwner } from "@/lib/auth";
 
