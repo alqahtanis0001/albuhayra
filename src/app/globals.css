@@ -3,14 +3,42 @@
 /* Design tokens from docs/FRONTEND.md. Tailwind v4 is CSS-first: there is no
    tailwind.config.ts, so every token lives in this @theme block. */
 @theme {
-  --color-accent: #0f766e;
-  --color-accent-dark: #115e59;
-  --color-accent-soft: #f0fdfa;
+  /* Primary: the Saudi green family. Contrast (WCAG), all measured:
+     white on accent 6.6:1, white on accent-dark (hover) 10:1, accent on white
+     6.6:1, accent-dark on accent-soft 8.8:1. */
+  --color-accent: #006c35;
+  --color-accent-dark: #004d26;
+  --color-accent-soft: #e8f3ec;
+  --color-accent-line: #a7cdb6;
   --color-money-in: #15803d;
   --color-money-in-soft: #f0fdf4;
   --color-money-out: #b91c1c;
   --color-money-out-soft: #fef2f2;
   --font-sans: var(--font-arabic), system-ui, sans-serif;
+
+  /* Neutral greys replace Tailwind's blue-tinted gray scale, so every existing
+     `gray-*` class turns neutral without touching the pages. 500 is darker than
+     the stock step on purpose: it is the lightest grey used for text, and at
+     #666 it keeps ≥ 5:1 on every tinted surface it sits on (white, gray-50/100,
+     accent-soft, money-in-soft, money-out-soft). 400 is not used for text. */
+  --color-gray-50: #fafafa;
+  --color-gray-100: #f4f4f4;
+  --color-gray-200: #e5e5e5;
+  --color-gray-300: #d4d4d4;
+  --color-gray-400: #a3a3a3;
+  --color-gray-500: #666666;
+  --color-gray-600: #525252;
+  --color-gray-700: #404040;
+  --color-gray-800: #262626;
+  --color-gray-900: #171717;
+
+  /* Squared corners: every `rounded-*` step collapses to 2px, which reaches the
+     page files too without editing them. `rounded-full` is not overridden. */
+  --radius-sm: 0.125rem;
+  --radius-md: 0.125rem;
+  --radius-lg: 0.125rem;
+  --radius-xl: 0.125rem;
+  --radius-2xl: 0.125rem;
 }
 
 html {
@@ -33,9 +61,13 @@ body {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-/* Room under the last row of content so the tab bar never hides it. */
-.safe-bottom-space {
-  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 4.5rem);
+/* Room under the footer so the tab bar never hides it. Phones only: the tab bar
+   is md:hidden, and this unlayered rule would beat any `md:pb-*` utility, so
+   the breakpoint has to live here (48rem = Tailwind's md). */
+@media (width < 48rem) {
+  .safe-bottom-space {
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 4.5rem);
+  }
 }
 
 dialog::backdrop {

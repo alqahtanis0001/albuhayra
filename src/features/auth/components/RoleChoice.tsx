@@ -9,7 +9,7 @@ import { AuthCard } from "./AuthCard";
 export function RoleChoice() {
   return (
     <AuthCard
-      title={t.auth.signupTitle}
+      title={t.auth.signupChooseTitle}
       subtitle={t.auth.chooseRole}
       footer={
         <Link href="/login" className="font-medium text-accent-dark underline">

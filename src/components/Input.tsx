@@ -49,7 +49,7 @@ export function Input({
           aria-describedby={[errorId, hintId].filter(Boolean).join(" ") || undefined}
           className={[
             "min-h-11 w-full rounded-lg border bg-white px-3 text-base text-gray-900",
-            "placeholder:text-gray-400",
+            "placeholder:text-gray-500",
             suffix ? "pe-14" : "",
             error ? "border-money-out" : "border-gray-300",
             className,

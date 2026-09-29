@@ -17,13 +17,13 @@ export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 
 const VARIANTS: Record<Variant, string> = {
   primary:
-    "bg-accent text-white border-accent hover:bg-accent-dark disabled:bg-gray-300 disabled:border-gray-300",
+    "bg-accent text-white border-accent hover:bg-accent-dark disabled:bg-gray-200 disabled:border-gray-300 disabled:text-gray-600",
   secondary:
-    "bg-white text-gray-900 border-gray-300 hover:bg-gray-50 disabled:text-gray-400",
+    "bg-white text-gray-900 border-gray-300 hover:bg-gray-100 disabled:bg-gray-100 disabled:text-gray-500",
   danger:
-    "bg-money-out text-white border-money-out hover:bg-red-800 disabled:bg-gray-300 disabled:border-gray-300",
+    "bg-money-out text-white border-money-out hover:bg-red-800 disabled:bg-gray-200 disabled:border-gray-300 disabled:text-gray-600",
   ghost:
-    "bg-transparent text-accent border-transparent hover:bg-accent-soft disabled:text-gray-400",
+    "bg-transparent text-accent-dark border-transparent hover:bg-accent-soft disabled:text-gray-500",
 };
 
 // 44px minimum tap target on both sizes (docs/FRONTEND.md).

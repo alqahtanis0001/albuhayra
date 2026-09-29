@@ -28,8 +28,10 @@ export function BottomTabs({ items, label }: { items: NavItem[]; label: string }
               <Link
                 href={item.href}
                 aria-current={isActive ? "page" : undefined}
-                className={`flex min-h-14 flex-col items-center justify-center gap-0.5 px-1 py-2 text-xs font-medium ${
-                  isActive ? "text-accent-dark" : "text-gray-600"
+                className={`flex min-h-14 flex-col items-center justify-center gap-0.5 border-t-2 px-1 py-2 text-xs font-medium ${
+                  isActive
+                    ? "border-accent bg-accent-soft text-accent-dark"
+                    : "border-transparent text-gray-600"
                 }`}
               >
                 <Icon size={22} />
@@ -50,9 +52,10 @@ export function SideNav({ items, label }: { items: NavItem[]; label: string }) {
   return (
     <nav
       aria-label={label}
-      className="no-print hidden shrink-0 border-e border-gray-200 bg-white md:sticky md:top-0 md:block md:h-dvh md:w-56"
+      className="no-print hidden shrink-0 border-e border-gray-300 bg-white md:block md:w-56"
     >
-      <ul className="flex flex-col gap-1 p-3">
+      {/* Sticks just under the top bar: 4px rule + h-16 + 1px border = 69px. */}
+      <ul className="flex flex-col gap-1 p-3 md:sticky md:top-[69px]">
         {items.map((item) => {
           const Icon = NAV_ICONS[item.icon];
           const isActive = item.href === active;
@@ -61,10 +64,10 @@ export function SideNav({ items, label }: { items: NavItem[]; label: string }) {
               <Link
                 href={item.href}
                 aria-current={isActive ? "page" : undefined}
-                className={`flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm font-medium ${
+                className={`flex min-h-11 items-center gap-2 border-s-4 px-3 text-sm font-medium ${
                   isActive
-                    ? "bg-accent-soft text-accent-dark"
-                    : "text-gray-700 hover:bg-gray-50"
+                    ? "border-accent bg-accent-soft font-semibold text-accent-dark"
+                    : "border-transparent text-gray-700 hover:bg-gray-100"
                 }`}
               >
                 <Icon size={20} />

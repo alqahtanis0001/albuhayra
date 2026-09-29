@@ -11,9 +11,9 @@ Read `CLAUDE.md` and `PROGRESS.md` first. Owner of this doc: lead. Implementer: 
 
 ## Look and feel
 - Mobile-first; owners and staff will mostly use phones. Tap targets ≥ 44px. `max-w-3xl` centered on desktop.
-- Calm, high contrast, no decorative animation. Accent `#0f766e`. IN amounts green with `+`, OUT amounts red `#b91c1c` with `−` — never color alone.
+- Calm, high contrast, no decorative animation. Formal governmental look (v1.1a): accent Saudi green `#006c35`, hover `#004d26`, neutral greys, squared corners (2px). Text contrast ≥ 4.5:1 everywhere. **Never** the Saudi emblem, a ministry logo, or a gov.sa look-alike header; the mark is an abstract placeholder (`src/components/chrome/BrandMark.tsx`). IN amounts green with `+`, OUT amounts red `#b91c1c` with `−` — never color alone.
 - **Every chart carries a server-rendered text equivalent.** recharts' `ResponsiveContainer` needs a measured DOM, so the served HTML contains the container and **zero `<svg>` elements** — the bars exist only after hydration. The numbers are therefore absent with JS off and before hydration, not merely hard to read without colour vision. An `sr-only` table of the same figures satisfies both cases at once, and is the chart equivalent of the `+`/`−` rule.
-- Layout per role area: top bar (app name, establishment name, user name, logout) + bottom tab bar on mobile / side nav on ≥ md.
+- Layout per role area: full-width top bar — mark + establishment name (ADMIN: app name) on the right, user name + logout on the left — then side nav on ≥ md / bottom tab bar on mobile, and a footer with version and contact line (hidden in print).
   - Owner tabs: الرئيسية · إضافة · السجل · التقارير · الإعدادات
   - Staff tabs: الرئيسية · إضافة · السجل
   - Admin nav: الطلبات · المنشآت · حسابي
@@ -35,7 +35,7 @@ src/app/page.tsx                  redirects to the role's home
 ### Auth
 - `/login`: email, password, submit; link to sign-up. Generic error on failure.
 - `/signup`: two large choice cards first — **صاحب منشأة** / **موظف** — then the form. Owner form: name, email, password, اسم المنشأة. Staff form: name, email, password, رمز الانضمام (8 chars, uppercase, auto-uppercase input). On success → `/pending`.
-- `/pending`: "حسابك بانتظار الموافقة" with who approves (المدير for an owner, صاحب المنشأة for staff) and a logout button. The role comes from the `?as=owner|staff` parameter that `login` / `signupOwner` / `signupStaff` redirect with, falling back to the session role for an ACTIVE visitor who lands here; when neither is known, **omit** the who-approves line rather than guess. There is **no** auto-redirect when the account becomes ACTIVE: a PENDING account deliberately has no session, so the page cannot identify the visitor. The user signs in again to discover they are approved.
+- `/pending`: "بانتظار اعتماد الطلب" with who approves (المدير for an owner, صاحب المنشأة for staff) and a logout button. The role comes from the `?as=owner|staff` parameter that `login` / `signupOwner` / `signupStaff` redirect with, falling back to the session role for an ACTIVE visitor who lands here; when neither is known, **omit** the who-approves line rather than guess. There is **no** auto-redirect when the account becomes ACTIVE: a PENDING account deliberately has no session, so the page cannot identify the visitor. The user signs in again to discover they are approved.
 
 ### Owner area (`/owner`)
 - **`/owner` Dashboard**: StatCards: الرصيد الإجمالي, وارد هذا الشهر, صادر هذا الشهر, الصافي. Below: الرصيد حسب طريقة الدفع (small table: نقد / بنك / مدى / STC Pay / أخرى). Bar chart last 6 months وارد vs صادر (recharts). أعلى المصروفات هذا الشهر (top 5 OUT categories with amounts and % of month OUT). آخر الحركات (10). Primary button + إضافة حركة.
@@ -77,7 +77,7 @@ src/app/page.tsx                  redirects to the role's home
 - Disable submit while pending; never double-submit.
 
 ## PWA
-- `public/manifest.json`: name سجل المصروفات, `dir: "rtl"`, `lang: "ar"`, `display: "standalone"`, theme `#0f766e`, icons 192/512 (placeholder PNGs acceptable; note in progress file).
+- `public/manifest.json`: name سجل المصروفات, `dir: "rtl"`, `lang: "ar"`, `display: "standalone"`, theme `#006c35`, icons 192/512 (the placeholder mark on green, drawn inside the maskable safe zone).
 - Service worker: **cache only `/_next/static/*`, `/icons/*` and `/manifest.json`.** "App shell" has no referent here — every HTML response in this app is server-rendered and session-scoped, so an implementer reaching for "the shell" reaches for a data-bearing page. The load-bearing half is the fetch handler: **it must not call `respondWith` at all unless the URL matches that allowlist**, leaving everything else untouched on the network. A catch-all `respondWith` with any cache strategy is how a data page gets cached by accident, and "never `/api/*`" does not prevent it, because the dangerous responses are HTML pages rather than API routes. Caching one establishment's page would serve it to the next visitor on a shared device. No offline writes means no background sync and no queued POSTs.
 - `<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">`; bottom tab bar respects `env(safe-area-inset-bottom)`.
 

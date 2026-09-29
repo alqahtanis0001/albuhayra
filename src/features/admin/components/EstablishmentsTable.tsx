@@ -49,7 +49,7 @@ export function EstablishmentsTable({ rows }: { rows: EstablishmentSummary[] }) 
               {row.lastActivityAt ? (
                 <DateText date={row.lastActivityAt} compact />
               ) : (
-                <span className="text-gray-400">—</span>
+                <span className="text-gray-500">—</span>
               )}
             </Td>
             <Td>

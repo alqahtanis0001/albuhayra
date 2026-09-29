@@ -6,7 +6,9 @@
 export const t = {
   app: {
     name: "سجل المصروفات",
-    tagline: "سجل كل ريال يدخل ويخرج",
+    tagline: "نظام قيد الإيرادات والمصروفات للمنشآت",
+    /** Second line of the top bar for ADMIN, who has no establishment. */
+    adminArea: "إدارة النظام",
   },
 
   common: {
@@ -66,10 +68,13 @@ export const t = {
   },
 
   auth: {
-    loginTitle: "تسجيل الدخول",
-    loginSubmit: "دخول",
-    signupTitle: "إنشاء حساب",
-    signupLink: "ليس لديك حساب؟ إنشاء حساب",
+    loginTitle: "تسجيل الدخول للنظام",
+    loginSubmit: "تسجيل الدخول",
+    signupTitle: "طلب تسجيل منشأة",
+    /** The role-choice step, before owner or staff is known. */
+    signupChooseTitle: "تقديم طلب تسجيل",
+    staffSignupTitle: "طلب انضمام إلى منشأة",
+    signupLink: "ليس لديك حساب؟ تقديم طلب تسجيل",
     loginLink: "لديك حساب؟ تسجيل الدخول",
     email: "البريد الإلكتروني",
     password: "كلمة المرور",
@@ -91,10 +96,10 @@ export const t = {
   },
 
   pending: {
-    title: "حسابك بانتظار الموافقة",
-    byAdmin: "سيقوم مدير النظام بمراجعة طلبك وتفعيل حسابك.",
-    byOwner: "سيقوم صاحب المنشأة بمراجعة طلبك وتفعيل حسابك.",
-    hint: "يمكنك تسجيل الدخول مرة أخرى لاحقا للتحقق من حالة الحساب.",
+    title: "بانتظار اعتماد الطلب",
+    byAdmin: "يتولى مدير النظام مراجعة طلبكم واعتماده.",
+    byOwner: "يتولى صاحب المنشأة مراجعة طلبكم واعتماده.",
+    hint: "يمكنكم تسجيل الدخول لاحقًا للاطلاع على حالة الطلب.",
   },
 
   direction: {
@@ -112,11 +117,18 @@ export const t = {
     OTHER: "أخرى",
   },
 
+  footer: {
+    version: "الإصدار",
+    contactLabel: "للتواصل والدعم الفني:",
+    /** Placeholder — replace with the real support address before launch. */
+    contactValue: "support@example.com",
+  },
+
   status: {
     label: "الحالة",
-    PENDING: "بانتظار الموافقة",
-    ACTIVE: "نشط",
-    DISABLED: "معطل",
+    PENDING: "قيد المراجعة",
+    ACTIVE: "معتمد",
+    DISABLED: "موقوف",
   },
 
   transaction: {

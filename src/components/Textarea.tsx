@@ -41,7 +41,7 @@ export function Textarea({
         aria-describedby={[errorId, hintId].filter(Boolean).join(" ") || undefined}
         className={[
           "w-full rounded-lg border bg-white p-3 text-base text-gray-900",
-          "placeholder:text-gray-400",
+          "placeholder:text-gray-500",
           error ? "border-money-out" : "border-gray-300",
           className,
         ]

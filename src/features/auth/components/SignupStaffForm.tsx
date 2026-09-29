@@ -27,7 +27,7 @@ export function SignupStaffForm() {
 
   return (
     <AuthCard
-      title={t.auth.signupTitle}
+      title={t.auth.staffSignupTitle}
       subtitle={t.auth.asStaffHint}
       footer={
         <Link href="/signup" className="font-medium text-accent-dark underline">
@@ -88,7 +88,7 @@ export function SignupStaffForm() {
         </FormError>
 
         <Button type="submit" block pending={pending}>
-          {t.auth.signupTitle}
+          {t.auth.staffSignupTitle}
         </Button>
       </form>
     </AuthCard>

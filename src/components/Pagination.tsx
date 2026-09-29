@@ -80,7 +80,7 @@ function PageLink({
 
   if (disabled) {
     return (
-      <span aria-disabled="true" className={`${shape} border-gray-200 text-gray-400`}>
+      <span aria-disabled="true" className={`${shape} border-gray-200 bg-gray-50 text-gray-500`}>
         {icon}
         {label}
       </span>
