@@ -1,4 +1,4 @@
-# سجل المصروفات — Ledger
+# زخم — Ledger
 
 A small private web app where business owners in Saudi Arabia record every riyal that comes in or goes out, so they know where each SAR goes. The interface is Arabic and right-to-left.
 

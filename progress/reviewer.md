@@ -1146,3 +1146,165 @@ construction.
 - H1, M1, M2, L1–L6 above, with the note that `src/lib/validation.ts`,
   `package.json` and `prisma/schema.prisma` are lead-owned, so M1, M2 and L5
   are the lead's call, not `backend`'s.
+
+---
+
+## 2026-09-29 — v1.1a-2 R-brief (pre-code review of B1–B3, U1–U3)
+
+Checked against CLAUDE.md, docs/FRONTEND.md, PROGRESS.md (Decisions, Known issues, Gotchas), the current code, and the Next 16.3.6 docs in `node_modules/next/dist/docs/`. Brand hashes: all 13 files OK against `progress/brand-assets.sha256` (baseline).
+
+### BLOCKER
+- **R1 [B2] The filled green top bar contradicts the docs.** FRONTEND.md:14 says never use a gov.sa look-alike header. TopBar.tsx:6-7 records the v1.1a choice: "A thin green rule on top instead of a filled green band, which keeps it clear of a gov.sa-style header." Fix: put `zakham-wordmark-green.png` on the existing white bar, which needs no contrast, focus-ring or height rework. If the green band stays, first log a Decision that reverses the TopBar rationale and amend FRONTEND.md:14/16. R4 and R9 then apply.
+- **R2 [all] The briefs contradict higher-precedence files.** CLAUDE.md:11 still names the product سجل المصروفات and says to change it "in ar.ts only", but the manifest carries it too. FRONTEND.md:14 names BrandMark.tsx. FRONTEND.md:80 still has the manifest name and the placeholder icons. FRONTEND.md:81 has the `/icons/*` SW allowlist. FRONTEND.md:14 and :88 forbid decorative animation, which rules out the U3 fade and the U1 pulse. CLAUDE.md says to build only what the files describe, and loading/404/error/transitions are not described. Fix: before any code, the lead amends CLAUDE.md:11 and FRONTEND.md :14, :80, :81 and :88, adds a short loading/404/error/transition section, and logs one Decision. Afterwards: BACKEND.md:128 (`/icons/*`) and PROGRESS Known issues (placeholder mark, `/_not-found` prerendered).
+- **R3 [U3] A template.tsx per area does not replay on each page.** template.md → Behavior says a template is keyed on its own segment level and "Navigations within deeper segments do not remount higher-level templates." `(owner)/template.tsx` is keyed on the child segment `owner`, which is the same for every owner page, so it fades once on entering the area and never again. Fix, CSS only, with no template or JS: in globals.css add `@media (prefers-reduced-motion: no-preference) { #main > * { animation: fade-in 180ms ease-out both } }`. The page's root DOM is recreated on each route change but not on a search-param change, so ledger filters do not flash, and the swap from skeleton to content fades as well. `(auth)/layout.tsx` is unowned and its main wraps children in a div, so use `main > div > *` there. The alternative is a client wrapper keyed on `usePathname()` inside AppShell. Verify by going from /owner to /owner/transactions to /owner/transactions/new.
+- **R4 [B2, only if the green bar stays] Focus ring and contrast on green.** The unlayered `:focus-visible { outline: 2px solid var(--color-accent) }` (globals.css:54-57) gives 1:1 on bg-accent. A `focus-visible:outline-white` utility will not fix it, because Tailwind v4 utilities sit in `@layer utilities` and an unlayered rule always wins. Fix: ux changes the rule to `var(--focus-ring, var(--color-accent))`, and brand sets `[--focus-ring:#fff]` on the header (6.57:1). Add this to the contract. Two more failures:
+  - TopBar.tsx:34 `text-accent-dark` on the accent is 1.53:1. Use `text-white`, or `text-accent-soft` (5.77:1). `white/80` gives 4.81:1, which is the floor.
+  - TopBar.tsx:41 `text-gray-700` must become `text-white`, and `hover:bg-gray-100` must become `hover:bg-accent-dark` (10:1).
+
+### SHOULD
+- **R5 [U2] Use `retry`, not `reset`.** error.md for 16.3: `retry` has been stable since 16.3.0 and re-fetches. `reset` only clears state, so a server-component error, such as a DB blip, stays on the error screen.
+- **R6 [U1] A loading boundary turns the `notFound()` 404 into a 200.** loading.md → Status Codes. Edit pages `owner/.../[id]/edit/page.tsx:30` and `staff/...:34` would return 200 + noindex. That is not a leak, since the response is the same for a missing id and another establishment's id, but it is a behaviour change. Lead: accept it and log it. Also, `notFound()` there reaches the root `not-found.tsx`, which sits above the group layout, so the AppShell disappears. An optional `(owner)/not-found.tsx` and `(staff)/not-found.tsx` (ux) would keep the chrome.
+- **R7 [U1] One loading.tsx per group cannot be shaped like each screen.** The dashboard skeleton would flash before the add form.
+  - Fix: a loading.tsx per route, beside each page.tsx.
+  - Accessibility: one `role="status"` + `aria-busy` + sr text per loading.tsx, with the pieces `aria-hidden`.
+  - Motion: `motion-safe:animate-pulse`. No gradient shimmer, because `bg-gradient-to-r` is physical and would run the wrong way in RTL.
+  - Widths as classes, not `style={{}}`.
+  - Greys: gray-100 on the body's gray-50 is 1.05:1, which is invisible. Use gray-200 inside white surfaces (1.26:1).
+- **R8 [U3] The immediate active state may already be free.** With U1's loading.tsx, navigation is instant and `usePathname()` (and so `aria-current`) updates at once. use-link-status.md says "pending state will be skipped" when the route is prefetched or has loading.js. Build U1 first, then check. If something is still needed, call `useLinkStatus` in a child of `<Link>` for a visual-only pending style, and keep `aria-current` on the real page. Do not touch `nav.ts` `activeHref`, which nav.test.ts pins. Avoid onClick local state: it sticks when you tap the active item, and it fires on a ctrl/cmd-click.
+- **R9 [B2↔U3] The SideNav offset depends on the TopBar height.** RoleNav.tsx:57-58 uses `md:top-[69px]`, which is 4px + h-16 + 1px from TopBar.tsx:27-28. Brand keeps the header at 69px or messages ux the new value.
+- **R10 [B2] The top bar overflows on phones.** At 36px tall the wordmark is about 198px wide. At 360px: 32 + 198 + ≤160 + 44 + 36 is more than 360, so the establishment name (`flex-1 min-w-0`) shrinks to 0. Use h-6 (about 132px) below sm, h-9 from sm, with `w-auto shrink-0`. Test with a long establishment name.
+- **R11 [B2] Print header layout and colour.**
+  - Layout: `@media print .print-only { display:block }` (globals.css:86-88) is unlayered and beats `flex` on the same element. Put the icon and name in an inner flex div.
+  - Colour: the `*` print rule (globals.css:102-105) sets colour and background only, so the green/gold icon prints in colour. Add `grayscale` on the img in PrintHeader.tsx; the print block itself does not change.
+  - Alt text: `alt=""`, because زخم is the text right next to it.
+- **R12 [lead: public/sw.js] The manifest goes stale for returning visitors.** sw.js caches /manifest.json cache-first under `ledger-static-v1` and never revalidates, so earlier visitors keep the old name and the `/icons/` manifest. Fix: bump `CACHE` to `ledger-static-v2`; the activate handler purges v1, and the test does not pin the cache name. Deleting `public/icons/` breaks no test, because serviceWorker.test.ts:94-95 and :110 test URL strings, not files. Leave `/icons/` in `STATIC_PREFIXES` and in proxy `OPEN_PATHS`/matcher as dead but harmless: allowlist edits are a pinned invariant (Decision, PROGRESS:145). The `/brand/` icons stay network-only.
+
+### NOTE
+- **N1 [U2]** Signed-out visitors are sent to /login before the 404 (proxy.ts:131), so test the styled 404 signed in, e.g. /owner/nope as OWNER. The toLogin branch only shows on /pending/x-style paths and on paths the matcher excludes (`*.png`, `/icons/x`). Excluded paths bypass the proxy, so they get no CSP and no nonce; that is already true today and harmless. Check that `/_not-found` is dynamic in `.next/prerender-manifest.json`, not in the route table (Gotcha PROGRESS:214). Guard with `session.userId && session.role`, as page.tsx does.
+- **N2 [U2]** error.tsx is a client component, so it cannot export metadata. Use React `<title>` and compose `${t.errorPage.title} — ${t.app.name}` by hand. The keys are sufficient.
+- **N3 [B3]** The `--font-brand` contract is enough. It resolves on :root like `--font-sans` (globals.css:17), provided the zakham variable class goes on `<html>`. Reem Kufi 700 with the arabic subset exists in next/font. Consider `preload: false`, since the font is used only in the footer and on print.
+- **N4 [B2]** The tagline is about 18% of the image height. Keep the AuthCard image at 64px tall or more (about 11px glyphs, 253px wide). The tagline in the image matches the new `t.app.tagline`. Every `<img>`: `h-* w-auto` plus width/height attributes.
+- **N5 [B1]** Build the template from `t.app.name` (`` `%s — ${t.app.name}` ``). manifest.json is the one unavoidable Arabic-literal file. The /signup tab title still uses `signupTitle` for staff too; signup/page.tsx is unowned, as in the v1.1a Decision.
+- **N6 [ownership]** Unowned files the tasks touch: `(auth)/layout.tsx` (R3), `public/sw.js` (R12), and docs (R2). Splitting RoleNav is safe: only AppShell imports it, and nav.test.ts imports nav.ts only.
+
+### R-U1 — skeleton loading states (2026-09-29)
+
+Files reviewed: `src/components/skeletons/{Skeleton,screens,AuthSkeleton}.tsx`, the 17 `loading.tsx`, the `(auth)/layout.tsx` id, and the `globals.css` diff. `tsc --noEmit` exits 0. `vitest run` passes 274/274. The `.next/prerender-manifest.json` built at 21:15, after the skeleton files, still lists only `/_global-error` and `/_not-found`, so every page is still dynamic.
+
+**Passes**
+- **Live region:** each loading file renders exactly one `SkeletonPage`: one `role="status"` with sr-only `t.common.loading`, and every shape inside an `aria-hidden` wrapper.
+- **Motion:** `motion-safe:animate-pulse` is opacity only, with no gradient.
+- **RTL:** logical utilities only. No inline `style`. Arabic appears only in comments.
+- **Print block:** untouched. The `--focus-ring` fallback and the `--font-brand` token match the contract.
+- **Visibility:** gray-200 on white measures 1.26:1 and gray-300 on the gray-50 body 1.42:1. Both are decorative, so WCAG 1.4.11 does not apply, and both are visible.
+- **Shape:** shapes match the real screens. The auth wordmark bone is 64×256, against a real image of 64×253.
+
+**SHOULD**
+- **S1: the ledger skeleton wraps the add and edit forms.** `owner/transactions/loading.tsx` and `staff/transactions/loading.tsx` also wrap `transactions/new` and `transactions/[id]/edit`, because a loading.js wraps its segment's children too.
+  - Where it bites: navigating to Add from anywhere outside the transactions segment. That covers the dashboard's "+ إضافة حركة" button and the إضافة tab from the dashboard, reports or settings.
+  - Why: link.md:302 says a dynamic route prefetches "down to the nearest segment with a loading.js", and that segment is `transactions`. So the ledger skeleton (filters, totals, rows) flashes before the entry form, on the most frequent action in the app.
+  - Fix (project-structure.md:395, "Opting for loading skeletons on a specific route"): move `transactions/page.tsx` and `transactions/loading.tsx` into a route group `transactions/(list)/`, in both areas. The URL does not change.
+  - Ownership: this moves a `page.tsx`, so it needs the lead's approval. Deleting `transactions/loading.tsx` instead would make the dashboard skeleton the fallback for the ledger, which is worse.
+  - Verify in the browser: dashboard → إضافة should show `EntryFormSkeleton`.
+
+**NOTE**
+- **N1: `aria-busy="true"` on the live region itself.** It is per the brief, but ARIA lets assistive technology hold announcements in a busy region, and a region inserted already holding its text is often not announced at all. The more robust form is `role="status"` without `aria-busy`. This is the lead's call because the brief specifies both.
+- **N2: the auth layout id.** It is about to move to the inner div, and I will re-check it with U3's fade selector.
+
+### R-B1..B3 — rename, brand assets, Reem Kufi (2026-09-29)
+
+Reviewed from the code; I did not see it in a browser.
+
+**Verified**
+- **Brand files:** `sha256sum -c` gives 13/13 OK, with no extra files in `public/brand/zakham-brand/`.
+- **Images:** all are plain `<img>` (no next/image) with the real ratios: 3897×707 (top bar), 3907×988 (AuthCard), 512×512 (print).
+- **Stale references:** `public/icons/` and `BrandMark.tsx` are deleted, and nothing imports either. `/icons` is left only in the pinned `sw.js` allowlist, `proxy.ts:37` and `BACKEND.md:128`, all as ruled.
+- **sw.js:** the diff is the `CACHE` constant only (v1 → v2).
+- **Manifest:** name, short_name and description are updated. There are 4 icons: 192/512 `any` and maskable-192/512 `maskable`. Theme colour is unchanged.
+- **layout.tsx:** the title template is built from `t.app.name`. Favicons are 32 and 64 and the apple-touch icon is 180, all with correct `sizes`. Reem Kufi 700 (arabic, swap, `preload:false`) sets `--font-zakham` on `<html>`.
+- **Print:** the `@media print` block in `globals.css` has no hunk. The reports page diff is only the import and the header swap. `PrintHeader` keeps the same text, keys and `<bdi>` dates, and adds an inner flex row, a `grayscale` icon with `alt=""`, and `font-brand` on the name.
+- **Arabic:** none outside `ar.ts`, except `manifest.json`, which is allowed. The other grep hits are `·` and `×`.
+- **RTL:** logical utilities only (`border-s`, `ps-3`). The order is still wordmark and name on the right, user and logout on the left.
+- **Contrast on the green band:**
+  - White text and icons on `#006c35`: 6.57:1.
+  - The user link's hover, white on `#004d26`: 10.05:1.
+  - The logout Button stays `secondary` (gray-900 on white).
+  - Focus ring: `[--focus-ring:#fff]` is read by the unlayered `:focus-visible` rule, giving white on green at 6.57:1.
+  - The `white/40` divider and the `accent-dark` borders are decorative.
+- **Height:** stays 69px (4 + 64 + 1).
+- **Typecheck:** `tsc --noEmit` exits 0.
+
+**SHOULD**
+- **S1 [B2] TopBar.tsx: the establishment name disappears on a 360px phone.**
+  - Below `sm` the fixed widths add up to 245px: 32 padding + 132 wordmark (h-6) + 24 gaps + 44 logout + 13 divider and `ps-3`.
+  - That leaves 115px for the user link and the name together. The link's content is 38px plus the text, up to 160px. The name is `flex-1`, whose flex-basis is 0.
+  - Once a user name is wider than about 77px (roughly ten Arabic letters, e.g. عبدالرحمن القحطاني), the establishment name gets 0px and shows only as an ellipsis. Showing the name is the reason for B2's "owners/staff still see the establishment name".
+  - The wordmark cannot be cropped: about 31% of its width is transparent space between the letters and the gold bars.
+  - Fix: `<span className="sr-only truncate sm:not-sr-only">{userName}</span>`, the same pattern as the logout label. The link becomes about 34px, so the name gets about 81px at 360px, and the link keeps its accessible name.
+
+**NOTE**
+- **N1 [B1] Stale comment at ar.ts:10.** "Second line of the top bar for ADMIN" is now the only text beside the wordmark.
+- **N2 [B1] Alt text can drift.** `t.brand.logoWithTaglineAlt` repeats the name and tagline as literals, so if either changes, the alt drifts. Optional: hoist `NAME` and `TAGLINE` constants above `t` and compose from them.
+- **N3 [B3] Print font.** The print header's font depends on the on-screen footer having already loaded Reem Kufi (`preload:false`, and the header is `display:none` on screen). On /owner/reports the footer renders on screen, so the face is loaded before `window.print()`. The fallback is IBM Plex, which is acceptable.
+
+### R-U2 — 404 and error pages (2026-09-29)
+
+Result: **no BLOCKER and no SHOULD. Two NOTEs.**
+
+**Reproduced.** The build at 21:18:54 postdates every U2 file. `.next/prerender-manifest.json` now lists only `/_global-error`: `/_not-found` is dynamic. I ran `next start -p 3107`, signed out, under the build lock, then stopped the server and released the lock. No data was created.
+
+| Path | Status | Title | Scripts | Inline `style=` |
+|---|---|---|---|---|
+| `/login/nope` | 404 | `الصفحة غير موجودة — زخم` | 12/12 nonced, nonce matches the CSP header | 0 |
+| `/pending/nope` | 404 | same | 12/12 nonced | 0 |
+| `/definitely-not-here` | 307 → /login (proxy, expected) | — | — | — |
+| `/nope.png` | 404 without CSP | — | — | — |
+
+The `/login/nope` page contains the green wordmark and a link to `/login`. The `/nope.png` case is outside the proxy matcher, as known before.
+
+**Code**
+- **Authorisation:** not-found reads only `getSession()` to pick the link target (`userId` present → `homePathFor(role)`, else `/login`). It calls no `requireX()` and no `redirect()`. The group not-founds do the same, inside the chrome. A missing entry and another establishment's entry get the same page, so nothing leaks.
+- **retry vs reset:** confirmed in both places.
+  - Docs: error.md says `retry` has been stable since 16.3.0.
+  - Runtime: `error-boundary.js:43` implements `retry` as `startTransition(() => { router.refresh(); reset(); })`.
+  - All five error files use `retry()` only and show no message, stack or digest. Each has `role="alert"` around its heading and body.
+- **Chrome and ids:** the root `error.tsx` catches errors in the group layouts, which then do not render. Its `<main id="main">` therefore never sits next to AppShell's.
+- **Wordmark:** used unmodified, 3897×707 at `h-10 w-auto`.
+- **Contrast:** "404" in accent-dark on white is 10.05:1. gray-600 on white is 7.81:1. The white link on accent is 6.57:1, and 10.05:1 on hover.
+- **RTL:** logical utilities and `text-start` only.
+- **Arabic and logic:** no Arabic outside `ar.ts`, and no logic changes.
+
+**NOTE**
+- **N1: comment typo.** `(owner)/not-found.tsx:11` reads "a owner page"; it should be "an owner page".
+- **N2: duplicated markup.** The four group `error.tsx` files are identical, and so are the two group not-founds, since the shared panels were withdrawn. This is acceptable at this size. If one changes, change them all.
+
+### R-B re-check (2026-09-29)
+The S1 fix is confirmed. Below sm at 360px: 32 padding + 132.3 wordmark (24×3897/707) + 24 gaps + 44 link (min-w-11) + 44 logout = 276.3px, which leaves about 84px for the name, about 71px after the divider and ps-3. The sr-only span is absolutely positioned, so it takes no flex space, and it stays the link's accessible name. The SVG is aria-hidden. N1 and N2 are fixed through the APP_NAME / APP_TAGLINE consts and the rewritten comment. Nothing else changed in TopBar.tsx or ar.ts, whose diff is a single hunk.
+
+### R-U3, follow-ups and final sweep (2026-09-29)
+
+**Result: no BLOCKER and no SHOULD.** The task is clean for the commit.
+
+**U3 (the fade-in)**
+- **What changed:** only `globals.css`. It adds `@keyframes fade-in` (from opacity 0 only) and `#main > * { animation: fade-in 180ms ease-out }` inside `@media (prefers-reduced-motion: no-preference)`. The rule is top-level, not inside print, and there is no transform.
+- **The no-`both` reasoning is correct.** The Web Animations spec's "side effects of animation" says that while an effect is current or in effect, the user agent acts as if `will-change` included the animated property. `will-change: opacity` creates a stacking context, and a forwards fill stays in effect indefinitely. With `both`, the page root would stay a stacking context at z-index auto. The z-50 fixed Toast inside it would then be painted within that context, below the sibling z-30 top bar and z-40 tab bar. Without a fill, that only lasts the 180ms of the run.
+- `opacity` never creates a containing block for `position: fixed`, and ConfirmDialog is in the top layer, so neither is affected.
+- **Where `#main` sits:** on AppShell's `<main>` (the skip link target is unchanged), on the root not-found and error `<main>`, and on the inner `max-w-md` div in the `(auth)` layout. The `<main>` landmark is kept there.
+- **Nav:** no pending style was added, and RoleNav, AppShell and nav.ts are unchanged. ux measured the active state moving within about 20ms.
+
+**Follow-ups**
+- **S1, the ledger move:** `transactions/(list)/page.tsx` is byte-identical to HEAD in both areas (git blob `2709f6b…` owner and `fedbcaa…` staff). `app-path-routes-manifest` maps `(list)/page` to `/owner/transactions` and `/staff/transactions`, so the URLs are unchanged. `new/` and `[id]/edit/` each keep their own `loading.tsx`. `(list)/loading.tsx` renders `LedgerSkeleton`.
+- **N1:** `aria-busy` is gone from `Skeleton.tsx`, and `role="status"` remains.
+- **Typo:** fixed at `(owner)/not-found.tsx:11`.
+
+**Final sweep of the whole working tree**
+- **Brand files:** `sha256sum -c` gives 13/13 OK, 13 files.
+- **Print block:** everything from `/* Print:` to the end of `globals.css` is byte-identical to HEAD (CRLF ignored). No animation rule is inside it.
+- **Build freshness:** the build at 21:26 is newer than every file in `src/` and `public/`. `prerender-manifest` lists only `/_global-error`, so every page is dynamic.
+- **Arabic:** none outside `ar.ts` in any changed or new `.ts`, `.tsx` or `.css` file, apart from comments. `manifest.json` is allowed.
+- **Direction and inline code:** no physical-direction utilities, no `style=`, no `dangerouslySetInnerHTML` and no `<script>`.
+- **Logic:** no action, query, `src/lib`, proxy, prisma, test or package file changed. `sw.js` changed the `CACHE` constant only.
+- **Gates:** `tsc --noEmit` exits 0 and `vitest run` passes 274/274, both re-run by me.
+
+**NOTE**
+- **The first 180ms.** For the 180ms of each run, the page root is a stacking context. A Toast shown at the very moment of navigation could sit under the bars for that long. Toasts follow a user action, so in practice this does not occur.

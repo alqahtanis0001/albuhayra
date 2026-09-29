@@ -1,9 +1,13 @@
 import type { ReactNode } from "react";
 
-import { BrandMark } from "@/components/chrome/BrandMark";
 import { t } from "@/i18n/ar";
 
-/** The framed box every auth screen sits in. */
+/**
+ * The framed box every auth screen and /pending sit in. The green wordmark
+ * above it carries the tagline inside the image, so the tagline is not also
+ * rendered as text; the alt says it for screen readers. At 64px tall the
+ * tagline stays legible (about 11px glyphs).
+ */
 export function AuthCard({
   title,
   subtitle,
@@ -17,10 +21,16 @@ export function AuthCard({
 }) {
   return (
     <div className="w-full">
-      <div className="mb-6 flex flex-col items-center gap-2 text-center">
-        <BrandMark size={56} />
-        <p className="text-xl font-bold text-gray-900">{t.app.name}</p>
-        <p className="text-sm text-gray-600">{t.app.tagline}</p>
+      <div className="mb-6 flex justify-center">
+        {/* Served as-is from public/brand, never re-encoded; the attributes
+            carry the real 3907×988 ratio so nothing shifts on load. */}
+        <img
+          src="/brand/zakham-brand/zakham-wordmark-green-tagline.png"
+          alt={t.brand.logoWithTaglineAlt}
+          width={3907}
+          height={988}
+          className="h-16 w-auto shrink-0"
+        />
       </div>
 
       <section className="rounded-lg border border-t-4 border-gray-300 border-t-accent bg-white p-5">

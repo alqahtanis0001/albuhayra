@@ -33,7 +33,7 @@
  * browser's own offline page already does, without us storing anything.
  */
 
-const CACHE = "ledger-static-v1";
+const CACHE = "ledger-static-v2";
 
 /** Exact paths that may be cached. docs/FRONTEND.md enumerates these three. */
 const STATIC_FILES = ["/manifest.json"];

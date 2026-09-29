@@ -3,7 +3,8 @@
  * printout is unchanged. The version comes from package.json, so bumping it
  * there is the only step needed; this is a server component, so the file is
  * read at build time and never shipped to the browser. The version and the
- * email are LTR runs inside RTL text, hence the <bdi>.
+ * email are LTR runs inside RTL text, hence the <bdi>. The app name is set in
+ * the brand face (Reem Kufi), the one place on screen it appears as text.
  */
 import { t } from "@/i18n/ar";
 
@@ -18,7 +19,7 @@ export function Footer({ className = "" }: { className?: string }) {
     >
       <div className="mx-auto flex w-full max-w-3xl flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-3 text-xs text-gray-600">
         <p>
-          {t.app.name} · {t.footer.version} <bdi dir="ltr">{pkg.version}</bdi>
+          <span className="font-brand">{t.app.name}</span> · {t.footer.version} <bdi dir="ltr">{pkg.version}</bdi>
         </p>
         <p>
           {t.footer.contactLabel} <bdi dir="ltr">{t.footer.contactValue}</bdi>

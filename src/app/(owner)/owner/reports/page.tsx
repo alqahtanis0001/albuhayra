@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { PrintButton } from "@/features/reports/components/PrintButton";
+import { PrintHeader } from "@/features/reports/components/PrintHeader";
 import { ReportRangePicker } from "@/features/reports/components/ReportRangePicker";
 import { ReportTables } from "@/features/reports/components/ReportTables";
 import { parseReportRange } from "@/features/reports/components/reportRange";
@@ -27,16 +28,11 @@ export default async function OwnerReportsPage({
         {t.reports.title}
       </h1>
 
-      {/* Print only: the sheet has to say whose books these are and for when,
-          because it leaves the screen where the nav answered both. */}
-      <header className="print-only">
-        <p className="text-lg font-semibold">
-          {t.reports.printedFor}: {user.establishmentName}
-        </p>
-        <p className="text-sm">
-          {t.reports.rangeLabel}: <bdi>{range.from}</bdi> — <bdi>{range.to}</bdi>
-        </p>
-      </header>
+      <PrintHeader
+        establishmentName={user.establishmentName}
+        from={range.from}
+        to={range.to}
+      />
 
       <ReportRangePicker range={range} basePath={BASE} />
 

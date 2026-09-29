@@ -3,12 +3,34 @@
  * Keys are owned by the lead; `frontend` may improve the values.
  * `err.*` keys are the error contract — server actions return these keys.
  */
+const APP_NAME = "زخم";
+const APP_TAGLINE = "نظام السجل المالي للمنشآت";
+
 export const t = {
   app: {
-    name: "سجل المصروفات",
-    tagline: "نظام قيد الإيرادات والمصروفات للمنشآت",
-    /** Second line of the top bar for ADMIN, who has no establishment. */
+    name: APP_NAME,
+    tagline: APP_TAGLINE,
+    /** Shown beside the wordmark in the top bar for ADMIN, who has no establishment. */
     adminArea: "إدارة النظام",
+  },
+
+  /** Alt text for the logo images in public/brand/zakham-brand/. */
+  brand: {
+    logoAlt: APP_NAME,
+    logoWithTaglineAlt: `${APP_NAME} — ${APP_TAGLINE}`,
+  },
+
+  notFound: {
+    title: "الصفحة غير موجودة",
+    body: "تعذّر العثور على الصفحة المطلوبة. ربما نُقلت أو أن الرابط غير صحيح.",
+    backHome: "العودة إلى الصفحة الرئيسية",
+    toLogin: "الانتقال إلى تسجيل الدخول",
+  },
+
+  errorPage: {
+    title: "حدث خطأ غير متوقع",
+    body: "تعذّر إكمال الطلب. يُرجى إعادة المحاولة، وإن تكرّر الخطأ فتواصل مع الدعم.",
+    retry: "إعادة المحاولة",
   },
 
   common: {

@@ -96,3 +96,113 @@ Every 3–4 completed tasks the lead merges `progress/*.md` into `PROGRESS.md`, 
 - **Checkpoint 4** committed. B7 (locks half), F7, F8, W5, W6 + five briefs reviewed pre-code and R-F7/R-F8/R-W5/R-W6. **B7's auth half is written but held out of the commit** pending the user's rule decision — see `## Waiting on user` in PROGRESS.md. Stopped here as instructed.
 - **Checkpoint 5** committed: F9, F10, P1, W7, W8, T1 + the SW allowlist pin and `worker-src 'self'`, with all six briefs reviewed pre-code. Reviewer: no HIGH findings.
 - **Checkpoint 5b** committed: W3 and W4 by the lead with no team running; no stub remains in `src/`. Phase 1 complete. Next: the user's first sign-in test, then Phase 2.
+
+---
+
+# v1.1a-2 — rename to زخم, brand assets, loading/404/transitions
+
+Team: lead + `brand` + `ux` + `reviewer` (user-requested shape for this task only). One commit at the end by
+the lead: `v1.1a: rename to زخم, brand assets, loading/404/transitions`. Nobody pushes, nobody amends.
+
+## Shared facts (every teammate)
+- App renamed **زخم** (Latin **ZAKHAM**), tagline **نظام السجل المالي للمنشآت**.
+- Brand assets live in **`public/brand/zakham-brand/`** (one level deeper than `public/brand/`), served at
+  `/brand/zakham-brand/<file>`. **Use them as-is**: never redraw, regenerate, resize, re-encode, rename or move a
+  logo file. Baseline hashes are in `progress/brand-assets.sha256`; the reviewer re-checks them.
+  `.png` paths bypass `src/proxy.ts` (matcher excludes `.*\.png$`), so logos load for signed-out visitors.
+- Theme: the v1.1a Saudi-green governmental theme (`--color-accent #006c35`, hover `#004d26`, neutral greys,
+  2px corners). Contrast ≥ 4.5:1 for all text, measured. `+`/`−` on amounts unchanged.
+- All strings through `src/i18n/ar.ts` (owned by `brand`). No Arabic literals anywhere else — alt text included.
+- Every page stays **dynamically rendered** (nonce CSP). No `force-static`, `revalidate`, `generateStaticParams`.
+- **Print:** the `@media print` block and `.print-only` / `.no-print` rules in `globals.css` do not change. The only
+  print difference allowed is B2's print-header branding (small outline icon + the name زخم).
+- RTL: logical utilities only (`ms/me/ps/pe/start/end/text-start/text-end/border-s/border-e`), never `ml/mr/pl/pr/
+  left/right/text-left/text-right/border-l/border-r`.
+- No logic changes: no action, query, auth, proxy, schema or test behaviour changes.
+- Gates before marking any task complete: `npm run build`, `npm test` (274/274 baseline), `npx tsc --noEmit`, all
+  exit 0 on the real exit code. **Build lock:** two teammates share one `.next/`. Take the lock with
+  `mkdir .claude/build.lock` before `npm run build` and `rmdir .claude/build.lock` right after (also on failure).
+  If `mkdir` fails, the other teammate is building — run `npx tsc --noEmit` / `npx vitest run` meanwhile and retry.
+- Notes go in `progress/<your-name>.md` (from `progress/_template.md`). Do not `git commit`.
+
+## Ownership for this task (overrides the Phase 1 map for these files only)
+| Path | Owner |
+|---|---|
+| `src/i18n/ar.ts`, `public/manifest.json`, `public/brand/**`, `public/icons/**`, `src/app/layout.tsx`, `src/components/chrome/TopBar.tsx`, `src/components/chrome/Footer.tsx`, `src/components/chrome/BrandMark.tsx` (delete), `src/features/auth/components/AuthCard.tsx`, new `src/features/reports/components/PrintHeader.tsx`, the print-header lines only of `src/app/(owner)/owner/reports/page.tsx`, `README.md` (title only) | `brand` |
+| `src/app/globals.css` (not the print block), every `loading.tsx` / `not-found.tsx` / `error.tsx` / `template.tsx` under `src/app/**`, `src/components/chrome/RoleNav.tsx` (SideNav + mobile tab bar; may be split into `SideNav.tsx` / `BottomTabs.tsx`), `src/components/chrome/AppShell.tsx` (imports + transition wrapper only), new `src/components/skeletons/**` | `ux` |
+| everything above, read-only | `reviewer` |
+| `docs/*`, `CLAUDE.md`, `PROGRESS.md`, `progress/TASKS.md` | lead |
+
+## Contract between brand and ux (fixed now so neither waits)
+- **Font token:** `brand` loads Reem Kufi 700 in `layout.tsx` with `variable: "--font-zakham"` on `<html>`; `ux` adds
+  `--font-brand: var(--font-zakham), var(--font-arabic), system-ui, sans-serif;` to `@theme`, which yields the
+  `font-brand` utility. `brand` uses `font-brand` only where the word زخم is rendered as text.
+- **Keys `brand` adds first, then announces to `ux` by message:**
+  `t.notFound.{title:"الصفحة غير موجودة", body, backHome, toLogin}`,
+  `t.errorPage.{title:"حدث خطأ غير متوقع", body, retry}`,
+  `t.brand.{logoAlt:"زخم", logoWithTaglineAlt}`. `ux` may request more by message; `ux` never edits `ar.ts`.
+- `ux` renders `<TopBar>` / `<Footer>` inside `AppShell` with their current props; `brand` does not change those props.
+
+## brand
+| ID | Task | Status |
+|---|---|---|
+| B1 | **Rename everywhere.** `t.app.name` → زخم, `t.app.tagline` → نظام السجل المالي للمنشآت. Root metadata gets a title template (`%s — زخم`, default زخم) so every `<title>` carries the name. Manifest `name`/`short_name` زخم, `description` the tagline. Footer and print header show زخم. Owners/staff still see the establishment name beside the logo in the top bar; ADMIN sees `t.app.adminArea`. Staff sign-up title stays "طلب انضمام إلى منشأة" (already `t.auth.staffSignupTitle` — confirm, do not duplicate). `README.md` title only. | done |
+| B2 | **Assets.** Top bar → `zakham-wordmark-white.png` ~36px tall, `alt={t.brand.logoAlt}`. A white wordmark needs a **green top bar**: background `bg-accent`, every top-bar text/control ≥ 4.5:1 on `#006c35` (white is 6.57:1), keep `no-print`, keep the RTL order (logo + establishment name right, user + logout left). Auth cards and `/pending` (both via `AuthCard`) → `zakham-wordmark-green-tagline.png` (the image carries the tagline — do not also render the tagline text; the alt carries it). Print header → extract the inline `<header className="print-only">` from `reports/page.tsx` into `PrintHeader.tsx` unchanged, then add `icon-512-outline.png` small (~40px) and the name زخم in `font-brand`; the establishment name and range stay exactly as they are. Manifest icons: `icon-192.png`, `icon-512.png` (`purpose: "any"`), `icon-maskable-192.png`, `icon-maskable-512.png` (`purpose: "maskable"`). `layout.tsx` metadata: `favicon-32.png`, `favicon-64.png`, `apple-touch-icon-180.png`; theme colour stays `#006c35`. Delete `public/icons/` and `src/components/chrome/BrandMark.tsx`. Give every `<img>` explicit `width`/`height` from the real aspect ratio (wordmark 3897×707, with tagline 3907×988) so nothing shifts on load. | done |
+| B3 | **Reem Kufi 700** via `next/font/google` (bundled at build — CSP allows `'self'` only), `variable: "--font-zakham"`, `display: "swap"`, subsets `arabic`. Used only where زخم is text (footer, print header; nowhere else). Body stays IBM Plex Sans Arabic. Footer contact stays `support@example.com`. | done |
+
+## ux
+| ID | Task | Status |
+|---|---|---|
+| U1 | **Skeleton loading states.** `loading.tsx` in `(owner)`, `(staff)`, `(admin)`, `(auth)` with skeletons shaped like the real screens — stat cards, table rows, form fields — in theme greys (`gray-100/200`), 2px corners, no bare spinners. Shared pieces in `src/components/skeletons/`. Each skeleton is `role="status"` + `aria-busy="true"` with the existing `t.common.loading` as screen-reader text. Any shimmer/pulse honours `prefers-reduced-motion`. | done |
+| U2 | **Designed 404 and error pages.** `src/app/not-found.tsx`: "الصفحة غير موجودة", one link — `homePathFor(session.role)` when the session cookie has a role, else `/login` — exactly the `getSession()` pattern `src/app/page.tsx` already uses. **Never** call `requireX()` (they redirect) and never trust this for authorization: the link target enforces access. Reading the cookie makes the page dynamic, so it gets the nonce — confirm `/_not-found` shows as ƒ in the build table. `error.tsx` (client components) per area `(owner)`/`(staff)`/`(admin)`/`(auth)`, plus `src/app/error.tsx` for errors thrown in a group layout: "حدث خطأ غير متوقع", a retry button calling `reset()`, **no `error.message`, stack or digest shown**. Verify on `npm start`: a wrong URL renders the styled 404 with a CSP nonce on every `<script>` and no CSP violation; `/_global-error` still prerenders and works. | done |
+| U3 | **Transitions.** CSS-only fade-in on page content, 150–200 ms, `opacity` only (no sliding, no transform), disabled under `prefers-reduced-motion: reduce`. A layout does not re-mount on navigation, so use a `template.tsx` per area (it does) or an equivalent that replays per page. Immediate active state on the tapped nav item (side nav and tab bar) before the navigation completes — client-side presentation only, e.g. `useLinkStatus` or local pending state cleared when the pathname changes. No animation library. Print unaffected (no animation rules inside `@media print`). | done |
+
+## reviewer (read-only)
+| ID | Reviews | Status |
+|---|---|---|
+| R-brief | Every brief above against `docs/FRONTEND.md`, before any code | done |
+| R-B1..B3, R-U1..U3 | Each completed task: RTL utilities only; contrast ≥ 4.5:1 (measure); no Arabic outside `ar.ts`; no logic changes; CSP compatibility of the 404/error pages (nonce on scripts, no inline styles/scripts added); logo files unmodified (`sha256sum -c ../../../progress/brand-assets.sha256` run inside `public/brand/zakham-brand/`); print output unchanged except B2's header | done — final sweep clean |
+
+## Resolutions after R-brief (lead, binding — these amend the briefs above)
+Docs were amended before code: `CLAUDE.md` name fact, `docs/FRONTEND.md` (font, look, layout, PWA, SW note, new
+*Loading, not found, errors, transitions* section). Decision logged in `PROGRESS.md`.
+
+- **LIVE DATABASE:** the local `.env` points at the production Neon database. Never sign up, log in to create data,
+  approve, add entries, run `npm run seed` or any `prisma migrate`. Test signed-out only. `/login/<anything>` and
+  `/pending/<anything>` are public paths, so they reach the app's not-found without a session.
+- **R1 overruled:** the top bar becomes a **filled green band** (`bg-accent`) with the white wordmark — the user chose
+  that asset. Therefore R4, R9, R10 apply:
+  - **Focus ring contract (R4):** `ux` changes the global rule in `globals.css` to
+    `outline: 2px solid var(--focus-ring, var(--color-accent))`; `brand` sets `[--focus-ring:#fff]` on the `<header>`.
+  - Top-bar text: white (or `accent-soft` for the second line, 5.77:1); user link `text-white hover:bg-accent-dark`.
+    Nothing `text-accent-dark` / `text-gray-*` on the green.
+  - **Header height (R9):** keep it at exactly 69px (4px top rule may go, but then keep `h-[69px]` total) — or message
+    `ux` the new height, because `RoleNav` sticks at `md:top-[69px]`.
+  - **Wordmark size (R10):** `h-6` below `sm`, `h-9` from `sm`, `w-auto shrink-0`, with `width`/`height` attributes.
+- **R3 (fade):** no `template.tsx`. One CSS rule in `globals.css`:
+  `@media (prefers-reduced-motion: no-preference) { #main > * { animation: fade-in 180ms ease-out both } }` plus the
+  keyframes. `ux` additionally owns **`src/app/(auth)/layout.tsx`, only to add `id="main"` to its `<main>`** so the
+  same selector covers the auth screens.
+- **R5:** use the retry function Next 16.3 actually passes to `error.tsx` — verify in
+  `node_modules/next/dist/docs/` (the reviewer reads it as `retry()`, which re-fetches; `reset()` does not). Cite it
+  in your notes.
+- **R6:** accepted — a streamed `notFound()` answers 200 + `noindex`. `ux` may add per-group `not-found.tsx` so the
+  chrome stays around it (optional, recommended).
+- **R7:** a `loading.tsx` **beside each page** (nearest wins, so `new` and `[id]/edit` need their own, or they show the
+  list skeleton). One `role="status"` per loading file, pieces `aria-hidden`. `gray-200` blocks on white cards, never
+  `gray-100` on the `gray-50` body. `motion-safe:animate-pulse` only; no gradient shimmer.
+- **R8:** build U1 first, then check whether the nav already updates at once. If a pending style is still needed, use
+  `useLinkStatus` for a **visual-only** style; `aria-current` stays on the real page; do not touch `nav.ts`
+  `activeHref` (tested); no onClick local state.
+- **R11 (print header):** the icon+name row goes in an **inner** `div` (the unlayered `.print-only{display:block}`
+  would override `flex` on the header itself); the outline icon gets Tailwind `grayscale` (the class lives in
+  `PrintHeader.tsx`; the print block in `globals.css` stays unchanged); `alt=""` there, since زخم is the adjacent text.
+- **R12:** `brand` also owns **`public/sw.js`, the `CACHE` constant only**: `"ledger-static-v1"` → `"ledger-static-v2"`.
+  The allowlist, the fetch handler and `/icons/` stay untouched (pinned by `src/serviceWorker.test.ts`).
+- **N1:** confirm `/_not-found` is dynamic from `.next/prerender-manifest.json` (it must no longer be listed), not from
+  the route table. Guard with `session.userId && session.role`.
+- **N2:** `error.tsx` is a client component — no `metadata` export; React `<title>` composed from keys if wanted.
+- **N3:** Reem Kufi with `preload: false` is acceptable (used in footer and print only).
+- **N4:** auth tagline wordmark at least 64px tall (`h-16 w-auto`), so the tagline stays legible.
+- **Ownership addendum (lead, on ux's request — later WITHDRAWN by ux, markup inlined instead):** `ux` also owns new `src/components/status/NotFoundPanel.tsx` (server component: title, body, one link via `getSession` + `homePathFor`) and `src/components/status/ErrorPanel.tsx` (client component: title, body, retry), so each `not-found.tsx` / `error.tsx` is a thin wrapper.
+- **Ownership addendum (lead, R-U1 S1):** `ux` moves `transactions/page.tsx` + `transactions/loading.tsx` into `transactions/(list)/` in both `(owner)` and `(staff)` — a move only, contents byte-identical, URLs unchanged — so the ledger skeleton stops wrapping `new` and `[id]/edit`. Also: `aria-busy` dropped from the skeleton live region (R-U1 N1).

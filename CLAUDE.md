@@ -8,7 +8,7 @@ A small private web app where business owners in Saudi Arabia log every riyal th
 Priorities in order: **simple → secure → Arabic UI → correct numbers**. When in doubt, choose the simpler option. Build only what these files describe.
 
 ## Facts every agent must know (not in the chat history)
-- Product name shown in the UI: **سجل المصروفات** (change in `src/i18n/ar.ts` only).
+- Product name shown in the UI: **زخم** (Latin ZAKHAM), tagline **نظام السجل المالي للمنشآت** — renamed by the user in v1.1a. Change the text in `src/i18n/ar.ts` only (plus `public/manifest.json`, which cannot import it). Logos are the files in `public/brand/zakham-brand/`, used as-is — never redrawn or regenerated.
 - Three roles: **ADMIN** (the platform administrator — one account, created by seed), **OWNER** (a business owner; signs up, must be approved by ADMIN), **STAFF** (an employee; signs up with an owner's join code, must be approved by that OWNER).
 - Every OWNER has exactly one **Establishment**. STAFF belong to one Establishment. All financial data is scoped to an Establishment. ADMIN never sees amounts, only counts and statuses.
 - STAFF can always add entries. STAFF can edit entries only if the OWNER has switched on their `canEdit` permission. Only OWNER can delete.
