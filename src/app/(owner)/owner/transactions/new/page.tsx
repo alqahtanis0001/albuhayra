@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 
 import { createTransaction } from "@/features/transactions/components/actions";
-import { listCategories, listLocks } from "@/features/transactions/components/data";
+import { listCategories } from "@/features/settings/queries";
+import { listLocks } from "@/features/locks/queries";
 import { TransactionForm } from "@/features/transactions/components/TransactionForm";
 import { t } from "@/i18n/ar";
 import { requireOwner } from "@/lib/auth";

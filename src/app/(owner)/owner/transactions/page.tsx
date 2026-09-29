@@ -13,7 +13,7 @@ import {
   parseLedgerFilters,
   type RawSearchParams,
 } from "@/features/transactions/components/ledgerParams";
-import { listLocks } from "@/features/transactions/components/data";
+import { listLocks } from "@/features/locks/queries";
 import { listCategories } from "@/features/settings/queries";
 import { listTransactions } from "@/features/transactions/queries";
 import { t } from "@/i18n/ar";

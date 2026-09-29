@@ -2,9 +2,15 @@ import type { InputHTMLAttributes } from "react";
 
 import { errorMessage } from "@/i18n/ar";
 
-export type InputProps = Omit<InputHTMLAttributes<HTMLInputElement>, "id"> & {
+export type InputProps = InputHTMLAttributes<HTMLInputElement> & {
   label: string;
   name: string;
+  /**
+   * Defaults to `name`. Pass it when the same field name appears more than once
+   * on a page — one reset-password form per staff row — because a name-derived id
+   * would duplicate and every label would point at the first field.
+   */
+  id?: string;
   /** An `err.*` i18n key from `fieldErrors`, not Arabic text. */
   error?: string;
   hint?: string;
@@ -15,6 +21,7 @@ export type InputProps = Omit<InputHTMLAttributes<HTMLInputElement>, "id"> & {
 export function Input({
   label,
   name,
+  id,
   error,
   hint,
   suffix,
@@ -22,19 +29,20 @@ export function Input({
   required,
   ...rest
 }: InputProps) {
-  const hintId = hint ? `${name}-hint` : undefined;
-  const errorId = error ? `${name}-error` : undefined;
+  const fieldId = id ?? name;
+  const hintId = hint ? `${fieldId}-hint` : undefined;
+  const errorId = error ? `${fieldId}-error` : undefined;
 
   return (
     <div className="flex flex-col gap-1">
-      <label htmlFor={name} className="text-sm font-medium text-gray-700">
+      <label htmlFor={fieldId} className="text-sm font-medium text-gray-700">
         {label}
         {required ? <span aria-hidden="true"> *</span> : null}
       </label>
 
       <div className="relative">
         <input
-          id={name}
+          id={fieldId}
           name={name}
           required={required}
           aria-invalid={error ? true : undefined}

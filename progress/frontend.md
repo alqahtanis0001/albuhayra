@@ -818,3 +818,154 @@ So F5's first acceptance criterion is met on both sides: filter-scoped in the qu
 re-summing in the footer, and pinned by a test that fails from page 2 rather than passing on page 1.
 
 Gates: build 0, `tsc` 0, `npm test` 190/190 in 11 files.
+
+## F7 + F8 — owner settings, all five tabs
+
+Files: `src/app/(owner)/owner/settings/page.tsx` and eleven in
+`src/features/settings/components/`. Largest is 102 lines.
+
+**The active tab is in the URL** (`?tab=`), for the same reason the ledger filters are: a reload, a
+back button or a shared link keeps it, and the page stays a server component with nothing to
+desynchronise. `parseTab` falls back to the first tab rather than erroring.
+
+**Only the active tab's data is queried.** Five tabs' worth of queries on every visit would make the
+cheap tabs pay for the expensive ones, so each is fetched behind its own `tab === …` check.
+
+**The two action shapes are used as the frozen section specifies**, and the distinction is load-bearing:
+`resetStaffPassword(userId, prev, formData)` and `updateCategory(categoryId, prev, formData)` are
+form-backed with the id `.bind(null, id)`-bound **on the server**, so the id is never a form field a
+client could repoint at another account or another establishment's category; `approveStaff`,
+`rejectStaff`, `setCanEdit`, `setStaffActive`, `setCategoryActive`, `setCategoryOrder`, `lockMonth`
+and `unlockMonth` are button actions taking plain arguments.
+
+**`err.notFound` from `setCategoryOrder` is unreachable, not merely unlikely.** Reorder arrows render
+only for active rows, and the ends of each direction group are disabled — bounded by position among
+the **active** rows, since an inactive row has no arrows and cannot be a move target. Verified: three
+active categories produce six arrows, the retired one none, and four arrows are disabled (the lone IN
+category is both first and last).
+
+**A rename form submits the category's existing `type` as a hidden field** and shows the direction as
+fixed text, because `updateCategory` refuses a changed type with `err.categoryDirectionMismatch` — a
+category's direction is structural, since entries already point at it and carry that direction.
+
+**The lock grid uses the server's `lockable`**, so the client never decides what "now" is — the trap
+`todayISO()` exists in one place to avoid. The open month shows `currentMonthHint` instead of a
+button. Also worth remembering: this grid is **newest first** while the dashboard chart is oldest
+first, and both are deliberate.
+
+### Two component-level fixes this task forced
+
+**`Input`/`Select`/`Textarea` now accept an explicit `id`.** They derived it from `name`, which is
+fine until the same field name appears more than once on a page — one reset-password form per staff
+row — at which point every label's `htmlFor` points at the first field. That is a real accessibility
+defect in a component I own, not a settings problem. Verified the ids are unique per row:
+`reset-s2`, `reset-s3`. `Select` keeps its `children` exclusion, since options come from `options`.
+
+**Added `ChevronUpIcon` / `ChevronDownIcon` rather than rotating a horizontal chevron.** The first
+version used `ChevronStartIcon` with `-rotate-90`, which points up in RTL and **down in LTR** —
+correct today only because the app is always RTL. Up and down in a vertical list have nothing to do
+with text direction, so they carry no `rtl:` variant and need no rotation to reason about.
+
+**Scoped the reject `ConfirmDialog` to pending rows.** It had rendered for every staff row, so an
+active employee carried hidden markup titled "رفض" describing an action not offered for them. Closed
+dialogs are not announced, so this was dead misleading markup rather than an a11y bug — `<dialog>`
+count is now 2 on the probe page (one reject, one regenerate) and "رفض" dropped from 10 occurrences
+to 4.
+
+## W5 — reports and export
+
+The reports page already called the real `getReport` from F6, so W5 was the export half.
+
+**Both refusal paths are now exercised rather than inferred**, which was the reviewer's open point:
+- through the proxy with no session → **307 to `/login`**;
+- with a `purpose: prefetch` header, which `config.matcher`'s `missing` clause makes the proxy skip
+  entirely → **still 307 to `/login`**, this time from the route's own `requireOwner()`. The dev log
+  confirms the request reached application code, so the handler ran. Nothing but the route could have
+  produced that redirect.
+
+That is the useful result: **the route's guard does not depend on the proxy.** A route handler sits
+outside the server-action path and inherits none of its checks, so that mattered.
+
+**What I could not verify: a successful workbook download.** It needs an OWNER session, and the
+credentials are in `.env`, which I may not read. So "returns a workbook" is still unproven — the same
+gap as the auth actions over the wire, and it closes the same way, with one real sign-in.
+
+## W6 — settings wiring
+
+A confirmation, not a swap. Every settings component imports the real modules directly —
+`@/features/settings/actions`, `@/features/establishments/actions`, `@/features/locks/actions` and
+their queries — because B2/B4/B8 had all landed before F7 started. No stub was written, so none had
+to be deleted. The only stubs left in the tree are `transactions/components/stub{Actions,Data}.ts`,
+which are W3/W4's to remove.
+
+Gates: build 0, `tsc` 0, `npm test` 222/222 in 12 files.
+
+## Corrected F7/F8/W5 briefs — six already right, one real gap
+
+The lead's brief had put the `ConfirmDialog` on month-locking instead of إعادة توليد. Building from
+`docs/FRONTEND.md` rather than the brief meant that never reached the code: the dialog is on
+regenerate (`JoinCodeTab`, the only irreversible action on the screen — every existing code stops
+working the instant it returns) and `LockCell` has none, since `unlockMonth` makes locking reversible.
+
+Also already satisfied: the join code is `text-3xl`; رفض is behind a `ConfirmDialog` with
+`rejectStaffConfirm`; reset-password is a field-bearing bound-id form; and the reports page already
+called the real `getReport`, so W5 never had a stub to hunt.
+
+**The cross-task tab contract, verified rather than assumed.** `src/app/(owner)/layout.tsx:20` ships
+`accountHref="/owner/settings?tab=account"`, so the param must be `tab` and the value `account` or
+the top bar's link silently lands on التصنيفات — working, wrong, and invisible. Checked
+`parseTab` across all five keys plus a bogus one and `undefined`: `?tab=account` → `account`,
+anything unrecognised → `categories`. Nothing in the doc says this; it is only discoverable by
+reading F1.
+
+**The one real gap: the last active category of a direction.** `setCategoryActive` refuses retiring
+it with `err.lastActiveCategory`, and I had left the control live. Now disabled **and explained** —
+the arrows need no note because "first" and "last" are self-evident, but "why can't I retire this
+one?" is not, and a dead control that says nothing is worse than an error. The sentence is the same
+one the server would return, resolved from `err.lastActiveCategory`, shown as a hint rather than an
+error.
+
+Verified in rendered DOM with one active IN category and two active OUT ones: the lone IN category
+has three disabled controls (both arrows, since it is first *and* last, plus the retire button) and
+the explanation once; the inactive IN row has no arrows and a live enable button; each active OUT row
+has exactly one disabled arrow and a live retire button.
+
+Gates: build 0, `tsc` 0, `npm test` 222/222 in 12 files.
+
+## Locks: one source of truth
+
+Pointed the three transaction pages at the real `listLocks` in `@/features/locks/queries` and deleted
+the hand copy of `LockRow` from `transactions/components/data.ts`, along with the stub `listLocks`.
+All four pages that care about lock state — settings, ledger, new entry, edit entry — now read the
+same query.
+
+The lead's reason is worth keeping verbatim, because it reclassifies the work: **two sources for lock
+state in a running app is a correctness risk, not untidiness.** The settings grid and the ledger
+disagreeing about whether a month is closed would be a real bug, and "the hand copy is currently
+identical field for field" is precisely the state that drifts. Same shape as the duplicated cookie
+name that became `sessionConfig.ts`, and as `LedgerRow`/`RecentTransaction` at W2.
+
+`data.ts` now carries a note saying `listLocks` and `LockRow` are deliberately *not* re-exported
+there, so the next person does not helpfully reintroduce the convenience.
+
+**The identical case exists for `listCategories`, and it has already drifted** — mine is
+`{ id, nameAr, type, active }`, the real one adds `sortOrder`. `/owner/settings` and
+`/owner/transactions` read the real query; `/owner/transactions/new` and `…/[id]/edit` still read the
+stub, so the ledger filter and the add-entry select can disagree about which categories exist.
+Raised with the lead rather than fixed, because "after the locks swap, hold" was explicit and
+extending a ruling to a case they did not name is theirs to decide while the user is away. They ruled
+go, and it is done: `CategoryRow` and `LockRow` each now have exactly **one** declaration in the tree
+(`settings/queries.ts` and `locks/queries.ts`), and all four pages plus `TransactionForm` read them
+from there.
+
+`getTransaction` is deliberately still stubbed and is the only stub left. It belongs to W3 because
+the edit page needs its actions wired at the same time — the same reason `deleteTransaction` stayed
+stubbed so all three transaction actions flip together, rather than a swap point telling two stories.
+
+**The exchange itself is worth recording, because the asymmetry is the general lesson.** I had the
+better argument and still asked. If I had been right to extend, asking cost one message; if I had
+been wrong, the lead would have found an unrequested change in the diff at commit time. When the cost
+of asking is fixed and small and the cost of being wrong is discovered late by someone else, ask —
+even when confident. That is a different rule from "ask when unsure".
+
+Gates: build 0, `tsc` 0, `npm test` 222/222 in 12 files.

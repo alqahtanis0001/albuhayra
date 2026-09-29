@@ -17,7 +17,8 @@ import { validateEntry } from "./validateEntry";
 import { AmountField } from "./AmountField";
 import { DirectionToggle, readLastDirection, rememberDirection } from "./DirectionToggle";
 import { LockedNotice } from "./LockedNotice";
-import type { CategoryRow, TransactionRow } from "./data";
+import type { TransactionRow } from "./data";
+import type { CategoryRow } from "@/features/settings/queries";
 import type { TransactionFormAction, TransactionState } from "./actions";
 
 const METHODS = ["CASH", "BANK_TRANSFER", "MADA", "STC_PAY", "OTHER"] as const;

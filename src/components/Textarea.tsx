@@ -2,10 +2,7 @@ import type { TextareaHTMLAttributes } from "react";
 
 import { errorMessage } from "@/i18n/ar";
 
-export type TextareaProps = Omit<
-  TextareaHTMLAttributes<HTMLTextAreaElement>,
-  "id"
-> & {
+export type TextareaProps = TextareaHTMLAttributes<HTMLTextAreaElement> & {
   label: string;
   name: string;
   /** An `err.*` i18n key from `fieldErrors`. */
@@ -16,6 +13,7 @@ export type TextareaProps = Omit<
 export function Textarea({
   label,
   name,
+  id,
   error,
   hint,
   className = "",
@@ -23,18 +21,19 @@ export function Textarea({
   required,
   ...rest
 }: TextareaProps) {
-  const hintId = hint ? `${name}-hint` : undefined;
-  const errorId = error ? `${name}-error` : undefined;
+  const fieldId = id ?? name;
+  const hintId = hint ? `${fieldId}-hint` : undefined;
+  const errorId = error ? `${fieldId}-error` : undefined;
 
   return (
     <div className="flex flex-col gap-1">
-      <label htmlFor={name} className="text-sm font-medium text-gray-700">
+      <label htmlFor={fieldId} className="text-sm font-medium text-gray-700">
         {label}
         {required ? <span aria-hidden="true"> *</span> : null}
       </label>
 
       <textarea
-        id={name}
+        id={fieldId}
         name={name}
         rows={rows}
         required={required}

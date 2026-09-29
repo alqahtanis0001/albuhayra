@@ -822,6 +822,93 @@ substance held, but I put a finding on a file `backend` owns instead of one the
 lead owns. **Grep for *which file* as well as for what is in it** — a
 misattributed finding lands on the wrong person's task.
 
+### 2026-09-29 — Checkpoint 4 brief-vs-doc pass (Checkpoint 3 = `f81a9f6`)
+
+Order: B7 ∥ F7 → F8 → W5 → W6, then the lead commits and stops. **No HIGHs**, so
+the lead was told to keep going — with the user away, that judgement gates
+whether they continue, so it needs saying explicitly rather than implied.
+
+What to verify when the code lands:
+
+**B7** — the lead asked whether testing the pure predicate satisfies the doc. **It
+does not.** Three of the doc's four matrix rows *are* `canEditTransactions`'s
+truth table, already covered by `permissions.test.ts` since Phase 0. The fourth
+settles it: for PENDING the predicate returns `false` but the wrapper's observable
+behaviour is a **destination** (`/pending`, not `/login`). Only a wrapper test
+catches: (a) that `requireCanEdit` **redirects rather than returns** — every
+mutation depends on the throw; (b) `requireUser`'s DISABLED / deleted-row /
+inactive-establishment branches, which the predicate never sees, and which I
+asked be **added to the doc's matrix**; (c) **H1 is still unpinned** — nothing
+tests that a throwing `session.destroy()` still redirects, so reverting `forget()`
+to a bare `destroy()` reintroduces the 500-loop and fails nothing. By item 18
+that is decoration, and it was a HIGH when first found. `server-only` is not an
+obstacle: `scoping.test.ts:111` already mocks it.
+
+**F8 — the one real trap.** The brief put the `ConfirmDialog` on month-locking;
+the doc puts it on **إعادة توليد**, the only irreversible action on the screen
+(every existing code dies instantly and an employee mid-signup is stranded).
+`t.settings.regenerateConfirm` exists for it. Also dropped: the code shown
+**large**, and what the deactivate control does on the **last active category**
+per direction (`err.lastActiveCategory` refuses it — same "refused but reachable"
+shape as the reorder arrows).
+
+**F7 — cross-task constraint invisible in both brief and doc:** the tab param must
+be `tab` and the account value `account`, because
+`src/app/(owner)/layout.tsx:20` already ships
+`accountHref="/owner/settings?tab=account"`. Wrong naming = top-bar account link
+silently lands on the wrong tab. Discoverable only by reading F1. Also
+`t.settings.rejectStaffConfirm` implies رفض goes behind a `ConfirmDialog`.
+
+**W5 — half already done:** the reports page imports the real `getReport`
+(`page.tsx:7`); F6 never stubbed it. W5 reduces to exercising the export link.
+
+**Method note that produced most of this round:** `src/i18n/ar.ts` keys are a
+**specification**. `regenerateConfirm`, `rejectStaffConfirm`, `resetPasswordFor`
+and `lastActiveCategory` each imply behaviour no brief mentioned. A key that
+exists and is unused is either a missing feature or dead weight — reading the
+string table against the screens finds requirements neither doc states.
+
+### 2026-09-29 — R-F7 / R-F8 / R-W5 / R-W6. **No HIGHs; cleared the commit.**
+
+Verified all four of the lead's pointers. Arrow bounding uses
+`active.findIndex(...)` — position among *active* rows within a per-direction
+group — so both ends are genuinely closed and `err.notFound` from
+`setCategoryOrder` is unreachable. `frontend` extended the same standard to
+`err.lastActiveCategory` via `isOnlyActive`, a case I raised in the brief read
+and never chased in review. The id fix is complete across every repeating call
+site (`add-${type}`, `rename-${id}`, `reset-${row.id}`), and deriving
+`hintId`/`errorId` from `fieldId` is the easily-missed half — otherwise the label
+points right while `aria-describedby` still points at row one. No bound id
+arrives from a form; the only hidden field is `type`, and `updateCategory`
+refuses a type change, so a forged one cannot move a category between directions.
+
+Both brief-read traps were already handled before I arrived: regenerate behind
+`ConfirmDialog` at `text-3xl`, and رفض behind one on the strength of
+`t.settings.rejectStaffConfirm` existing.
+
+**Lessons worth keeping:**
+- **A fix that is opt-in is only as good as its last call site.** The `id` prop
+  defaulting to `name` is the right trade (a `useId()` fix would have forced
+  `"use client"` onto three shared primitives), but it means a future repeating
+  form that forgets `id` silently reintroduces the defect. Check the whole set,
+  not the motivating case.
+- **Correctness by coincidence is worth removing precisely because nothing
+  breaks.** The rotated chevron pointed up in RTL and down in LTR — correct only
+  by accident of the Do-not list forbidding LTR. The next person sees a working
+  component and learns the wrong rule from it.
+- **"It reaches the route" and "it returns a workbook" are different claims.**
+  `frontend` stated which one it had rather than showing a green check that
+  quietly meant the first. That honesty is worth more than the coverage.
+
+**B7 is held out of the commit** pending the user, because it contradicts a
+Phase 0 Gotcha forbidding a test to import `auth.ts`. Holding is right
+procedurally. On the merits, for when they return: `scoping.test.ts:111` already
+mocks `server-only`, so the technique is established and the Gotcha's *purpose* —
+no accidental dependence on Next internals — is served rather than violated by a
+deliberate, documented mock. The six-row destination matrix plus pairwise-distinct
+refusals is what I argued the doc requires, and it pins **H1**, the invariant I
+have been calling decoration since Checkpoint 3. My view: it should land.
+
 ## In progress
 - Task: Checkpoint 2 committed. Holding for the user's approval of Checkpoint 3
   (proposed: W2, F5, B5). **Advance brief-vs-doc pass comes first** — it has been

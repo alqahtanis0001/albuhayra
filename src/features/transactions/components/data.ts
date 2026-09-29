@@ -7,34 +7,21 @@
  * boolean, because whether it is blocked depends on the date the user picks —
  * and, on edit, on the month the entry is in now. The page derives that list
  * from `listLocks`, so the component never carries fields it does not use.
+ *
+ * Neither `listLocks`/`LockRow` nor `listCategories`/`CategoryRow` are re-exported
+ * here any more: they come straight from `@/features/locks/queries` and
+ * `@/features/settings/queries`, one source each. Hand copies lived here while B4
+ * and B2 were unwritten, and two sources for the same fact is a correctness risk
+ * rather than untidiness — the ledger and the settings grid disagreeing about a
+ * lock, or the filter and the entry form disagreeing about which categories
+ * exist, are both real bugs. The category copy had already drifted: it was
+ * missing `sortOrder`.
+ *
+ * `getTransaction` stays stubbed deliberately. It is W3's, because the edit page
+ * needs its actions wired at the same time, and a swap point pointing at one real
+ * query and one stub would tell two stories.
  */
 import type { DirectionValue, PaymentMethodValue } from "@/lib/validation";
-
-export type CategoryRow = {
-  id: string;
-  nameAr: string;
-  type: DirectionValue;
-  /** listCategories returns inactive rows too; the form select filters them out. */
-  active: boolean;
-};
-
-/**
- * One row of `listLocks(estId)` — **newest first**, deliberately the opposite of
- * `last6Months`: an owner locks the month that just ended, so that is the cell
- * they came for. `lockable` is false for the open month and anything after it,
- * which lets F8 disable those cells without deciding "now" on the client.
- */
-export type LockRow = {
-  year: number;
-  month: number;
-  /** "2026-09". */
-  ym: string;
-  locked: boolean;
-  /** ISO string, never a Date — these rows reach client components. */
-  lockedAt: string | null;
-  lockedByName: string | null;
-  lockable: boolean;
-};
 
 export type TransactionRow = {
   id: string;
@@ -47,4 +34,4 @@ export type TransactionRow = {
   note: string | null;
 };
 
-export { listCategories, listLocks, getTransaction } from "./stubData";
+export { getTransaction } from "./stubData";

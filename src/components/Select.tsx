@@ -4,9 +4,11 @@ import { errorMessage } from "@/i18n/ar";
 
 export type SelectOption = { value: string; label: string };
 
+// `children` stays excluded: the options come from `options`, and accepting both
+// would let a caller build a select two ways at once.
 export type SelectProps = Omit<
   SelectHTMLAttributes<HTMLSelectElement>,
-  "id" | "children"
+  "children"
 > & {
   label: string;
   name: string;
@@ -21,6 +23,7 @@ export type SelectProps = Omit<
 export function Select({
   label,
   name,
+  id,
   options,
   error,
   hint,
@@ -29,18 +32,19 @@ export function Select({
   required,
   ...rest
 }: SelectProps) {
-  const hintId = hint ? `${name}-hint` : undefined;
-  const errorId = error ? `${name}-error` : undefined;
+  const fieldId = id ?? name;
+  const hintId = hint ? `${fieldId}-hint` : undefined;
+  const errorId = error ? `${fieldId}-error` : undefined;
 
   return (
     <div className="flex flex-col gap-1">
-      <label htmlFor={name} className="text-sm font-medium text-gray-700">
+      <label htmlFor={fieldId} className="text-sm font-medium text-gray-700">
         {label}
         {required ? <span aria-hidden="true"> *</span> : null}
       </label>
 
       <select
-        id={name}
+        id={fieldId}
         name={name}
         required={required}
         aria-invalid={error ? true : undefined}

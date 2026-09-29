@@ -2,11 +2,9 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { updateTransaction } from "@/features/transactions/components/actions";
-import {
-  getTransaction,
-  listCategories,
-  listLocks,
-} from "@/features/transactions/components/data";
+import { getTransaction } from "@/features/transactions/components/data";
+import { listCategories } from "@/features/settings/queries";
+import { listLocks } from "@/features/locks/queries";
 import { TransactionForm } from "@/features/transactions/components/TransactionForm";
 import { t } from "@/i18n/ar";
 import { requireCanEdit } from "@/lib/auth";

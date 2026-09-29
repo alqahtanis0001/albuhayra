@@ -122,6 +122,24 @@ export const ChevronEndIcon = (p: IconProps) => (
   </Svg>
 );
 
+/**
+ * Up and down are **not** direction-flipping: a vertical list's order has nothing
+ * to do with text direction, so these carry no `rtl:` variant — unlike the
+ * horizontal chevrons above. Rotating one of those would work in RTL and point
+ * the wrong way in LTR.
+ */
+export const ChevronUpIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="m6 14 6-6 6 6" />
+  </Svg>
+);
+
+export const ChevronDownIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="m6 10 6 6 6-6" />
+  </Svg>
+);
+
 export const LockIcon = (p: IconProps) => (
   <Svg {...p}>
     <rect x="4.5" y="10.5" width="15" height="10" rx="2" />

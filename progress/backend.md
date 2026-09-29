@@ -430,3 +430,82 @@ Also recorded: the 307 status on a refused export is **inference plus a manual c
 test-backed. `requireOwner` is mocked in `export.test.ts` and resolves, so the refusal path
 never runs there. The property is safe structurally — `redirect()` throws, so the handler
 cannot fall through to building a workbook — but nobody should cite the suite as evidence.
+
+---
+
+## Checkpoint 4 — B7
+
+| File | Cases | Gates |
+|---|---|---|
+| `src/features/locks/locks.test.ts` | 10 → 26 | build, 222/222, tsc |
+| `src/lib/auth.test.ts` | 16 — **in the tree, held out of the commit** | same |
+
+### Status: the locks half is committed-ready, the auth half awaits the user
+`src/lib/auth.test.ts` exists and passes, and the lead is deliberately **excluding it from the
+Checkpoint 4 commit** so the user's decision stays open — the choice is keep-or-discard rather
+than should-we-build-it. The question is not the test's quality but that the lead's "test the
+wrapper" ruling overrides `PROGRESS.md:179`, and a documented-rule change is a stop-and-wait
+while the user is away.
+
+It briefly left the tree and came back: the hold arrived after the file was written, I removed
+it so an untracked file could not carry a rule change into a commit, and the lead's next
+message asked for it to stay in the tree but out of the commit instead. Restored from the
+session scratchpad. **The lesson is about the protocol, not the file:** three messages in a row
+crossed with work already done, and the reason each was recoverable is that the tree state was
+re-verified rather than inferred from the last message received.
+
+### What it contained — the wrapper, six rows, destinations not booleans
+Tested against `requireCanEdit`/`requireUser` rather than the predicate, because
+`permissions.test.ts` has covered `canEditTransactions` as a truth table since Phase 0 and a
+predicate-only file would have duplicated it. The PENDING row is what settles it: the
+predicate returns `false`, but the wrapper's observable behaviour is a **destination** —
+`/pending`, not `/login` — and only the wrapper can express that.
+
+Six rows: OWNER allowed · STAFF canEdit true allowed · STAFF canEdit false → **`/staff`**
+(their account is fine, they lack a permission) · PENDING → **`/pending`** · DISABLED →
+**`/login?signedOut=1`** · inactive establishment → **`/login?signedOut=1`**. One case
+asserts the three refusal destinations are pairwise distinct, which is the property that
+makes the matrix worth more than a boolean.
+
+**H1 is pinned** — five cases. `forget()` wraps `session.destroy()` in try/catch because a
+server component render cannot write cookies; without the catch the throw escapes *before*
+the redirect and every page load for a disabled user is a 500 rather than a trip to the login
+form. Nothing tested it until now, so simplifying `forget()` back to a bare `destroy()` would
+have failed nothing. Covered on all three branches that call it, plus that PENDING keeps its
+session (it is waiting, not refused) and that the clear is still attempted when it can work.
+
+### Precision, and how the mutations were made safe
+`auth.ts` is off-limits, so each mutation was taken against the **committed** file and undone
+with `git checkout -- src/lib/auth.ts` rather than a reverse string replace — an exact
+restore rather than a hopefully-symmetric one, verified by `git status --porcelain` returning
+empty after each. `auth.ts`, `session.ts` and `permissions.ts` are all identical to
+`f81a9f6`; nothing was changed to make a test pass.
+
+| Mutation | Failures |
+|---|---|
+| bare `session.destroy()` on the DISABLED branch | **1** — the H1 DISABLED case |
+| drop `canEditTransactions` from `requireCanEdit` | 2 — both canEdit-false cases |
+| drop the PENDING redirect | 3 — all three PENDING-named cases |
+
+Each failure names the row. The 2 and 3 are not imprecision: every failing case is named for
+the rule that broke, and a clause governing three observable behaviours should fail three
+times rather than hide two of them.
+
+### `locks.test.ts` extensions
+The gap was the actions and `listLocks` — the scoping gate drives them but asserts only
+scoping, never behaviour. `lockMonth` refuses the open and future months, rejects month 13
+before touching the database, is idempotent on an already-locked month **and writes nothing**,
+scopes both check and insert, audits `LOCK`. `unlockMonth` mirrors it, refusing the open month
+symmetrically. `listLocks` is 24 newest-first, marks the open month unlockable, fills empty
+months rather than leaving gaps, and returns `lockedAt` as a string.
+
+Mutation-verified: dropping the idempotence guard failed exactly *"is idempotent … and writes
+nothing"*; dropping `establishmentId` from `unlockMonth`'s `deleteMany` failed exactly
+*"removes an existing lock, scoped to the establishment"*.
+
+### The rule question that caused the hold
+`PROGRESS.md:179` says not to import `auth.ts` from a test because it is `server-only`. That
+was true of the tooling at the time and is no longer: `vi.mock("server-only", () => ({}))`
+plus mocks for `next/navigation`, `./session` and `./db` reaches every branch. The line should
+now read that the *predicate* is testable without mocks and the *wrapper* needs four — not
+that the wrapper is untestable. Raised with the lead rather than edited, since it is theirs.
