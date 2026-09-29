@@ -60,8 +60,8 @@ Each removes the `USE_STUBS` path for its screen and calls the real action/query
 |---|---|---|---|
 | W1 | Auth pages | B1 + F2 | done — one line, as predicted |
 | W2 | Owner dashboard | B3 + F3 | done — two type renames, no drift |
-| W3 | Add / edit entry — flips `getTransaction` **and** `updateTransaction`/`deleteTransaction` together; `getTransaction` is the last stub in the tree | B3 + B4 + F4 | **next** |
-| W4 | Ledger list | B3 + B4 + F5 | **next** |
+| W3 | Add / edit entry — flipped `getTransaction` **and** all three form actions together (`createTransaction` was a stub too) | B3 + B4 + F4 | done — lead, 5b |
+| W4 | Ledger list — reads were already real; `deleteTransaction` was the stub | B3 + B4 + F5 | done — lead, 5b |
 | W5 | **done.** **Wire reports + export** — point the reports page at the real `getReport`, confirm the تصدير Excel link reaches B6's route and downloads a workbook | B6 + F6 | done |
 | W6 | **done (a confirmation, not a swap — every settings component imports the real modules).** **Wire settings** — point the settings tabs at the real queries and actions | B2 + B4 + B8 + F7 + F8 | done |
 | W7 | Wire staff — a confirmation, not a swap | B3 + F9 | done |
@@ -95,5 +95,4 @@ Every 3–4 completed tasks the lead merges `progress/*.md` into `PROGRESS.md`, 
 - **Checkpoint 3** committed: W2, B5, B11, B6, F5, F6 + R-B5/R-B11/R-B6/R-F5/R-F6 and all five briefs reviewed pre-code. W4 deferred.
 - **Checkpoint 4** committed. B7 (locks half), F7, F8, W5, W6 + five briefs reviewed pre-code and R-F7/R-F8/R-W5/R-W6. **B7's auth half is written but held out of the commit** pending the user's rule decision — see `## Waiting on user` in PROGRESS.md. Stopped here as instructed.
 - **Checkpoint 5** committed: F9, F10, P1, W7, W8, T1 + the SW allowlist pin and `worker-src 'self'`, with all six briefs reviewed pre-code. Reviewer: no HIGH findings.
-- **Remaining for Phase 1:** W3 and W4 (the transaction wire-ups — `getTransaction` is the last stub and needs the edit page's actions wired with it). Then Phase 2: integration pass, README with Render deploy steps, final PROGRESS.md.
-- **Not in Checkpoint 5:** W3 and W4 (the transaction wire-ups — `getTransaction` is the last stub and needs the edit page's actions wired with it).
+- **Checkpoint 5b** committed: W3 and W4 by the lead with no team running; no stub remains in `src/`. Phase 1 complete. Next: the user's first sign-in test, then Phase 2.
