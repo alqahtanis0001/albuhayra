@@ -24,10 +24,15 @@ export type BoundResetAction = (
 export function ResetStaffPasswordForm({
   action,
   inputId,
+  label = t.settings.resetPasswordFor,
+  submitLabel = t.settings.resetPassword,
 }: {
   action: BoundResetAction;
   /** Unique per row: several of these forms share one page. */
   inputId: string;
+  /** The admin screen resets an *owner's* password and says so. */
+  label?: string;
+  submitLabel?: string;
 }) {
   const [state, formAction, pending] = useActionState(action, null);
   const [done, setDone] = useState(false);
@@ -42,7 +47,7 @@ export function ResetStaffPasswordForm({
     <form action={formAction} className="flex flex-wrap items-end gap-2" noValidate>
       <div className="min-w-48 flex-1">
         <Input
-          label={t.settings.resetPasswordFor}
+          label={label}
           name="newPassword"
           id={inputId}
           type="password"
@@ -53,7 +58,7 @@ export function ResetStaffPasswordForm({
         />
       </div>
       <Button type="submit" variant="secondary" size="sm" pending={pending}>
-        {t.settings.resetPassword}
+        {submitLabel}
       </Button>
 
       <FormToast state={state} />

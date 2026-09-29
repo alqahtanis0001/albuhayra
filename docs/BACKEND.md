@@ -186,7 +186,7 @@ reserved word. Non-money fields (counts, `ym`, ids) keep their plain names.
 - `getTransaction(estId, id)`
 - `getReport(estId, from, to)` → `{ byCategoryIn[] {categoryId, nameAr, totalHalalas}, byCategoryOut[] {…}, totalInHalalas, totalOutHalalas, netHalalas }`
 - `listCategories(estId)`, `listStaff(estId)`, `listLocks(estId)` (last 24 months with state)
-- `getAdminOverview()` → `{ pendingOwners[], establishments[] {id, name, ownerName, ownerEmail, status, staffCount, transactionCount, lastActivityAt} }` — **no amounts**.
+- `getAdminOverview()` → `{ pendingOwners[], establishments[] {id, name, **ownerUserId**, ownerName, ownerEmail, status, staffCount, transactionCount, lastActivityAt} }` — **no amounts**. `ownerUserId` is required by the إعادة تعيين كلمة مرور المالك button, which binds `resetOwnerPassword(userId, …)`; the field list originally omitted it while `docs/FRONTEND.md` specified the button. An id is not an amount, so rule 10 is unaffected.
 
 ## Validation (`src/lib/validation.ts`) — shared contract, lead-owned
 Exports zod schemas and inferred types: `SignupOwnerSchema`, `SignupStaffSchema`, `LoginSchema`, `TransactionInputSchema`, `CategoryInputSchema`, `LockInputSchema`, `ChangePasswordSchema`, `TransactionFilterSchema`, `ReportRangeSchema`.
@@ -225,7 +225,8 @@ Exports zod schemas and inferred types: `SignupOwnerSchema`, `SignupStaffSchema`
 6. bcrypt cost 12.
 7. Constant headers in `next.config.mjs`: `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `Permissions-Policy: camera=(), geolocation=(), microphone=()`, `Strict-Transport-Security: max-age=63072000; includeSubDomains`.
    CSP is set in `src/proxy.ts`, not in the config, because it carries a per-request nonce: Next.js emits two inline `<script>` tags for the hydration payload, so a flat `script-src 'self'` blocks hydration (verified on this version — see the Decision in `PROGRESS.md`). The policy is
-   `default-src 'self'; script-src 'self' 'nonce-<n>' 'strict-dynamic'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests`
+   `default-src 'self'; script-src 'self' 'nonce-<n>' 'strict-dynamic'; worker-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests`
+   **`worker-src 'self'` is not optional.** CSP resolves a worker through `worker-src` → `child-src` → `script-src` → `default-src`; with neither of the first two present it lands on `script-src`, whose `'strict-dynamic'` makes `'self'` inert — so `navigator.serviceWorker.register('/sw.js')` is refused. Dev takes the `'unsafe-eval'` branch, where `'self'` still applies, so the worker registers locally and fails **only** in production, silently.
    (dev swaps `'strict-dynamic'` for `'unsafe-eval'`, which React needs only in development). **A nonce only reaches a dynamically rendered page** — every page that calls `requireX()` is dynamic already, so do not add `export const revalidate` or make any page static.
 8. Never log bodies, passwords, sessions. Never return stack traces. No external runtime calls, analytics, or third-party scripts.
 9. `.env` gitignored; `.env.example` shipped.

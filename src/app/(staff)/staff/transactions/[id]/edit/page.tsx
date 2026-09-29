@@ -1,0 +1,53 @@
+import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+
+import { updateTransaction } from "@/features/transactions/components/actions";
+import { getTransaction } from "@/features/transactions/components/data";
+import { TransactionForm } from "@/features/transactions/components/TransactionForm";
+import { listLocks } from "@/features/locks/queries";
+import { listCategories } from "@/features/settings/queries";
+import { t } from "@/i18n/ar";
+import { requireCanEdit } from "@/lib/auth";
+import { todayISO } from "@/lib/dates";
+
+export const metadata: Metadata = { title: t.transaction.editTitle };
+
+/**
+ * `requireCanEdit()`, not `requireStaff()`: this route is only reachable while
+ * the owner leaves the employee's `canEdit` on, and that is re-read from the
+ * database here rather than trusted from the session or from the ledger having
+ * rendered an edit link.
+ */
+export default async function StaffEditTransactionPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const { establishmentId } = await requireCanEdit();
+
+  const [row, categories, locks] = await Promise.all([
+    getTransaction(establishmentId, id),
+    listCategories(establishmentId),
+    listLocks(establishmentId),
+  ]);
+  if (!row) notFound();
+  const lockedMonths = locks.filter((l) => l.locked).map((l) => l.ym);
+
+  return (
+    <div className="flex flex-col gap-4">
+      <h1 className="text-xl font-semibold text-gray-900">
+        {t.transaction.editTitle}
+      </h1>
+      <TransactionForm
+        mode="edit"
+        action={updateTransaction.bind(null, row.id)}
+        categories={categories}
+        lockedMonths={lockedMonths}
+        today={todayISO()}
+        doneHref="/staff/transactions"
+        initial={row}
+      />
+    </div>
+  );
+}

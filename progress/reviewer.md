@@ -909,6 +909,118 @@ deliberate, documented mock. The six-row destination matrix plus pairwise-distin
 refusals is what I argued the doc requires, and it pins **H1**, the invariant I
 have been calling decoration since Checkpoint 3. My view: it should land.
 
+### 2026-09-29 — Checkpoint 5 brief-vs-doc pass (F9, F10, P1, W7, W8, T1)
+
+**Strongest finding, pre-code: the CSP will block the service worker in
+production.** No `worker-src` and no `child-src` in the policy, so worker loading
+falls back `worker-src → child-src → script-src`, and production's `script-src`
+carries `'strict-dynamic'`, which makes `'self'` **ignored**. `/sw.js` loads by
+URL, not by a nonced tag, so registration fails. **Dev takes the other branch**
+(`'unsafe-eval'`, so `'self'` still applies) — it works locally, passes every
+test, and dies on Render. Fix: add `worker-src 'self'`; additive, weakens
+nothing. *Generalisable: when a config has a dev branch and a prod branch, ask
+which failures are visible only in the branch nobody runs locally.*
+
+**P1 second:** "cache the app shell" has **no referent** in this app — every HTML
+response is server-rendered and session-scoped. An implementer honouring the
+phrase reaches for an HTML route, which is the tenancy bug. Real rule: allowlist
+`/_next/static/*`, `/icons/*`, `/manifest.json`, and the fetch handler must **not
+call `respondWith` at all** otherwise. "Never `/api/*`" is insufficient — the
+dangerous responses are HTML pages.
+
+**F9:** `docs/FRONTEND.md` lists **five** staff routes, the brief four —
+`/staff/transactions/[id]/edit` was missing from brief *and* tree, so a
+canEdit-enabled staff member would have got an edit button to a 404.
+*Resolved: `frontend` built it at 15:10 as part of F9.* The lead read it as my
+`find` being stale; it was not — `git status` shows `??` (untracked),
+`git cat-file -e HEAD:…` reports "exists on disk, but not in 'HEAD'", and the
+`[id]/` mtime is 15:10 against 05:06 for its siblings, so it post-dates my pass.
+Worth settling because the lead invoked the false-finding standard: **a
+false-finding entry teaches the wrong lesson about whether these passes are
+worth running.** Same moving-tree shape as the `retiredCategory` key — the
+difference is that here the evidence of *when* survives in git and the mtimes,
+so it could be settled rather than left as competing plausible accounts.
+*Prefer evidence that carries its own timestamp.*
+
+**The trigger is the question type, not the rule.** "Does X exist?" and "did X
+exist when Y looked?" are different questions and only the second was at issue;
+`find` answers the first, `git cat-file -e HEAD:<path>` answers the second in one
+command. The lead had written this rule down for three checkpoints and still
+reached for `find` — because a written rule does not fire at the moment of need.
+So: when a claim is about **history**, reach for history commands
+(`git cat-file -e HEAD:<path>`, `git log --diff-filter=A -- <path>`,
+`git status --short`), never the working tree. Also dropped: the
+`canEdit`-off notice, the explicit "no export", and that month StatCards are
+**establishment-wide** while حركاتي is user-scoped (the query is already right;
+the labels must match, or it is a wrong number in the only sense this app cares
+about).
+
+**T1 — the lead's direct question: yes, offline, and favourably.** Three tiers:
+(1) the five constant headers — import `next.config.mjs` and call `headers()`;
+(2) the nonce plumbing — call `proxy()` directly and assert the response CSP's
+nonce **equals** the `x-nonce` request header (that pairing is the mechanism; a
+mismatch breaks hydration while both headers look fine individually), nonces
+differ per call, prod has `'strict-dynamic'` and **never** `'unsafe-eval'`, and
+`script-src` is never bare `'self'` — the literal Phase 0 regression, currently
+guarded by a comment alone; (3) Next stamping `nonce=` on script tags — **not**
+reachable offline, but it also cannot fail *silently* (every page would fail to
+hydrate). **The silent failure mode is the testable one.** Trap to state up
+front: Vitest's `NODE_ENV` is `"test"`, so `proxy()` takes the dev branch —
+stub it, and assert prod two-sided.
+
+**F10:** the sweep is for **money**, not numbers — `staffCount` and
+`transactionCount` are numbers the screen exists to show. Dates
+(`requestedAt`, `lastActivityAt`) must go through `<DateText>`.
+
+**Checklist changes from the user's ruling:** `src/lib/auth.test.ts` stays (the
+Phase 0 rule now permits importing `auth.ts` with `server-only` and Prisma
+mocked — my argument carried). **Security rule 2 and H1 are standing invariants
+that must always be pinned by a test**; treat deletion *or hollowing-out* of that
+pinning as a finding. And nothing is held back via `.git/info/exclude` — held
+work goes under `## Waiting on user` in `PROGRESS.md`. *Hidden state is worse
+than blocked state*; flag any recurrence.
+
+### 2026-09-29 — R-F9 / R-F10 / R-P1 / R-W7 / R-W8 / R-T1. **No HIGHs; cleared.**
+
+Both priorities resolved. The staff hint sits beneath the two cards and outside
+`RecentTransactions`, so it cannot attach to حركاتي where it would be wrong —
+and the lead's ruling beat my framing: I was thinking about *fixing a label*
+when no label could carry the distinction, because a reader will not infer scope
+from the absence of a possessive. Some meaning needs its own sentence.
+`canDelete: false` is built on the server and the staff edit route gates on
+`requireCanEdit()`, so a revoked permission redirects rather than relying on no
+link having been drawn.
+
+SW allowlist correct, and the **trailing slashes** are what make it correct
+(`/icons/` vs `/iconsomething`, `/_next/static/` vs `/_next/data/`). The test
+dispatches the **fetch handler** and asserts `respondWith` was never called —
+testing the protection, not the predicate.
+
+T1 added two assertions I would not have specified, and both are better than
+mine: `script-src` named **specifically** (a nonce in the wrong directive would
+satisfy a naive check), and **`next.config.mjs` must declare no CSP at all** — a
+negative assertion about a *different file*, which is the only place that failure
+is visible, since a CSP moved there is constant, therefore nonce-less, therefore
+breaks hydration while every proxy-side assertion still passes.
+
+**Refinement I proposed to the lead's new comment-stripping rule.** The rule as
+phrased mandates a stripper everywhere, but `scoping.test.ts` deliberately
+*anchors* instead — `/\b(?:db|tx|client)\.\$(?:query|execute)Raw/` cannot match
+prose naming `$queryRaw`. Adding a stripper there would introduce the blanking
+risk the rule's second half exists to guard against. Proposed: **strip comments
+*or* anchor the pattern so prose cannot match; if you strip, prove the stripper
+did not blank the file.** The stripping path can fail *silently*; the anchoring
+path fails *loudly* (a comment containing the literal `db.$queryRaw` trips it),
+and loud is the safe direction. *A rule that mandates one technique can force a
+worse one where a different technique already solves the problem.*
+
+Delivered the user's **first sign-in checklist** (10 steps) closing the two gaps
+no test could reach: server actions over the wire, and the export actually
+returning a workbook. Step 8 — confirming the service worker registers in a
+**production** build — is the one not to skip: it is the only place the
+`worker-src` fix is observable, and it is invisible in development by
+construction.
+
 ## In progress
 - Task: Checkpoint 2 committed. Holding for the user's approval of Checkpoint 3
   (proposed: W2, F5, B5). **Advance brief-vs-doc pass comes first** — it has been

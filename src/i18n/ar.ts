@@ -163,6 +163,7 @@ export const t = {
     percentOfMonthOut: "من صادر الشهر",
     recent: "آخر الحركات",
     myRecent: "حركاتي الأخيرة",
+    establishmentWideHint: "الأرقام أعلاه لكامل المنشأة، وليست خاصة بك.",
     noEditPermission: "التعديل يتطلب إذن صاحب المنشأة",
     emptyChart: "لا توجد بيانات لعرضها بعد.",
   },

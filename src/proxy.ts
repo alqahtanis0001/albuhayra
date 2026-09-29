@@ -65,6 +65,14 @@ function contentSecurityPolicy(nonce: string, isDev: boolean): string {
   return [
     "default-src 'self'",
     `script-src ${scriptSrc}`,
+    // Not redundant, and not safely removable. A worker resolves through
+    // worker-src → child-src → script-src → default-src; with the first two
+    // absent it lands on script-src, where production's 'strict-dynamic' makes
+    // 'self' inert. /sw.js is fetched by URL rather than from a nonced tag, so
+    // nothing would permit it and registration is refused — but only in
+    // production, because the dev branch has no 'strict-dynamic' and 'self'
+    // still applies. Silent absence on Render, working locally.
+    "worker-src 'self'",
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data:",
     "font-src 'self' data:",

@@ -7,10 +7,22 @@ import { t } from "@/i18n/ar";
 
 import type { LedgerRow } from "./data";
 
-/** Stacked rows rather than a table: this list is read on a phone. */
-export function RecentTransactions({ rows }: { rows: LedgerRow[] }) {
+/**
+ * Stacked rows rather than a table: this list is read on a phone.
+ *
+ * The owner dashboard shows the establishment's last ten ("آخر الحركات") and the
+ * staff dashboard shows the employee's own ("حركاتي الأخيرة"), so the title is a
+ * prop — the rows render identically and only the heading differs.
+ */
+export function RecentTransactions({
+  rows,
+  title = t.dashboard.recent,
+}: {
+  rows: LedgerRow[];
+  title?: string;
+}) {
   return (
-    <Card title={t.dashboard.recent} bodyClassName="">
+    <Card title={title} bodyClassName="">
       {rows.length === 0 ? (
         <EmptyState title={t.ledger.emptyTitle} hint={t.ledger.emptyHint} />
       ) : (

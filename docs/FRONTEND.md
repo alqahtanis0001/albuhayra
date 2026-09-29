@@ -59,7 +59,7 @@ src/app/page.tsx                  redirects to the role's home
   - حسابي: change password.
 
 ### Staff area (`/staff`)
-- **`/staff` Dashboard**: StatCards وارد هذا الشهر / صادر هذا الشهر (establishment-wide), then حركاتي الأخيرة (10). Small notice if `canEdit` is off: "التعديل يتطلب إذن صاحب المنشأة". Primary button + إضافة حركة.
+- **`/staff` Dashboard**: StatCards وارد هذا الشهر / صادر هذا الشهر (establishment-wide) — **with `t.dashboard.establishmentWideHint` beneath them saying so outright**, because the card titles are neutral and only the contrast with an explicitly possessive حركاتي الأخيرة would otherwise carry the distinction; that is an inference a reader will not make, and a staff member reading establishment-wide totals as their own is a wrong number. Then حركاتي الأخيرة (10). Small notice if `canEdit` is off: "التعديل يتطلب إذن صاحب المنشأة". Primary button + إضافة حركة.
 - **`/staff/transactions/new`**: same `TransactionForm`.
 - **`/staff/transactions`**: same list as owner but: no delete; edit button only if `canEdit` (server re-checks); no export.
 - **`/staff/transactions/[id]/edit`**: only reachable when `canEdit`.
@@ -78,7 +78,7 @@ src/app/page.tsx                  redirects to the role's home
 
 ## PWA
 - `public/manifest.json`: name سجل المصروفات, `dir: "rtl"`, `lang: "ar"`, `display: "standalone"`, theme `#0f766e`, icons 192/512 (placeholder PNGs acceptable; note in progress file).
-- Minimal service worker caching only the app shell and static assets; never `/api/*` or data pages; no offline writes.
+- Service worker: **cache only `/_next/static/*`, `/icons/*` and `/manifest.json`.** "App shell" has no referent here — every HTML response in this app is server-rendered and session-scoped, so an implementer reaching for "the shell" reaches for a data-bearing page. The load-bearing half is the fetch handler: **it must not call `respondWith` at all unless the URL matches that allowlist**, leaving everything else untouched on the network. A catch-all `respondWith` with any cache strategy is how a data page gets cached by accident, and "never `/api/*`" does not prevent it, because the dangerous responses are HTML pages rather than API routes. Caching one establishment's page would serve it to the next visitor on a shared device. No offline writes means no background sync and no queued POSTs.
 - `<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">`; bottom tab bar respects `env(safe-area-inset-bottom)`.
 
 ## Accessibility

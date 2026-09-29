@@ -509,3 +509,108 @@ was true of the tooling at the time and is no longer: `vi.mock("server-only", ()
 plus mocks for `next/navigation`, `./session` and `./db` reaches every branch. The line should
 now read that the *predicate* is testable without mocks and the *wrapper* needs four — not
 that the wrapper is untestable. Raised with the lead rather than edited, since it is theirs.
+
+---
+
+## Checkpoint 5 — T1 + the worker-src CSP fix
+
+| File | What | Gates |
+|---|---|---|
+| `src/proxy.ts` | `worker-src 'self'` added (authorised, 8 lines, **insertion only**) | build, 237/237, tsc |
+| `src/proxy.test.ts` (new) | 15 cases, tiers 1 and 2 | same |
+
+### The `worker-src` fix — a production-only failure that passes every local check
+A worker resolves through `worker-src` → `child-src` → `script-src` → `default-src`. With the
+first two absent it lands on `script-src`, where **production's `'strict-dynamic'` makes
+`'self'` inert**. `/sw.js` is fetched by URL rather than from a nonced tag, so nothing permits
+it and `navigator.serviceWorker.register()` is refused — **but only in production**, because
+the dev branch has no `'strict-dynamic'` and `'self'` still applies.
+
+That is the shape worth remembering: the PWA would have worked locally, passed every test, and
+been silently absent on Render, with no error to search for. `git diff --numstat` is `8 0` —
+insertion only, no line of the nonce logic, matcher or `script-src` touched.
+
+### T1 — two tiers, and the third deliberately out of scope
+**Tier 1**, the five constant headers, read from `next.config.mjs`'s own `headers()`.
+**Tier 2**, the nonce plumbing through `proxy()` directly:
+- the response CSP carries `nonce-<32 hex>`, and `script-src` names *that* nonce;
+- the **`x-nonce` request header equals the response CSP's nonce** — the pairing *is* the
+  mechanism, since Next reads the request header while the browser enforces the response one,
+  and a mismatch breaks hydration while both headers look individually fine;
+- two calls produce **different** nonces, because a constant nonce is no nonce;
+- production has `'strict-dynamic'` **and never** `'unsafe-eval'` — asserted two-sided,
+  because `'unsafe-eval'` in production is a real weakening rather than the wrong branch;
+- `script-src` is never a bare `'self'`, in either branch — the literal Phase 0 regression;
+- `worker-src 'self'` present in both branches.
+
+**Tier 3** — that Next stamps `nonce=` onto the inline tags — is out of reach without a
+running server and deliberately skipped. It is Next's behaviour rather than ours and *cannot*
+fail silently: a Next that stopped honouring `x-nonce` would fail to hydrate every page on
+first load. The silent failure is someone simplifying **our** CSP, which tier 2 catches.
+
+**A third guard neither tier named**, and the one I think actually matters: `next.config.mjs`
+must declare **no** `Content-Security-Policy`. A header declared there is constant and cannot
+carry a per-request nonce, so a CSP moved back into the config breaks hydration app-wide while
+every other assertion here still passes.
+
+### Gotchas
+- **Under Vitest `NODE_ENV` is `"test"`, so `proxy()` takes the dev branch.** `vi.stubEnv`
+  is needed for any production assertion. There is now a case asserting the *dev* branch too —
+  stated as a case rather than a comment, because the two branches differing is precisely why
+  a production-only CSP failure passes every local check.
+- **`next.config.mjs` has no declaration file and `allowJs` is false**, so importing it is
+  implicitly `any` and the implicit-any spreads into every assertion. One `@ts-expect-error` on
+  the import line plus an immediate cast to a declared shape confines it — and if a
+  declaration file is ever added, `@ts-expect-error` becomes an error itself, which is the
+  right prompt to remove it.
+- Mutation-verified: removing `worker-src 'self'` failed **exactly** *"permits the service
+  worker in both branches"*, then re-added, with `git diff --numstat` confirming the file is
+  HEAD plus the authorised insertion and nothing else.
+
+### The three T1 mutations — all exact
+| Mutation | Failure |
+|---|---|
+| declare a CSP in `next.config.mjs` | **1** — *does not declare a Content-Security-Policy* |
+| drop `requestHeaders.set("x-nonce", …)` | **1** — *hands the same nonce to the renderer* |
+| hoist the nonce to a module constant | **1** — *gives every request its own nonce* |
+
+No two assertions test the same thing. `next.config.mjs` restored with `git checkout --`;
+`proxy.ts` restored from an **exact byte copy**, because a git restore would have stripped the
+authorised `worker-src` line along with the mutation — the mechanism had to change to keep the
+same "provably unchanged" guarantee. `git diff --numstat` confirms `8 0` after each.
+
+### `ownerUserId`
+`EstablishmentSummary.ownerUserId: string | null`. Null rather than `""` when an establishment
+has no owner row: the screen drops the control, and an empty string is a valid-*looking* id
+that would have failed inside `SetPasswordSchema` rather than at the screen. Two cases, one
+asserting rule 10 is undisturbed — an id is not an amount.
+
+### `src/serviceWorker.test.ts` — the SW cache allowlist, 23 cases
+The subject is `public/sw.js`, which cannot hold its own test because `public/` is served.
+
+Why it earns a place beside rule 2 and H1: every other tenancy protection here has `requireX()`
+behind it as a backstop; **this one has nothing behind it**, because a cached response never
+reaches the network and no server-side gate runs. Cache one HTML page and the next person to
+open the app on that device sees it.
+
+Three mutations, each naming its clause:
+
+| Mutation | Failure |
+|---|---|
+| `/icons/` → `/icons` | **2** — *prefix confusion* (behaviour) and *keeps the trailing slash* (source) |
+| drop the `mode === "navigate"` check | **1** — *a navigation, by mode rather than by URL pattern* |
+
+The two failures on the first are deliberate belt-and-braces rather than duplication: one
+proves the behaviour, one names the clause whose absence is invisible on inspection.
+
+Beyond `isCacheable`, the fetch handler itself is exercised: `respondWith` must **not** be
+called for a navigation or for `/_next/data/owner.json`, and must be for a static asset. That
+is the actual protection — a catch-all `respondWith` with any strategy caches a data page by
+accident, and excluding `/api/*` would not prevent it.
+
+### Gotcha — the same trap for the third time
+A source-level assertion tripped over the subject file's own prose: `sw.js` documents *why* it
+never calls `respondWith` off the allowlist, and the check found that word in the comment.
+Third instance of this shape (`$queryRaw`, `amountHalalas`, now `respondWith`). **The rule:
+strip comments before any source-level assertion, and add a case proving the stripper did not
+blank the file** — otherwise both checks pass vacuously forever.

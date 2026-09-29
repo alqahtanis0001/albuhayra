@@ -34,6 +34,14 @@ export type EstablishmentStatus = "PENDING" | "ACTIVE" | "DISABLED";
 export type EstablishmentSummary = {
   id: string;
   name: string;
+  /**
+   * The OWNER's user id, which `resetOwnerPassword(userId, …)` binds to. Null
+   * when an establishment somehow has no owner row — the screen drops the
+   * control rather than passing an id the action would reject.
+   *
+   * An id carries no amount, so Security rule 10 is untouched.
+   */
+  ownerUserId: string | null;
   ownerName: string;
   ownerEmail: string;
   status: EstablishmentStatus;
@@ -101,6 +109,7 @@ export async function getAdminOverview(): Promise<AdminOverview> {
     return {
       id: est.id,
       name: est.name,
+      ownerUserId: owner?.id ?? null,
       ownerName: owner?.name ?? "",
       ownerEmail: owner?.email ?? "",
       status: summaryStatus(est.active, owner?.status),

@@ -185,6 +185,32 @@ describe("getAdminOverview returns no money", () => {
     expect(overview.establishments[0]!.staffCount).toBe(3);
   });
 
+  it("carries the owner's user id, which the reset-password control binds to", async () => {
+    seedOverview();
+    const overview = await getAdminOverview();
+
+    expect(overview.establishments[0]!.ownerUserId).toBe("owner_1");
+    // An id is not an amount: rule 10 is untouched by this field.
+    expect(deepKeys(overview)).not.toContain("amountHalalas");
+  });
+
+  it("leaves ownerUserId null when an establishment has no owner row", async () => {
+    harness.responses.set("establishment.findMany", [
+      {
+        id: "est_1",
+        name: "منشأة",
+        active: true,
+        createdAt: new Date(Date.UTC(2026, 8, 20)),
+        users: [],
+      },
+    ]);
+
+    const overview = await getAdminOverview();
+    // Null rather than "" — the screen drops the control instead of binding an
+    // id the action would reject.
+    expect(overview.establishments[0]!.ownerUserId).toBeNull();
+  });
+
   it("reports a pending owner's establishment as PENDING", async () => {
     seedOverview();
     const overview = await getAdminOverview();

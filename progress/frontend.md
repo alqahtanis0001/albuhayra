@@ -969,3 +969,233 @@ of asking is fixed and small and the cost of being wrong is discovered late by s
 even when confident. That is a different rule from "ask when unsure".
 
 Gates: build 0, `tsc` 0, `npm test` 222/222 in 12 files.
+
+## F9 — staff area
+
+`/staff`, `/staff/transactions`, `/staff/transactions/new`, `/staff/transactions/[id]/edit`,
+`/staff/account`. **No new list components**: `LedgerFilters`, `LedgerList`, `LedgerRowActions`,
+`LedgerTotals` and `TransactionForm` were already role-agnostic, so the staff ledger is the owner's
+with `{ canEdit: user.canEdit, canDelete: false }` and a different `basePath`.
+
+**`canDelete: false` is still server-provided**, even though it is a constant here — this is the
+first screen where hardcoding it on the client would look natural. The comment says why: the absent
+button is not the control, the action re-checks regardless, and computing it client-side invites the
+next reader to believe otherwise.
+
+`/staff/transactions/[id]/edit` uses **`requireCanEdit()`**, not `requireStaff()`, so the route is
+gated on the live `canEdit` rather than on the ledger having rendered a link to it.
+
+`RecentTransactions` gained a `title` prop: the owner dashboard shows the establishment's last ten
+("آخر الحركات") and staff show their own ("حركاتي الأخيرة"), and the rows are identical. My first
+version wrapped it in a second `Card`, which nested two cards and showed the wrong heading.
+
+## F10 — admin pages
+
+Requests, establishments with search, account. قبول **and** رفض are both behind `ConfirmDialog`:
+approving creates the establishment's default categories and rejecting disables the establishment,
+and neither is a click to take back.
+
+**The rule-10 sweep the lead asked for, because the test gate cannot see components.**
+`admin.test.ts` watches the *queries*, so `getAdminOverview` returning no amounts is structural — but
+a component that formats or computes one is invisible to it. Swept `src/app/(admin)` and
+`src/features/admin/components` for `MoneyText`, `formatSAR`, `formatAmount`, `halalas`, `amount` and
+`parseSAR`: the only matches anywhere are the four comments asserting the rule. No money component,
+no formatter, no field.
+
+Search filters in the page rather than in the query, deliberately: `getAdminOverview()` takes no
+arguments and is the one query with **no establishment scope**, so giving it a caller-supplied
+parameter is a door worth not opening. The admin list is the whole platform and small.
+
+**One control is missing and it is a contract gap, not an oversight.** إعادة تعيين كلمة مرور المالك
+needs `resetOwnerPassword(userId, …)`, but `EstablishmentSummary` carries only `ownerName` and
+`ownerEmail`. The query already reads `owner.id` for `pendingOwners`, so it is one field. Left out
+with a comment rather than faked — the only id in hand is the establishment's, and a wrong id that
+typechecks fails inside the action instead of here, which is worse than an absent button. Requested
+from `backend`; about six lines once it lands.
+
+## P1 — PWA
+
+`public/manifest.json` (rtl, ar, standalone, `#0f766e`), `public/icons/icon-{192,512}.png` —
+**placeholder art**: plain accent-coloured squares generated as valid PNGs, to be replaced with real
+icons. `public/sw.js` and a `ServiceWorkerRegistration` client component in the root layout.
+`.safe-bottom` on the tab bar landed back in F1 and print CSS in F6.
+
+**The service worker is an allowlist, and that is the whole design.** This app is multi-tenant and
+every page is per-user, so a cached HTML page is served to whoever opens the app next on that
+device — one establishment's figures shown to another's employee, on a shared phone. It is the one
+leak where **no server-side gate runs at all**, because `requireUser()` never executes: the response
+never reaches the network. A denylist fails open — any future route is cached by default and a
+pattern that looks right today silently stops matching tomorrow. So `/‍_next/static/`, `/icons/`,
+`/manifest.json` and `/favicon.ico` may be cached and **nothing else**; navigations are excluded by
+`mode`/`destination` before any path matching, and `/api/*` is excluded explicitly as well as by
+omission.
+
+**Exercised rather than read.** I evaluated the real `isCacheable` in a worker-like global over 13
+cases; all behaved correctly, including the two that would actually catch a regression:
+`/_next/data/owner.json` (looks static, is per-user) and `/iconsomething` (prefix confusion against
+`/icons/`, excluded because the prefix carries its trailing slash). Asked `backend` whether this
+belongs as a pinned test next to Security rule 2 and H1 — same class of invariant, silent failure,
+cross-tenant blast radius.
+
+**The CSP would have blocked the worker, and `backend` had already fixed it.** `worker-src` resolves
+through `child-src` → `script-src` → `default-src`; production's `'strict-dynamic'` makes `'self'`
+inert there, and `/sw.js` is fetched by URL rather than from a nonced tag, so registration would be
+refused **in production only** — dev has no `strict-dynamic`, so it would have worked locally and
+silently failed on Render. `src/proxy.ts` already carries `worker-src 'self'` with that reasoning.
+Verified against a real production build: the served header contains `worker-src 'self'` beside
+`script-src … 'strict-dynamic'`, and `/manifest.json`, `/sw.js` and both icons return 200 with the
+right content types.
+
+## W7 / W8 — confirmations
+
+Neither was a swap. The staff pages read `getStaffDashboard`, `listTransactions`, `listCategories`
+and `listLocks` directly; the admin pages read `getAdminOverview` and the B5 actions directly. The
+only stub reference left anywhere is `getTransaction`, in the two edit pages, which stays for W3.
+
+Gates: build 0, `tsc` 0, `npm test` 237/237 in 13 files. No physical-direction utilities.
+
+## Rewritten P1 spec, and the F9/F10 corrections
+
+**"Cache the app shell" had no referent, and the rewritten spec says so.** There is no static shell
+document in this app — every HTML response is server-rendered and session-scoped — so an implementer
+reaching for "the shell" reaches for a data-bearing page, which *is* the bug. That reasoning is now in
+`sw.js` itself rather than only in the doc.
+
+Two changes from the rewrite:
+- **`/favicon.ico` removed from the allowlist.** The doc enumerates exactly three — `/_next/static/*`,
+  `/icons/*`, `/manifest.json` — and on an allowlist, being *looser* than the spec is the wrong
+  direction to differ in, however harmless the asset.
+- The guard before `respondWith` now carries the reason explicitly: a catch-all `respondWith` with
+  *any* strategy is how a data page gets cached by accident, and excluding `/api/*` does not prevent
+  it, because the dangerous responses here are **HTML pages rather than API routes**.
+
+Re-exercised the real `isCacheable` after the change: nine cases, all correct, including
+`/favicon.ico` now excluded, `/_next/data/owner.json` (looks static, is per-user) and `/iconsomething`
+(prefix confusion).
+
+**`worker-src 'self'` was already in `src/proxy.ts`** before I started, so P1 was never blocked.
+Verified in the served production header rather than the source.
+
+**F9's three dropped rules were all already satisfied** — the `canEdit`-off notice, no export on the
+staff ledger (grep: zero matches), and the establishment-wide/user-scoped asymmetry, which
+`getStaffDashboard` implements and my labels follow: `t.dashboard.monthIn`/`monthOut` ("وارد هذا
+الشهر") for the cards, `t.dashboard.myRecent` ("حركاتي الأخيرة") for the list. **The labels do not say
+"establishment-wide" in so many words** — the neutral card wording next to an explicitly possessive
+list title is what carries it. Raised with the lead rather than assumed sufficient, since saying it
+outright would need a new key.
+
+**F10 sweep redone for money rather than numbers**, which is the lead's correction and a good one: a
+"no numbers" sweep false-positives on `staffCount` and `transactionCount`, the very fields the admin
+area exists to show. Grepping `MoneyText|formatSAR|formatAmount|halalas|Halalas|t.common.currency`
+across `src/app/(admin)` and `src/features/admin/components` returns **nothing**. Dates go through
+`<DateText>` in both places, which is the only component that can lose Western digits.
+
+**إعادة تعيين كلمة مرور المالك is now built.** `ownerUserId` landed as `string | null`, so the control
+renders only when there is an owner to reset, with the id bound on the server — same shape as
+`resetStaffPassword`. `ResetStaffPasswordForm` gained optional `label`/`submitLabel` props so the
+admin screen can say "إعادة تعيين كلمة مرور المالك" while staff keeps its own wording.
+
+**The `/staff/transactions/[id]/edit` episode is worth keeping**, because the lesson is not mine. The
+lead told me a reviewer finding was stale and there was nothing to do, then corrected themselves: the
+route genuinely did not exist when the reviewer checked, and I created it during F9 *because* of that
+finding. Their diagnosis — they checked the **working tree** to answer a question about **history** —
+is the same Gotcha they had written in `PROGRESS.md` at Checkpoint 1. `git cat-file -e HEAD:<path>`
+answers "did it exist then"; `ls` answers "does it exist now", and they are different questions.
+
+Gates: build 0, `tsc` 0, `npm test` 237/237 in 13 files.
+
+## The sw.js allowlist is now a pinned invariant
+
+The lead ruled yes on pinning it, on the argument that it is the **only** place in this app where a
+tenancy leak needs no server-side gate to run at all — every other tenancy protection has `requireX()`
+behind it as a backstop; a cached HTML response never reaches the network, so `requireUser()` never
+executes. `backend` is writing it from the table I handed over.
+
+**One expectation had flipped between my first run and the handover**, which is worth recording as a
+near-miss: `/favicon.ico` was `cacheable: true` in the 13 cases I first described, and is `false` now
+that the rewritten doc enumerates exactly three paths. Had `backend` reconstructed my original list
+instead of asking for the table, they would have pinned `favicon → cacheable` and it would have failed
+on first run. Their instinct — "send the table you actually exercised rather than let me rebuild it
+and quietly miss one" — was right, and the miss would have been mine, not theirs.
+
+So I re-ran all 14 against `public/sw.js` as it stands before sending: 14/14.
+
+**The harness detail that makes the test worth having:** it reads the shipped `public/sw.js` and
+evaluates it, rather than importing a copy of the predicate. A test against a duplicated `isCacheable`
+would keep passing while the worker that actually runs had drifted — the same two-sources-of-truth
+shape as the `LockRow` and `CategoryRow` copies, in test clothing.
+
+Three rows carry most of the value: `/_next/data/owner.json` (looks static, is per-user),
+`/iconsomething` (prefix confusion against `/icons/`, caught only because the prefix carries its
+trailing slash), and `/api/export` — the single worst response in the app to cache.
+
+**Two design points the lead named that generalise beyond this file:** build a cache allowlist as the
+*design* rather than as a precaution, because a denylist fails open and a pattern that looks right
+today silently stops matching tomorrow; and exclude navigations by `mode`/`destination` **before** any
+path matching, because a URL-pattern exclusion is the version that breaks when someone adds a route.
+
+Also confirmed: verifying the CSP against a **real production build** rather than the dev server was
+load-bearing, not thoroughness. The policy branches on `NODE_ENV`, and the dev branch has no
+`'strict-dynamic'` — so the `worker-src` problem is invisible locally by construction.
+
+## The staff dashboard says its scope outright
+
+The lead ruled that the implicit contrast was not enough and added
+`t.dashboard.establishmentWideHint` = "الأرقام أعلاه لكامل المنشأة، وليست خاصة بك.", as a caption
+**beneath** both StatCards rather than in their titles — one caption covers both, and lengthening a
+card title hurts it on a phone.
+
+Their reasoning is the part to keep, because I had been one step short of it. I had satisfied the
+doc: the cards read neutrally and the list reads possessively, so the distinction *is* expressible
+from what is on screen. But that only works if the reader notices both labels, holds them side by
+side, and infers that the absence of a possessive implies establishment scope — a chain people do not
+perform. They read a number under a label and believe it.
+
+And the failure is **asymmetric**: a staff member who mistakes these for their own figures sees a
+number far larger than their activity and has no way to discover the error, while the caption costs
+one line the correct reader skims past. With "correct numbers" among the four priorities in
+`CLAUDE.md`, that trade is not close. `docs/FRONTEND.md` had already *intended* establishment scope —
+it said "(establishment-wide)" — so the doc knew the distinction mattered and only failed to require
+that the screen state it.
+
+Verified in a render: the caption appears after both cards and before حركاتي الأخيرة, as its own
+element rather than inside a card title, and no Arabic-Indic digits.
+
+**The general form, which is worth more than the fix:** *"a reader could work it out" is not the same
+as "the screen says it"*, and the tie-breaker is which mistake is discoverable. Where the wrong
+reading produces a plausible number, say it outright.
+
+Gates: build 0, `tsc` 0, `npm test` 262/262 in 14 files.
+
+## The sw.js allowlist is pinned — and one insight from `backend` worth keeping
+
+`src/serviceWorker.test.ts` landed with 26 cases, reading the shipped `public/sw.js` via
+`readFileSync` in a worker-shaped sandbox rather than a copied predicate — the property I cared
+about, because a test against a duplicate keeps passing while the worker that runs has drifted.
+
+**`backend`'s observation is sharper than mine and I want it recorded in their terms: a missing case
+is quieter than a wrong one, and quieter is worse.** I had framed the favicon flip as a near-miss
+where they might have pinned `favicon → cacheable` from my stale description — which would have
+failed loudly on first run, the *good* outcome. The worse version is what nearly happened instead:
+they had **no favicon case at all**, so if someone later added `/favicon.ico` back to `STATIC_FILES`,
+nothing would have noticed. The bug I was worried about announces itself; the one that was actually
+there does not.
+
+**They also mutation-verified rather than trusting a green run** — adding favicon back to the
+allowlist and confirming the suite fails on exactly that case, and likewise that
+`/_next/data/owner.json` and `/iconsomething` each fail on the clause that would cause them. A test
+that passes proves nothing about whether it would catch the regression it was written for; only
+breaking the code on purpose does. Worth doing to my own checks where the stakes justify it.
+
+Two cases they added beyond my table, both better than what I gave them: a **staff** page alongside
+the owner one *and* an admin one, so a future prefix rule cannot be written for one area and silently
+miss the others; and a non-GET aimed at `/_next/static/x.js` rather than `/manifest.json`, since a
+static prefix is the likelier place for a method check to be skipped.
+
+**On `worker-src`, they drew the distinction I had been making implicitly:** their test asserts the
+directive is in the string `proxy()` returns; my check confirmed it survives into the header a browser
+receives. Those are different claims, and only the second decides whether `/sw.js` registers on
+Render. Both are worth having — the unit test fails fast on a source change, the header check catches
+anything between the function and the wire.
+
+Gates: build 0, `tsc` 0, `npm test` 265/265 in 14 files.
