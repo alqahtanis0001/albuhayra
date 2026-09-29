@@ -10,19 +10,15 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      # The database is Neon (external), not a Render Postgres, so this is a
+      # plain secret set in the Render dashboard — there is no `fromDatabase`.
+      # Use Neon's POOLED connection string here: Render's web service opens a
+      # connection per instance and Neon free tier has a low direct-connection cap.
       - key: DATABASE_URL
-        fromDatabase:
-          name: ledger-db
-          property: connectionString
+        sync: false
       - key: SESSION_SECRET
         generateValue: true
       - key: SEED_ADMIN_EMAIL
         sync: false
       - key: SEED_ADMIN_PASSWORD
         sync: false
-
-databases:
-  - name: ledger-db
-    plan: basic-256mb
-    region: frankfurt
-    postgresMajorVersion: "16"

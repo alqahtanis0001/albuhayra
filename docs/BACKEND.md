@@ -191,6 +191,8 @@ Exports zod schemas and inferred types: `SignupOwnerSchema`, `SignupStaffSchema`
 `money.test.ts`, `validation.test.ts`, `locks.test.ts` (assertUnlocked with mocked Prisma), `auth.test.ts` (requireCanEdit matrix: OWNER / STAFF canEdit true / STAFF canEdit false / PENDING).
 
 ## Render deployment
+Render runs the **web service only**. The database is **Neon** (external, serverless Postgres), so `render.yaml` has no `databases:` block and `DATABASE_URL` is a plain secret you paste into the Render dashboard.
+
 `render.yaml` (backend verifies plan names against current Render docs before committing):
 ```yaml
 services:
@@ -198,6 +200,7 @@ services:
     name: ledger
     runtime: node
     plan: starter
+    region: frankfurt
     buildCommand: npm ci && npx prisma generate && npx prisma migrate deploy && npm run build
     startCommand: npm start
     healthCheckPath: /api/health
@@ -205,16 +208,15 @@ services:
       - key: NODE_ENV
         value: production
       - key: DATABASE_URL
-        fromDatabase: { name: ledger-db, property: connectionString }
+        sync: false          # Neon pooled connection string, set in the dashboard
       - key: SESSION_SECRET
         generateValue: true
       - key: SEED_ADMIN_EMAIL
         sync: false
       - key: SEED_ADMIN_PASSWORD
         sync: false
-databases:
-  - name: ledger-db
-    plan: basic-256mb
 ```
+- **Use Neon's pooled connection string in production** (the host with `-pooler`), not the direct one. Render opens a connection per instance and Neon's free tier caps direct connections. `sslmode=require` is mandatory; keep `channel_binding=require` if Neon supplies it.
+- `migrate deploy` runs in the build command, so a deploy applies pending migrations automatically. It is safe to re-run: applied migrations are skipped.
 - After first deploy: run `npm run seed` once from the Render shell, log in as ADMIN, change the password from the admin page, then delete `SEED_ADMIN_PASSWORD` from env.
-- Never `prisma db push` or `migrate reset` against Render. Enable daily backups in the Render dashboard (README step).
+- Never `prisma db push` or `migrate reset` against the Neon database. **Backups are Neon's job, not Render's** — the old "enable daily backups in the Render dashboard" step does not apply. Set the retention window in the Neon console (free tier keeps a short history), and note that the free tier also suspends an idle compute, so the first request after a quiet period pays a cold start.

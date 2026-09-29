@@ -6,7 +6,7 @@ Single source of truth for project state across sessions. A new lead must be abl
 ```
 cp .env.example .env     # DATABASE_URL, SESSION_SECRET, SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD
 npm install              # then: npm approve-scripts --allow-scripts-pending  (prisma + esbuild need their install scripts)
-npx prisma migrate deploy   # applies prisma/migrations/20260929000000_init
+npx prisma migrate deploy   # applies prisma/migrations/20260929000000_init (already applied to Neon)
 npm run seed             # creates the ADMIN account (idempotent)
 npm run dev              # http://localhost:3000
 npm run build && npm test
@@ -16,8 +16,8 @@ npm run typecheck        # tsc --noEmit, not part of build
 
 ## Current phase
 **Phase:** 0 — Scaffold and contract (lead alone)
-**Status:** complete — `npm run build` and `npm test` pass (59 tests, 5 files)
-**Exactly where we stopped:** Phase 0 committed as `phase 0: scaffold and contract`. Waiting for the user's approval before spawning teammates.
+**Status:** complete and database-verified — `npm run build` and `npm test` pass (59 tests, 5 files); migration + seed applied to the live Neon database
+**Exactly where we stopped:** Phase 0 committed, then the migration verified on Neon and committed as `phase 0: migration verified on Neon`. Waiting for the user's approval before spawning teammates.
 **Next concrete action:** on approval, spawn `backend`, `frontend`, `reviewer`; create one task per checklist item in `docs/BACKEND.md` and `docs/FRONTEND.md`, each naming the files it touches. First backend task: auth actions + the session/role routing inside `src/proxy.ts`. First frontend task: layout, nav, shared components.
 **Teammates spawned:** none yet
 
@@ -32,6 +32,7 @@ npm run typecheck        # tsc --noEmit, not part of build
 | 0 | Nonce-based CSP in `src/proxy.ts`, verified against the served HTML | lead | 2026-09-29 |
 | 0 | `render.yaml`, `.env.example`, `.gitignore`, `.claude/settings.json` | lead | 2026-09-29 |
 | 0 | Tests: money, dates, validation, permissions, joinCode (59 tests) | lead | 2026-09-29 |
+| 0 | Migration + seed verified on live Neon Postgres 18; render.yaml switched off Render Postgres | lead | 2026-09-29 |
 
 ## Decisions
 Format: date — decision — reason. Anything that changed from the docs or chose between valid options.
@@ -42,19 +43,21 @@ Format: date — decision — reason. Anything that changed from the docs or cho
 - 2026-09-29 — Versions pinned exactly (no `^`): Next 16.3.6, React 19.3.0, Prisma 7.10.0, zod 4.6.5, Tailwind 4.3.3, Vitest 5.0.2, iron-session 9.0.1, TypeScript 5.9.3 — three agents installing at different times must get identical trees. TypeScript stays on 5.x, not 7.x, to avoid the native-port rewrite under Next/Prisma type definitions.
 - 2026-09-29 — Prisma 7 needs `prisma.config.ts` and a driver adapter: `url` in the `datasource` block is rejected, so the connection string lives in `prisma.config.ts` (migrate/seed) and in `new PrismaPg({connectionString})` inside `src/lib/db.ts` (runtime). Added `@prisma/adapter-pg` and `dotenv`, neither optional on Prisma 7.
 - 2026-09-29 — Prisma client is generated to `src/generated/prisma` (gitignored) and imported as `@/generated/prisma` — Prisma 7 requires an explicit `output`. `npm run build` runs `prisma generate` first, so Render and CI regenerate it.
-- 2026-09-29 — Initial migration written with `prisma migrate diff --from-empty --to-schema` instead of `migrate dev` — there is no local Postgres on this machine, and `migrate diff` needs no database. The SQL is a normal Prisma migration; `migrate deploy` applies it on Render.
+- 2026-09-29 — Initial migration written with `prisma migrate diff --from-empty --to-schema` instead of `migrate dev` — there is no local Postgres on this machine, and `migrate diff` needs no database. The SQL is a normal Prisma migration, and this has since been confirmed: `migrate deploy` applied it to the live Neon database without modification.
 - 2026-09-29 — Next.js 16 renamed `middleware.ts` to `proxy.ts` (same API, exported function named `proxy`). `docs/BACKEND.md` and the ownership map in `CLAUDE.md` updated. `src/middleware.ts` is still accepted as a legacy alias but does not get the rename's guarantees, so we use the current name.
 - 2026-09-29 — **Nonce-based CSP, as rule 7 of `docs/BACKEND.md` anticipated.** Verified on the served HTML that Next.js emits two inline `<script>` tags for the hydration payload, so a flat `script-src 'self'` blocks hydration. CSP therefore moved out of `next.config.mjs` into `src/proxy.ts`, which puts a fresh nonce on the request header (where the renderer reads it) and on the response header. Re-verified: every `<script>` in the response, both inline tags included, now carries `nonce=`. The five constant headers stay in `next.config.mjs`.
 - 2026-09-29 — Tailwind v4, not v3 — v4 is CSS-first, so there is no `tailwind.config.ts` at all; tokens live in an `@theme` block in `src/app/globals.css`. Logical utilities (`ms-`, `me-`, `ps-`, `pe-`, `start-`, `end-`) are unchanged, so the RTL rules in `docs/FRONTEND.md` still apply as written.
 - 2026-09-29 — zod v4 — `z.email()` replaces the deprecated `z.string().email()`, and `toFieldErrors()` walks `error.issues` directly instead of the deprecated `.flatten()`.
 - 2026-09-29 — Four extra files in `src/lib/` beyond the list in `docs/BACKEND.md`: `permissions.ts` (pure role/`canEdit` predicates with no DB or Next.js import, so they are unit-testable), `rateLimit.ts`, `joinCode.ts`, `audit.ts`. Splitting the predicates out is what lets the permission matrix be tested without mocking Prisma.
 - 2026-09-29 — `next.config.mjs` and `vitest.config.mts` use ESM extensions — Vite warns that a `.ts` config loaded as CommonJS breaks under its native loader, and the project has no `"type": "module"`.
-- 2026-09-29 — Render region `frankfurt` for both the web service and the database, Postgres 16 — closest Render region to Saudi Arabia; web and DB must share a region for the internal connection string to work.
+- 2026-09-29 — Render region `frankfurt` for the web service — closest Render region to Saudi Arabia, and it matches the Neon project's `eu-central-1` so the DB round trip stays short. (Superseded in part by the Neon decision below: there is no Render database to co-locate any more.)
+- 2026-09-29 — **Database is Neon (serverless Postgres 18), not Render Postgres.** `render.yaml` therefore has no `databases:` block and `DATABASE_URL` is `sync: false` — a secret pasted into the Render dashboard. Two consequences: production must use Neon's **pooled** connection string (`-pooler` host), because Render opens a connection per instance and the free tier caps direct connections; and **backups are Neon's job, not Render's**, so the old "enable daily backups in the Render dashboard" step is gone. Free-tier Neon also suspends an idle compute, so the first request after a quiet spell pays a cold start. `docs/BACKEND.md` Render section rewritten to match.
+- 2026-09-29 — Migration and seed verified against the live Neon database: `migrate deploy` applied `20260929000000_init` cleanly, all 6 model tables and 4 enum types exist, and the seed is idempotent (3 runs, still exactly 1 ADMIN row). Neon reports PostgreSQL 18.6; the schema uses nothing version-specific.
 - 2026-09-29 — The quality-gate hook writes to `.claude/build.log` / `.claude/test.log` instead of `/tmp/*.log` — this is a Windows machine and `/tmp` is not writable from the hook's shell. Both files are gitignored.
 
 ## Known issues
 Failing builds, bugs, must-not-forget TODOs. Remove when fixed.
-- **The migration has never run against a real Postgres.** No local database on this machine, so `prisma migrate deploy` is unverified. Whoever first points `DATABASE_URL` at a real Postgres must run `npx prisma migrate deploy` and then `npm run seed`, and report back. Never run `migrate reset` or `db push` against Render.
+- `pg` warns that `sslmode=require` changes meaning in pg v9 / pg-connection-string v3: today it still verifies the certificate, but it will fall back to weaker libpq semantics. Harmless now. When we upgrade `pg`, switch `DATABASE_URL` to `sslmode=verify-full` to keep the current strength.
 - `npm audit` reports 6 findings (2 moderate, 4 high) with no non-downgrading fix: `mysql2` and `deepmerge-ts` reach us only through the **Prisma CLI** (a devDependency; we never connect to MySQL), and `uuid` only through `exceljs`. None is reachable from the deployed app. Re-check when Prisma 8 is stable.
 - `/_not-found` is the one statically prerendered route, so its inline scripts carry no nonce and it will not hydrate under the CSP. Harmless today — it is static text — but **every page must stay dynamically rendered**: no `export const revalidate`, no static pages. Any page calling `requireX()` is dynamic already.
 - `src/proxy.ts` currently does CSP only. `backend` must add the session/role routing from `docs/BACKEND.md` around it and leave the CSP block intact.
@@ -100,3 +103,11 @@ Append one entry per lead session (newest at bottom).
 - Build passes: yes. `npm run build`, `npm test` (59/59) and `npm run typecheck` all pass. `/api/health` returned `{"ok":true}` from a real `npm start`, with all five constant security headers and the nonce CSP present on the response.
 - Two doc changes needed and made, both logged as Decisions: `middleware.ts` → `proxy.ts` (Next 16 rename) in `docs/BACKEND.md` and the `CLAUDE.md` ownership map; and rule 7's CSP rewritten around the nonce, which rule 7 itself told us to do if Next.js needed one.
 - Next: waiting for the user's approval to start Phase 1.
+
+### 2026-09-29 — lead session (database verification)
+- Phase / tasks worked on: verifying Phase 0's migration against a real database, at the user's request.
+- Docker is not installed on this machine (no `docker`, no `podman`, WSL absent), so the user supplied a **Neon** Postgres 18 instead.
+- Finished: `.env` created (gitignored, `git check-ignore` confirmed); `render.yaml` stripped of its `databases:` block with `DATABASE_URL` now `sync: false`; `docs/BACKEND.md` Render section rewritten for Neon; `migrate deploy` applied `20260929000000_init`; `npm run seed` created the ADMIN; verified 6 model tables, 4 enum types, exactly 1 ADMIN row (`status: ACTIVE`, `establishmentId: null`); ran the seed twice more and the row count stayed at 1.
+- Correction to the previous session's commit message: it said "the eight models from docs/BACKEND.md". The schema has **6 models** (Establishment, User, Category, Transaction, PeriodLock, AuditLog) and 4 enums. The schema itself was always right; only that sentence was wrong.
+- Build passes: yes. `npm run build` and `npm test` (59/59) re-run after the config changes.
+- Next: still waiting for the user's approval to start Phase 1.
