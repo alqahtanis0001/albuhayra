@@ -216,6 +216,32 @@ export const t = {
     empty: "لا توجد حركات في هذه الفترة.",
   },
 
+  /** The Excel workbook (`/api/export`). Sheet names are Excel tab names: 31 chars max, no `/\?*[]:`. */
+  export: {
+    ledgerSheet: "الحركات",
+    summarySheet: "الملخص",
+    infoSheet: "معلومات",
+    ledgerTitle: `${APP_NAME} — سجل الحركات`,
+    summaryTitle: `${APP_NAME} — ملخص الفترة`,
+    establishment: "المنشأة",
+    period: "الفترة",
+    from: "من",
+    to: "إلى",
+    generatedAt: "تاريخ الإنشاء",
+    generatedBy: "أنشأه",
+    appVersion: "إصدار التطبيق",
+    byPaymentMethod: "حسب طريقة الدفع",
+    totalsRow: "الإجمالي",
+    infoItem: "البند",
+    infoValue: "القيمة",
+  },
+
+  /** The printed report (`/owner/reports` → طباعة). */
+  print: {
+    printedAt: "تاريخ الطباعة",
+    generatedBy: `تم الإنشاء بواسطة ${APP_NAME}`,
+  },
+
   settings: {
     title: "الإعدادات",
     tabCategories: "التصنيفات",

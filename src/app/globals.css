@@ -79,76 +79,186 @@ dialog::backdrop {
   background: rgb(0 0 0 / 0.5);
 }
 
-/* The one transition (docs/FRONTEND.md): page content fades in, opacity only.
-   `#main > *` is the page's (or its skeleton's) root element, which React
-   recreates on every route change but not on a search-param change, so the
-   ledger filters and the settings tabs do not flash. id="main" sits on the
-   element whose children are the page roots: the <main> in AppShell and in the
-   root not-found/error, the inner column in the (auth) layout. No fill mode: with no delay it changes nothing visible,
-   and a filling opacity animation would leave the page root a stacking context
-   for good, trapping the fixed z-50 Toast beneath the tab bar and top bar. */
+/* Page transition (docs/FRONTEND.md, Transitions v1.1c): page content fades
+   in and rises 4px. `#main > *` is the page's (or its skeleton's) root element,
+   which React recreates on every route change but not on a search-param
+   change, so the ledger filters and the settings tabs do not flash. id="main"
+   sits on the element whose children are the page roots: the <main> in
+   AppShell and in the root not-found/error, the inner column in the (auth)
+   layout. No fill mode: with no delay it changes nothing visible, and a filling
+   opacity/transform animation would leave the page root a stacking context
+   (and a containing block for fixed children) for good, trapping the fixed
+   z-50 Toast beneath the tab bar and top bar. While the ~220ms run, a Toast is
+   positioned against the page root — it cannot outlive the animation.
+   `screen and` keeps print literally out of it. */
 @keyframes fade-in {
   from {
     opacity: 0;
+    transform: translateY(4px);
   }
 }
 
-@media (prefers-reduced-motion: no-preference) {
+@media screen and (prefers-reduced-motion: no-preference) {
   #main > * {
-    animation: fade-in 180ms ease-out;
+    animation: fade-in 220ms ease-out;
   }
 }
 
-/* Print: reports only, black on white, no navigation (docs/FRONTEND.md). */
+/* Navigation progress (src/components/NavProgress.tsx): a 3px bar over the top
+   bar's 4px dark strip while a nav link's navigation is pending. #a7cdb6 is
+   5.77:1 on that strip; the accent #006c35 would be 1.53:1 and invisible.
+   Fixed, so it shifts no layout; z-50 clears the z-30 top bar. It appears only
+   after 100ms (the visibility transition's delay), so a prefetched navigation
+   that commits at once never flashes it, and it hides at once (the base rule
+   has no transition). Grows from the inline start; under reduced motion it is
+   a static full-width bar. The keyframes need no fill: the base width is the
+   end state. */
+.nav-progress {
+  position: fixed;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  z-index: 50;
+  block-size: 3px;
+  inline-size: 100%;
+  background: var(--color-accent-line);
+  visibility: hidden;
+  pointer-events: none;
+}
+.nav-progress[data-active] {
+  visibility: visible;
+  transition: visibility 0s 100ms;
+}
+
+@keyframes nav-progress-grow {
+  from {
+    inline-size: 10%;
+  }
+}
+
+@media screen and (prefers-reduced-motion: no-preference) {
+  .nav-progress[data-active] {
+    inline-size: 90%;
+    animation: nav-progress-grow 8s cubic-bezier(0.1, 0.6, 0.3, 1);
+  }
+}
+
+/* Print: the report sheet (docs/FRONTEND.md, /owner/reports, v1.1c). A colour
+   sheet: green header rows, IN green and OUT red with the +/- sign kept (colour
+   is never the only signal — a greyscale printer or a photocopy still loses
+   it), zebra rows, a highlighted net box. One mechanism only: this unlayered
+   block, with element and hook-class selectors. Unlayered declarations beat
+   every Tailwind utility (those live in a layer), so nothing here needs
+   !important except .no-print; no `print:` utilities are used anywhere, because
+   a layered !important would beat this block in a way nobody expects.
+   Contrast, measured (WCAG): white on #006c35 6.57:1; #15803d on #fff 5.02,
+   on #fafafa 4.81; #b91c1c on #fff 6.47, on #fafafa 6.20, on #e8f3ec 5.69;
+   #171717 on #e8f3ec 15.76; #004d26 on #fff 10.05; #006c35 on #fff 6.57;
+   #525252 on #fff 7.81. */
 .print-only {
   display: none;
 }
 
+/* No fixed `size`, so the same sheet fits A4 (the binding width) and Letter
+   (the binding height). Page numbers sit in a margin box: its name is physical,
+   the one place a physical name is unavoidable. `direction: ltr` because the box
+   inherits the root's rtl and would otherwise read "3 / 1". Digits only — no
+   Arabic in CSS. */
+@page {
+  margin: 14mm 12mm 16mm;
+
+  @bottom-center {
+    content: counter(page) " / " counter(pages);
+    direction: ltr;
+    font-size: 9pt;
+    color: #525252;
+  }
+}
+
 @media print {
+  /* Fills print even with "Background graphics" off. Inherited, so once here. */
+  html {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
   .no-print {
     display: none !important;
   }
+  /* A block, which beats `flex` on the element itself: layout goes on an
+     inner wrapper (see PrintHeader). */
   .print-only {
     display: block;
   }
   body {
     background: #fff;
-    color: #000;
+    color: var(--color-gray-900);
+  }
+  /* AppShell's min-h-dvh would stretch the empty flex column to a full page. */
+  .min-h-dvh {
+    min-height: 0;
   }
   main {
-    padding: 0 !important;
-    max-width: none !important;
+    padding: 0;
+    max-width: none;
+  }
+  /* Table's scroll wrapper would clip a table at a page break. */
+  .overflow-x-auto {
+    overflow: visible;
   }
 
-  /* Ink, not screen: the accent and the money colours are legible on a backlit
-     display and muddy in greyscale, so everything prints black on white. The
-     +/- sign is what still distinguishes وارد from صادر on paper, which is the
-     reason that rule exists. */
-  * {
-    color: #000 !important;
-    background: transparent !important;
+  .report-card,
+  .report-net {
+    border-color: var(--color-gray-300);
   }
-
-  /* Rules, since the on-screen borders are light grey and vanish in print. */
-  table {
-    width: 100%;
-    border-collapse: collapse;
+  .report-card > header h2 {
+    color: var(--color-accent-dark);
   }
+  /* Denser rows than on screen, so a typical month (a dozen categories) fits
+     one sheet. */
   th,
   td {
-    border: 1px solid #000;
-    padding: 4px 6px;
+    padding-block: 4px;
+  }
+  thead th {
+    background: var(--color-accent);
+    color: #fff;
+  }
+  tbody tr:nth-child(even) {
+    background: var(--color-gray-50);
+  }
+  tfoot td {
+    background: #fff;
+    border-top: 2px solid var(--color-accent);
+    font-weight: 700;
+  }
+  /* The net box is accent-soft only because a positive net prints gray-900
+     (MoneyText `signed`): green text on this fill would be 4.41:1. */
+  .report-net {
+    background: var(--color-accent-soft);
+    border: 2px solid var(--color-accent);
+  }
+  /* Never alone on a last page: it takes the net box with it instead. */
+  .report-print-footer {
+    break-before: avoid;
+    margin-top: 6mm;
+    padding-top: 2mm;
+    border-top: 1px solid var(--color-gray-300);
+    font-size: 9pt;
+    color: #525252;
+    text-align: center;
   }
 
-  /* A category table must not be split across a page break mid-total. */
-  table,
-  tfoot,
+  /* A category card moves to the next page whole rather than leave its title
+     and an empty frame behind; one longer than a page still breaks, between
+     rows. Its header row repeats on each page (thead's default). The total
+     does not: as a table-footer-group Chrome would repeat it at the foot of
+     every page, where it reads as a page subtotal, so it prints once, last. */
+  .report-card,
+  .report-net,
   tr {
     break-inside: avoid;
   }
-
-  /* No physical-direction value is needed anywhere in this block: the logical
-     properties Tailwind emits print correctly, and `text-start` resolves
-     against the document's dir="rtl" in print exactly as on screen. Recorded
-     because the doc permits one here — we did not need to take it. */
+  tfoot {
+    display: table-row-group;
+    break-before: avoid;
+  }
 }

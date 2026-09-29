@@ -34,7 +34,9 @@ export function ReportTables({ report }: { report: Report }) {
         direction="OUT"
       />
 
-      <Card>
+      {/* report-net / report-card are hooks for the print sheet in globals.css;
+          on screen they change nothing. */}
+      <Card className="report-net">
         <div className="flex items-center justify-between gap-2">
           <span className="text-base font-semibold text-gray-900">
             {t.reports.net}
@@ -60,7 +62,7 @@ function CategoryTable({
   direction: "IN" | "OUT";
 }) {
   return (
-    <Card title={title} bodyClassName="">
+    <Card title={title} bodyClassName="" className="report-card">
       {rows.length === 0 ? (
         <EmptyState title={t.reports.empty} />
       ) : (
@@ -83,6 +85,8 @@ function CategoryTable({
               </Tr>
             ))}
           </TBody>
+          {/* Must stay after TBody: print sets tfoot to a plain row group
+              (globals.css) so the total prints once, last — in DOM order. */}
           <TFoot>
             <Tr>
               <Td>{totalLabel}</Td>

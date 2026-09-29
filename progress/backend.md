@@ -614,3 +614,78 @@ never calls `respondWith` off the allowlist, and the check found that word in th
 Third instance of this shape (`$queryRaw`, `amountHalalas`, now `respondWith`). **The rule:
 strip comments before any source-level assertion, and add a case proving the stripper did not
 blank the file** — otherwise both checks pass vacuously forever.
+
+## 2026-09-29 — v1.1c X1: Excel export redesign
+
+### Files
+- `src/app/api/export/route.ts`: still `requireOwner()` first, range through `ReportRangeSchema`,
+  `listTransactions` (every page) + `getReport`, both with the session's `establishmentId`. The
+  workbook-building moved out. New: it passes `user.name`, `user.establishmentName` (from
+  `requireOwner()`'s `AuthedUser`, no extra read) and `package.json`'s `version` as meta.
+  400 key behaviour, filename and `Cache-Control` unchanged.
+- `workbook.ts`: pure `buildWorkbook({ rows, report, meta })`, the «معلومات» sheet and
+  `riyadhStamp()`.
+- `ledgerSheet.ts` («الحركات»), `summarySheet.ts` («الملخص» + `byPaymentMethod(rows)`),
+  `style.ts` (colours, `MONEY_FORMAT`, fresh-object style helpers, `totalValue`, `widthFor`).
+  All under 200 lines. `src/features/reports/queries.ts` untouched.
+
+### Shape decisions worth knowing
+- **Sheet 1 totals are three rows, not one**, under the amount column: إجمالي الوارد
+  (`SUMIF >0`), إجمالي الصادر (`SUMIF <0`), الصافي (`SUM`), label merged over A:B. A single row
+  cannot hold three amounts in one amount column without putting money under the category or
+  method columns. `t.export.totalsRow` is used on the payment-method table's totals row instead.
+- Green/red font goes on the **direction and amount cells** of each row, not the whole row;
+  the rest of the row stays default ink. The direction text column stays, so colour is never
+  the only signal.
+- Title block: A1:H1 title, A2:H2 establishment, A3:D3 period, E3:H3 generated-at (text).
+  Merged, so they never feed the width calc.
+- «الملخص»: وارد table, صادر table (negative), each with a `SUM` totals row, then الصافي =
+  `B<inTotal>+B<outTotal>`; then the method table (enum order, empty methods omitted) with a
+  `SUM` totals row. Every total is `{formula, result}`, or a plain 0 when there is nothing to sum.
+- `riyals()` adds `+ 0`: negating a zero OUT total gave `-0`, which a `toBe` caught.
+
+### Tests — 11 new, 2 updated in place (export.test.ts: 8 → 19; suite 274 → 285)
+Fixture now 7 rows over Aug/Sep 2026 and CASH / BANK_TRANSFER / MADA / STC_PAY (OTHER empty on
+purpose). The mocked `getReport` is computed from the same rows. The old OUT row stays first.
+Updated in place per the resolution: "three sheets" (was two), row 6 = −1234.5 (was row 2, +).
+
+Mutation checks (each broke, the named test failed, restored, 19/19 again):
+| Mutation | Failed |
+|---|---|
+| `">0"` → `">=0"` in the SUMIF | totals formulas + cached results |
+| OUT amount no longer negated | the old riyal-number case **and** the signed-by-direction case |
+| empty period writes the formula anyway | plain zeros for an empty period |
+| «الملخص» صادر sign flipped to + | category summary |
+| method table IN/OUT swapped | payment-method breakdown |
+| `"@/lib/db"` text / a `db.x` call appended to `style.ts` | the source scan (both regexes) |
+
+An actual `import { db } from "@/lib/db"` in `workbook.ts` fails the whole file at load (the real
+module needs env), so it is caught too, but not by the scan — the text mutations prove the scan.
+
+### Gotcha
+The source scan does **not** strip comments, on purpose: a comment containing `db.` or
+`@/lib/db` in this folder fails loudly (rephrase it) rather than letting a stripper blank the
+file and pass vacuously. Compare the Checkpoint 5 note.
+
+### Gates
+`npx tsc --noEmit` 0 · `npm test` 285/285, exit 0 · `npm run build` 0 (under the build lock).
+Sample workbook (fixture data, not real) written by an uncommitted scratchpad script.
+
+### R-X1 follow-up (reviewer-2): X1-S10 and the scan note
+- **X1-S10:** the «الملخص» totals were pinned only by their cached `result`, which comes from
+  halalas / `getReport`, not from the formula. Desktop Excel recalculates when the file opens,
+  so a wrong range or operator would show a wrong number while every assertion stayed green. New
+  case: a small evaluator for the three shapes written (`SUM(Xa:Xb)`, `SUMIF(Xa:Xb,">0"|"<0")`,
+  `Xn+Xm`) computes every `{formula, result}` on sheets 1–2 from the loaded cells and compares in
+  halalas. It expects 9 formulas. It is **strict**: a referenced cell that holds no amount
+  throws, and so does an unknown formula shape.
+- Mutations: net `+`→`-` failed · method SUM one row long (into the totals row) failed · ledger
+  range into the blank row failed (two tests) · category SUM range into the header **survived at
+  first**, because SUM skips text and Excel would show the right number too. Making the
+  evaluator strict caught it. All restored; 20/20.
+- **Scan:** now `/lib\/db\b|generated\/prisma|@prisma\//` plus the receiver regex. A relative
+  `../../../lib/db`, `@prisma/client` and `@/generated/prisma` are each mutation-checked.
+- Gates: tsc 0 · 286/286 · build 0. export.test.ts is now 496 lines.
+- Lead note applied: the title-block muted grey is now `#525252`, the app's neutral (7.81:1 on
+  white); it was `#4B5563`. Gates re-run under the lock: tsc 0 · 286/286 · build 0. Sample
+  workbook regenerated from the same fixture.

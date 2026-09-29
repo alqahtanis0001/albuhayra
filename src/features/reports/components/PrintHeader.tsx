@@ -1,42 +1,54 @@
+import { DateText } from "@/components/DateText";
 import { t } from "@/i18n/ar";
 
 /**
  * Print only: the sheet has to say whose books these are and for when, because
  * it leaves the screen where the nav answered both. Above that, the brand: the
- * outline icon and the app name in the brand face.
+ * outline icon in its own colour and the app name in the brand face, over a
+ * green rule; the print stylesheet keeps the colour with print-color-adjust.
  *
- * The icon row is an inner div because the unlayered print rule
- * `.print-only { display: block }` beats `flex` on the header itself. The icon
- * is `grayscale` because the print stylesheet recolours text and backgrounds
- * only, not images. Its alt is empty: the name beside it says the same thing.
+ * The inner wrappers carry the flex and grid because the unlayered print rule
+ * `.print-only { display: block }` beats any layout utility on the header
+ * itself. The icon's alt is empty: the name beside it says the same thing.
  */
 export function PrintHeader({
   establishmentName,
   from,
   to,
+  printedAt,
 }: {
   establishmentName: string | null;
   from: string;
   to: string;
+  /** `YYYY-MM-DD` from todayISO() — the server render, not the moment of printing. */
+  printedAt: string;
 }) {
   return (
     <header className="print-only">
-      <div className="mb-2 flex items-center gap-2">
+      <div className="flex items-center gap-3 border-b-2 border-accent pb-3">
         <img
           src="/brand/zakham-brand/icon-512-outline.png"
           alt=""
           width={512}
           height={512}
-          className="h-10 w-10 shrink-0 grayscale"
+          className="h-12 w-12 shrink-0"
         />
-        <span className="font-brand text-xl">{t.app.name}</span>
+        <span className="font-brand text-2xl text-accent">{t.app.name}</span>
       </div>
-      <p className="text-lg font-semibold">
-        {t.reports.printedFor}: {establishmentName}
-      </p>
-      <p className="text-sm">
-        {t.reports.rangeLabel}: <bdi>{from}</bdi> — <bdi>{to}</bdi>
-      </p>
+      <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
+        <dt className="text-gray-600">{t.reports.printedFor}</dt>
+        <dd className="text-base font-semibold text-gray-900">{establishmentName}</dd>
+        <dt className="text-gray-600">{t.reports.rangeLabel}</dt>
+        <dd className="text-gray-900">
+          <bdi>{from}</bdi> — <bdi>{to}</bdi>
+        </dd>
+        <dt className="text-gray-600">{t.print.printedAt}</dt>
+        <dd className="text-gray-900">
+          {/* items-start: a stretched LTR <bdi> would push the digits to the
+              far (left) edge of the row. */}
+          <DateText date={printedAt} className="items-start" />
+        </dd>
+      </dl>
     </header>
   );
 }

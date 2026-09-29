@@ -1199,3 +1199,108 @@ Render. Both are worth having — the unit test fails fast on a source change, t
 anything between the function and the wire.
 
 Gates: build 0, `tsc` 0, `npm test` 265/265 in 14 files.
+
+## 2026-09-29 — v1.1c
+
+### P1 — print redesign (done)
+Files: `src/app/globals.css` (print block replaced), `src/features/reports/components/PrintHeader.tsx`
+(rewritten), new `src/features/reports/components/PrintFooter.tsx`, `ReportTables.tsx` (two hook
+classes, `report-card` / `report-net`, no markup change), `src/app/(owner)/owner/reports/page.tsx`
+(presentation only: `printedAt={todayISO()}` and `<PrintFooter />`).
+
+- **One mechanism:** the unlayered `@media print` block, element + hook-class selectors. Unlayered
+  normal declarations beat every Tailwind utility (they are layered), so only `.no-print` keeps
+  `!important`; the old `main { … !important }` did not need it. No `print:` utilities anywhere.
+  Table, Card, MoneyText untouched — styled from the block.
+- The old `* { color:#000 !important; background:transparent !important }` and the black th/td
+  borders are gone. `print-color-adjust: exact` + `-webkit-` once, on `html`.
+- Header: outline icon in colour (no `grayscale`), زخم in `font-brand` + accent over a green rule,
+  then a `<dl>`: منشأة / الفترة / تاريخ الطباعة (`<DateText compact>` of `todayISO()` — server render
+  time, accepted). Flex/grid live on inner wrappers because `.print-only { display:block }` wins.
+- Tables: green `thead th` (white text), zebra `#fafafa` on even body rows, `tfoot` with a 2px green
+  rule and white fill; IN/OUT keep MoneyText's `+`/`−`. Print rows are denser (`padding-block: 4px`)
+  so a typical month fits one sheet.
+- Net box: accent-soft fill + 2px accent border. A positive net stays gray-900 (`signed`), a
+  negative one money-out red (5.69:1 on the fill).
+- Footer line `t.print.generatedBy`: an ordinary element after the tables, printed once, never
+  fixed; `break-before: avoid` so it never sits alone on a last page (it takes the net box along).
+- Page numbers: `@page { @bottom-center { content: counter(page) " / " counter(pages); direction: ltr } }`.
+  Lightning CSS keeps the nested margin box (checked in the compiled chunk). No page `size`; margins
+  14/12/16 mm.
+- **Two break rules I got wrong first and fixed after looking at the PDFs:** (1) the inherited
+  `table { break-inside: avoid }` left the OUT card's title and an empty frame on page 1 when its
+  table was pushed — `break-inside: avoid` now sits on `.report-card` (the whole card moves) and
+  `tr`; (2) `tfoot` is a table-footer-group, so Chrome **repeated the grand total at the foot of every
+  page** of a multi-page table, reading like a page subtotal — `tfoot { display: table-row-group }`
+  prints it once, last. The green header row still repeats per page (thead's default).
+- AppShell's and body's `min-h-dvh` reset to 0 in print (no stretched empty column).
+- Contrast measured (WCAG): white/#006c35 6.57 · #15803d on #fff 5.02, on #fafafa 4.81 ·
+  #b91c1c on #fff 6.47, on #fafafa 6.20, on #e8f3ec 5.69 · #171717 on #e8f3ec 15.76 ·
+  #004d26 on #fff 10.05 · #525252 on #fff 7.81. (#15803d on #e8f3ec would be 4.41 — never used.)
+
+**Verification (no real data, no sign-in).** A static fixture in my scratchpad: the real
+`PrintHeader` / `ReportTables` / `PrintFooter` / `ReportRangePicker` server-rendered with fake data
+(esbuild + `renderToStaticMarkup`), wrapped in AppShell/TopBar/nav/footer markup copied class for
+class, served with the **compiled** CSS chunk and fonts from `.next/static`. Headless Chrome 154 via
+CDP: under print emulation, top bar, both navs, footer, h1, range picker, export link and
+`.nav-progress` all fail `checkVisibility()`; header/footer print-only visible; computed th
+`rgb(0,108,53)`/white, zebra `rgb(250,250,250)`, `overflow-x-auto` → `visible`, icon `filter: none`.
+`Page.printToPDF` with **`printBackground: false`** (= "Background graphics" off) on A4 and Letter,
+header/footer off and on: fills print; a 12-category month is **1 page** on all four; a 43-category
+report is 3 pages with the header row repeated and the total/net/footer once at the end; page
+numbers read `1 / 3` left-to-right. With header/footer on, Chrome prints its date/title at the top
+but **our margin box replaces its bottom footer** — no duplicate numbers.
+Left to the user: the real `/owner/reports` print from the browser dialog with their data.
+
+### N1 — navigation feedback (done)
+Files: new `src/components/NavProgress.tsx` (provider, bar, `LinkPending` — one file, ~80 lines),
+`src/components/chrome/AppShell.tsx` (wrapped in `NavProgressProvider`, `<NavProgress />` first child
+of the root div, outside the nav and `#main`), `src/components/chrome/RoleNav.tsx` (`<LinkPending />`
+inside each Link + `has-data-pending:` classes on the inactive branch), `src/app/globals.css` (fade,
+`.nav-progress`). `nav.ts`, TopBar, Footer untouched; no `prefetch`, no onClick state.
+
+- **Wiring:** `LinkPending` calls `useLinkStatus()`; while pending, an effect calls `track()` from a
+  context, which increments a counter and returns the decrement as the effect cleanup — so a link
+  unmounting mid-navigation releases it. Two contexts (the stable `track`, the boolean) so reporters
+  do not re-render on every change. Default context is a no-op, so a nav outside the provider is safe.
+- **Pending style:** `LinkPending` renders `<span hidden data-pending>`; the Link repeats its active
+  classes as `has-data-pending:…`. Compiled to `:has([data-pending])`; it comes after
+  `hover:bg-gray-100` in the chunk with equal specificity, so pending wins over hover. `aria-current`
+  still comes from `activeHref` only.
+- **Bar:** `.nav-progress`, fixed, `inset-block-start/inset-inline-start: 0`, 3px, z-50 (top bar is
+  z-30), `#a7cdb6` (`--color-accent-line`, 5.77:1 on the #004d26 strip), `aria-hidden`, `no-print`.
+  Delay without a timer: `[data-active] { visibility: visible; transition: visibility 0s 100ms }`, and
+  the base rule has no transition, so it hides at once. Motion: `inline-size` 10% → 90% over 8s,
+  with 90% as the base width under no-preference so the keyframes need **no fill**; static 100% under
+  reduced motion. Logical properties throughout, so it grows from the right in RTL.
+- **Fade:** `@media screen and (prefers-reduced-motion: no-preference) { #main > * { animation:
+  fade-in 220ms ease-out } }`, keyframes `from { opacity: 0; transform: translateY(4px) }`, no fill.
+
+**Verified (signed out only):** `npx next start -p 3071`, headless Chrome via CDP, service worker
+bypassed. `/login` root: `fade-in`, `0.22s`, `ease-out`, fill `none`. Clicking the `/signup` link and
+sampling each frame: 11 ms opacity 0 / translateY 4px, 26 ms 0.12 / 3.5px, 59 ms 0.34 / 2.6px, ends
+at opacity 1 / `transform: none`. Reduced motion → `none`; print media + no-preference → `none`.
+The bar and pending **CSS** in the scratchpad fixture (compiled chunk): hidden at 40 ms, visible at
+160 ms, width 163 → 242 → 772 px from the right edge, hidden the frame after clearing; reduced motion
+→ static 1265 px; screenshot shows it painted over the dark strip. An inactive-link element with the
+real classes goes transparent/#404040/500 → accent-soft/#004d26/accent border/600 once a
+`[data-pending]` child appears.
+**Left to the user:** the real bar and pending style on السجل / التقارير — they need a session, and
+`useLinkStatus` → context → bar is the untested join. In production most nav targets are
+prefetched and have a `loading.tsx`, so the bar mostly shows on slow first taps (DevTools "Fast 3G"
+helps). The skeleton and then the page each fade and rise — two small steps, as accepted.
+
+Gates (after N1): build 0, `tsc --noEmit` 0, vitest 285/285 in 15 files. Ports 3071/3073 freed.
+
+### P1 follow-ups after R-P1 (done)
+- **S5:** the print date is now `<DateText date={printedAt} className="items-start" />` — Gregorian with
+  the Hijri line beneath (CLAUDE.md "Hijri shown alongside"). The period line is unchanged (lead's call).
+  **Gotcha found only by printing it:** non-compact DateText is `flex flex-col`, so its LTR Gregorian
+  `<bdi>` stretches across the `<dd>` and the digits land at the far *left* edge of the row while the
+  Hijri line (Arabic, so RTL) stays right. `items-start` makes each line shrink to its content at the
+  inline start. Passed from the call site; DateText itself is not mine and is unchanged. Anywhere
+  else a non-compact DateText sits in a wide cell has the same latent effect.
+- **Note:** a comment beside `<TFoot>` in CategoryTable: it must stay after TBody, because print makes
+  tfoot a plain row group and the total then prints in DOM order.
+- Re-verified in the fixture: typical month still 1 page on A4 and Letter (header/footer on and off);
+  long report 3 pages. Gates: build 0, tsc 0, vitest 285/285.

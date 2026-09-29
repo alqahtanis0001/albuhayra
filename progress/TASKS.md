@@ -206,3 +206,88 @@ Docs were amended before code: `CLAUDE.md` name fact, `docs/FRONTEND.md` (font, 
 - **N4:** auth tagline wordmark at least 64px tall (`h-16 w-auto`), so the tagline stays legible.
 - **Ownership addendum (lead, on ux's request — later WITHDRAWN by ux, markup inlined instead):** `ux` also owns new `src/components/status/NotFoundPanel.tsx` (server component: title, body, one link via `getSession` + `homePathFor`) and `src/components/status/ErrorPanel.tsx` (client component: title, body, retry), so each `not-found.tsx` / `error.tsx` is a thin wrapper.
 - **Ownership addendum (lead, R-U1 S1):** `ux` moves `transactions/page.tsx` + `transactions/loading.tsx` into `transactions/(list)/` in both `(owner)` and `(staff)` — a move only, contents byte-identical, URLs unchanged — so the ledger skeleton stops wrapping `new` and `[id]/edit`. Also: `aria-busy` dropped from the skeleton live region (R-U1 N1).
+
+---
+
+# v1.1c — print layout, Excel structure, navigation feedback
+
+Team: lead + `frontend` + `backend` + `reviewer`. One commit at the end by the lead:
+`v1.1c: print layout, Excel structure, navigation feedback`. Nobody pushes, nobody amends.
+
+## Shared facts (every teammate)
+- App: **زخم**, Saudi-green governmental theme (`--color-accent #006c35`, hover `#004d26`, neutral greys, 2px corners),
+  Reem Kufi (`font-brand`) only for the word زخم. Money colours: IN `#15803d`, OUT `#b91c1c`.
+- **Docs already amended for this task** (read them, they are the spec): `docs/FRONTEND.md` `/owner/reports` bullet
+  (colour print) and *Transitions (v1.1c)*; `docs/BACKEND.md` API routes + *Export workbook (v1.1c)*. Decision logged.
+- **String keys are in `src/i18n/ar.ts` already** (lead-owned this task): `t.export.*` (sheet names, titles, labels),
+  `t.print.{printedAt, generatedBy}`, plus existing `t.reports.*`, `t.ledger.*`, `t.transaction.*`, `t.direction.*`,
+  `t.paymentMethod.*`, `t.common.currency`, `t.common.total`. Need another key or a different value? Message the
+  lead ("main"); never hard-code Arabic — Excel labels, CSS `content:` and number formats included (the currency in
+  the number format is built from `t.common.currency`).
+- `+`/`−` stays on every amount, on screen and on paper. Colour is never the only signal.
+- Every page stays dynamically rendered (nonce CSP). RTL logical utilities only. Contrast ≥ 4.5:1 for all text.
+- **LIVE DATABASE:** the local `.env` points at production Neon. Never sign up, sign in to create data, approve, add
+  entries, run seed or migrations. Signed-in screens cannot be browser-tested by you; say so rather than claim it.
+- No logic changes outside the export route: no action, query-semantics, auth, proxy, schema or scoping-gate change.
+- Gates before reporting a task complete: `npm run build`, `npm test` (274 baseline + your new tests), `npx tsc --noEmit`,
+  all exit 0 on the real exit code. **Build lock:** `mkdir .claude/build.lock` before `npm run build`,
+  `rmdir .claude/build.lock` right after (also on failure); if `mkdir` fails, the other teammate is building — run
+  tsc/vitest meanwhile and retry. Never serve on port 3000 (the user's server); use 3071 (frontend) / 3072 (backend).
+- If `tsc` fails with TS2307 from `.next/dev/types/validator.ts`, delete `.next/dev/types` (stale generated file).
+- Notes in `progress/<your-name>.md` (append a new dated section if the file exists). Do not `git commit`.
+
+## Ownership for this task
+| Path | Owner |
+|---|---|
+| `src/app/api/export/**` (route, new `workbook.ts` or similar, `export.test.ts`), `src/features/reports/queries.ts` (read-only unless a change is unavoidable — prefer none) | `backend` |
+| `src/app/globals.css`, `src/features/reports/components/**`, `src/components/chrome/**` (`nav.ts` behaviour frozen — `activeHref` is tested), new `src/components/NavProgress.tsx`, and **presentation-only lines** of `src/app/(owner)/owner/reports/page.tsx` (render the print footer / pass the print date; no data or auth change) | `frontend` |
+| everything, read-only | `reviewer` |
+| `src/i18n/ar.ts`, `docs/*`, `CLAUDE.md`, `PROGRESS.md`, `progress/TASKS.md` | lead |
+
+## backend
+| ID | Task | Status |
+|---|---|---|
+| X1 | **Excel export redesign** exactly as *Export workbook (v1.1c)* in `docs/BACKEND.md`. Sheet 1 «الحركات»: title block rows 1–3, header row 5 bold white on `006C35`, RTL, frozen at row 5, autofilter, content-sized widths, real Excel dates, signed numeric amounts with `#,##0.00 "<t.common.currency>"`, IN green / OUT red `B91C1C` fonts, zebra light grey, final row `SUMIF >0` / `SUMIF <0` / `SUM` as `{formula, result}`. Sheet 2 «الملخص»: وارد and صادر by category tables with totals rows, a net cell, and «حسب طريقة الدفع» derived in the route from the rows already fetched. Sheet 3 «معلومات»: establishment, period, generated-by, generated-at (Riyadh), app version. Keep `requireOwner()` first, establishment from the session only, data only via `listTransactions`/`getReport`, **no `db.` anywhere under `export/**`**, the 400 key behaviour, filename and `Cache-Control` unchanged. Split into a module beside the route to keep files ≲ 250 lines. **Tests** (`export.test.ts`, keep every existing case): the workbook loads back with exceljs; sheet names are the three `t.export.*` names in order; row 5 of «الحركات» is the header with the expected labels; amount cells are numbers with the sign by direction; date cells are `Date`s; the totals row carries `SUMIF`/`SUM` formulas with correct cached results; «الملخص» payment-method totals match the rows. Mutation-check at least the formula and the sign assertions. | done |
+
+## frontend
+| ID | Task | Status |
+|---|---|---|
+| P1 | **Print redesign** per the `/owner/reports` bullet in `docs/FRONTEND.md`. Replace the black-and-white `@media print` block with a designed colour version: header (outline icon — **no `grayscale` any more**, زخم in `font-brand`, establishment name, period, print date via `todayISO()`/`<DateText>`); report tables with a green header row (white text), IN amounts green / OUT red with the `+`/`−` kept, zebra rows, a highlighted net box; a print-only footer line `t.print.generatedBy` (a real element, not CSS `content:`, because the text must come from `ar.ts`) and page numbers via `@page` margin boxes (`counter(page) " / " counter(pages)` — digits only, no Arabic in CSS; physical margin-box names are unavoidable there and are the one allowed exception to logical-only). `print-color-adjust: exact` (+ `-webkit-`) on the coloured parts. Fit A4 and Letter (no fixed page `size`, margins ~12–15mm, nothing wider than the printable area). Nav, top bar, buttons, footer, range picker, progress bar all hidden. Print text contrast ≥ 4.5:1 on its fills. Verify with Chrome's print preview on a signed-out-reachable proxy if needed, otherwise by code + a static HTML fixture in your scratchpad — never with real data. | done |
+| N1 | **Navigation feedback** per *Transitions (v1.1c)*. (a) `src/components/NavProgress.tsx`: a thin (2–3px) green bar fixed at the top edge while a nav link's navigation is pending — `useLinkStatus` inside the nav `Link`s, or a pathname-transition hook; no library; `aria-hidden`; `no-print`; under reduced motion a static bar (no animation). It must sit above the top bar (z-index) without shifting layout. (b) The tapped nav item (side nav and tab bar) takes its active **style** immediately via `useLinkStatus`; `aria-current` stays on the real current page; `nav.ts` untouched; no onClick state. (c) Content fade in `globals.css` becomes ~220ms with a 4px rise (`opacity` + `translateY(4px)` → none), **no fill mode** (keep v1.1a's reason: a filled opacity/transform animation would trap the fixed Toast forever), inside `prefers-reduced-motion: no-preference`, nothing in print. Verify on `npx next start -p 3071` with DevTools Network "Fast 3G" as far as signed-out pages allow (e.g. `/login` ↔ `/signup` links), and state plainly that السجل / التقارير need a session and are left to the user. | done |
+
+## reviewer (read-only)
+| ID | Reviews | Status |
+|---|---|---|
+| R-brief | Every brief above against `docs/FRONTEND.md`, `docs/BACKEND.md`, `CLAUDE.md` and the logged Decisions, before any code | done |
+| R-X1, R-P1, R-N1 | Each completed task: RTL rules; contrast (measure, including print fills and Excel header/fonts); no logic changes outside the export route; **scoping gate untouched** (`src/features/transactions/scoping.test.ts` unchanged, no `db.` under `export/**`, export still via `listTransactions`/`getReport`); print hides all chrome; no hard-coded Arabic outside `ar.ts` (Excel labels, CSS `content`, number formats included); every page still dynamic | done — final sweep clean |
+
+## v1.1c — Resolutions after R-brief (lead, binding — these amend X1/P1/N1 above)
+Full evidence: `progress/reviewer.md` → "v1.1c R-brief".
+
+**backend / X1**
+- **B1:** update the two stale cases in `export.test.ts` **in place** — 3 sheets (was 2, :152); the OUT amount is at row 6 and equals **−1234.5** (was row 2, +1234.5, :166). Delete no case.
+- **S1:** leave **one blank row** between the last data row and the totals row; with **0 rows**, write plain `0`s instead of formulas. Test the empty period (no circular reference).
+- **S2:** autofilter range `A5:H<lastDataRow>`, totals row outside it. The `SUMIF` totals ignore active filters — accepted and documented (they are always whole-period totals).
+- **S3:** generated-at is **text** formatted with `Intl` in `Asia/Riyadh`, `en-US` digits (sheet 1 row 3 and «معلومات»). Ledger dates via `isoToDate(row.date)`, never `new Date("…T00:00")`.
+- **S4 (lead decisions):** (a) sheet 1 keeps the **existing 8 columns in the existing order**, incl. the وارد/صادر text column; (b) صادر amounts in «الملخص» are **negative**, matching sheet 1; (c) «حسب طريقة الدفع» columns `طريقة الدفع | وارد | صادر | الصافي`, enum order, **methods with no rows in the period omitted**.
+- **S5:** cached results computed from integer halalas, divided by 100 once.
+- **S6:** zebra fill `#FAFAFA` (never `#F2F2F2`); totals/net fills neutral (white or `#FAFAFA`), never accent-soft under green text.
+- **S7:** widths exclude title rows 1–3 (or merge them A–H); measure formatted text; clamp ~10–50; `wrapText` on the note column.
+- **S8:** `workbook.ts` is **pure** (rows, report, meta in → Workbook out; no query, no `@/lib/db`). Add an `export.test.ts` case that reads every non-test file under `src/app/api/export/` and asserts no `@/lib/db` import and no `db.`/`tx.`/`client.` call.
+- **S9:** always assign fresh style objects (`cell.font = {...}`); never mutate shared ones.
+- **Notes to act on:** test that `t.common.currency` contains no `"`. Accepted as-is: two separate reads (rows vs `getReport`) can disagree by an entry added in between; five frozen rows on a phone.
+
+**frontend / P1**
+- **S1:** the print footer (`t.print.generatedBy`) is an **ordinary element at the end of the page**, printed once — **never `position: fixed`** (Chrome repeats it on every page without reserving space).
+- **S2:** `@page` margin box for page numbers gets **`direction: ltr`** (else "3 / 1"); check Chrome print preview with "Headers and footers" on and off.
+- **S3:** print zebra `#fafafa`; the net box may be accent-soft only because a positive net is `gray-900` via `signed` — never colour a positive net green on it.
+- **S4:** delete the unlayered `* { color:#000 !important; background:transparent !important }` and the black th/td borders. Use **one mechanism**: the unlayered print block with element/class selectors (Table, Card, MoneyText are not yours this task — style them from CSS, don't edit them). `.print-only { display:block }` still beats `flex` → inner wrapper. `print-color-adjust: exact` + `-webkit-` **once on `html`** in print (inherited). Table's `overflow-x-auto` wrapper → `overflow: visible` in print.
+- **Note:** "تاريخ الطباعة" is the server render time — accepted.
+
+**frontend / N1**
+- **B1:** mount **one** `<NavProgress>` at the root of `AppShell`, **outside the nav and outside `#main`**, `z-50`, fed by a small client context. Each nav `Link` gets a child that calls `useLinkStatus()` and writes its pending state into the context from an effect, **clearing it in the effect cleanup** (a link unmounting while pending must not leave the bar on). The "pathname-transition hook" option is **withdrawn** (the App Router has no navigation-start event; it would need onClick state, which is forbidden).
+- **S1:** bar colour **`#a7cdb6`** (`accent-line`, 5.77:1 on the dark strip) — the user's "green bar" in the light green of the family; `#006c35` on the `#004d26` strip is 1.53:1, invisible. ≤ 3px tall, inside the top strip.
+- **S3:** delay showing the bar ~100 ms to avoid flicker. Never add `prefetch={false}` to make it show.
+- **Pending style:** read in the Link's child — `:has()` (e.g. `has-data-[pending]:…`) or the child draws the highlight. Two items may look active for a moment until the navigation commits — accepted.
+- **Fade:** `@media screen and (prefers-reduced-motion: no-preference)` so print is literally excluded. The skeleton and then the page both fade+rise (two small jumps) — accepted, will be told to the user.
+- **S2 (verification):** only (c) the fade can be checked signed-out. (a) the bar and (b) the pending style are left to the user; say so. Expectation for the user: in production most nav targets are prefetched with a `loading.tsx`, so the bar mostly shows on slow first taps (Fast 3G helps).

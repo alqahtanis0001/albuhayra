@@ -3,11 +3,18 @@
 /**
  * Bottom tab bar on phones, side nav from md. Client-side only because it reads
  * the current path to mark the active tab; it fetches nothing.
+ *
+ * A tapped item takes the active *look* at once, while its navigation is
+ * pending: <LinkPending> inside the Link sets data-pending, and the
+ * `has-data-pending:` classes repeat the active style. aria-current still
+ * follows the real page (activeHref), so for a moment two items can look
+ * active — accepted (docs/FRONTEND.md, Transitions v1.1c).
  */
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { NAV_ICONS } from "../icons";
+import { LinkPending } from "../NavProgress";
 import { activeHref, type NavItem } from "./nav";
 
 export function BottomTabs({ items, label }: { items: NavItem[]; label: string }) {
@@ -31,11 +38,12 @@ export function BottomTabs({ items, label }: { items: NavItem[]; label: string }
                 className={`flex min-h-14 flex-col items-center justify-center gap-0.5 border-t-2 px-1 py-2 text-xs font-medium ${
                   isActive
                     ? "border-accent bg-accent-soft text-accent-dark"
-                    : "border-transparent text-gray-600"
+                    : "border-transparent text-gray-600 has-data-pending:border-accent has-data-pending:bg-accent-soft has-data-pending:text-accent-dark"
                 }`}
               >
                 <Icon size={22} />
                 {item.label}
+                <LinkPending />
               </Link>
             </li>
           );
@@ -67,11 +75,12 @@ export function SideNav({ items, label }: { items: NavItem[]; label: string }) {
                 className={`flex min-h-11 items-center gap-2 border-s-4 px-3 text-sm font-medium ${
                   isActive
                     ? "border-accent bg-accent-soft font-semibold text-accent-dark"
-                    : "border-transparent text-gray-700 hover:bg-gray-100"
+                    : "border-transparent text-gray-700 hover:bg-gray-100 has-data-pending:border-accent has-data-pending:bg-accent-soft has-data-pending:font-semibold has-data-pending:text-accent-dark"
                 }`}
               >
                 <Icon size={20} />
                 {item.label}
+                <LinkPending />
               </Link>
             </li>
           );

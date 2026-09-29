@@ -1308,3 +1308,207 @@ The S1 fix is confirmed. Below sm at 360px: 32 padding + 132.3 wordmark (24×389
 
 **NOTE**
 - **The first 180ms.** For the 180ms of each run, the page root is a stacking context. A Toast shown at the very moment of navigation could sit under the bars for that long. Toasts follow a user action, so in practice this does not occur.
+
+## 2026-09-29 — v1.1c R-brief (pre-code review of X1, P1, N1)
+Read: CLAUDE.md, PROGRESS.md (Decisions v1.1a / v1.1a-2 / v1.1c, Known issues, Gotchas), docs/FRONTEND.md (reports bullet, Transitions v1.1c), docs/BACKEND.md (API routes, Export workbook v1.1c, Security), ar.ts diff (t.export.*, t.print.*), TASKS.md v1.1c, export route + test, reports components + page, globals.css, chrome/**, Toast, scoping gate FILES, Next 16.3.6 use-link-status doc, exceljs 4.4.0 typings. Prototyped exceljs in the scratchpad: `views:[{rightToLeft,state:'frozen',ySplit:5}]` + `autoFilter` + `{formula,result}` + `#,##0.00 "ر.س"` + UTC-midnight Date all round-trip; the XML escaping of the quotes is correct; no `fullCalcOnLoad` (calcId 171027, so current Excel recalculates; viewers show the cached `<v>`).
+
+Contrast measured (WCAG): white/#006c35 6.57 · #15803d on #fff 5.02, #f4f4f4 4.56, **#f2f2f2 4.48 FAIL**, #eee 4.32 FAIL, **#e8f3ec (accent-soft) 4.41 FAIL**, #f0fdf4 4.79 · #b91c1c on #f2f2f2 5.78, on #e8f3ec 5.69 · **#006c35 on #004d26 1.53** · white on #004d26 10.05 · #a7cdb6 on #004d26 5.77.
+
+**BLOCKER**
+- X1-B1 — the brief says "keep every existing case", but two existing cases cannot survive the spec: `export.test.ts:152` asserts `worksheets` length 2; `:166` asserts row 2 col 3 === +1234.5 for an **OUT** row (spec: header at row 5, data from row 6, OUT negative). Fix: "update those two in place (3 sheets; row 6 amount === −1234.5), delete none".
+- N1-B1 — a fixed bar rendered inside a nav `Link` (the Next doc's useLinkStatus pattern) is invisible on desktop: SideNav's `<ul class="md:sticky">` (RoleNav.tsx:58) is a stacking context at level 0, under the sticky `z-30` TopBar covering y 0–69px, and no z-index inside it escapes. BottomTabs is fixed z-40, so phones would work — the bug hides at one breakpoint. Fix: ONE `<NavProgress>` mounted at AppShell root (outside nav and `#main`, z-40/z-50), fed by a tiny client context; each nav Link holds a child reporter that calls `useLinkStatus()` and writes pending into the context in an effect, clearing it in the effect cleanup (else a link unmounted while pending sticks the bar on). Also drop "or a pathname-transition hook": App Router has no navigation-start event, so that option needs onClick state, which the brief forbids.
+
+**SHOULD**
+- X1-S1 empty period: with 0 rows the totals formula becomes `SUM(C6:C5)` while sitting in row 6 → Excel normalises it to C5:C6 = circular-reference warning on open. Fix: one blank row between the last data row and totals; with 0 rows write plain 0s (no formula). Test the empty case.
+- X1-S2 autofilter ref = `A5:H<lastDataRow>` (not the header alone), totals row outside it (the blank row keeps sort/filter from dragging totals into data). For the lead: SUMIF totals ignore filters (whole-period totals) — accept and state it.
+- X1-S3 generated-at "(Riyadh)": exceljs writes a Date as a UTC serial and Excel has no TZ, so it would show UTC. Write it as text formatted with Intl `timeZone: Asia/Riyadh`, en-US digits (sheet 1 row 3 and «معلومات»). Ledger dates: `isoToDate(row.date)` (UTC midnight), never `new Date("…T00:00")`.
+- X1-S4 underspecified shapes that tests must pin: (a) sheet-1 column list/order (recommend the existing 8 in the same order, keeping the direction text column so the sign is not the only signal); (b) sign of صادر amounts in «الملخص» (recommend negative, matching sheet 1 and the screen's −); (c) «حسب طريقة الدفع» columns (recommend طريقة الدفع | وارد | صادر | الصافي, enum order; methods with no rows omitted or zero — pick one).
+- X1-S5 cached `result`s computed from integer halalas then /100, never a float sum of riyals.
+- X1-S6 contrast: zebra must be ≥ #F4F4F4 (Excel's usual F2F2F2 fails the green at 4.48) — use F7F7F7/FAFAFA; totals/net fills must not be accent-soft under green text (4.41).
+- X1-S7 column widths: exclude title rows 1–3 from the width calc (or merge A1:H1…A3:H3); measure the *formatted* text ("1,234.50 ر.س", not 1234.5); clamp (e.g. 10–50) and `wrapText` on the note column.
+- X1-S8 "no `db.` under export/**" has no enforcement for a new `workbook.ts` (the gate's FILES lists only route.ts, and scoping.test.ts must stay unchanged). Fix: keep workbook.ts pure (rows, report, meta in → Workbook out; no query/db import) and add an export.test.ts case that reads every non-test file in `src/app/api/export/` and asserts no `@/lib/db` import and no `(db|tx|client).` receiver call.
+- X1-S9 exceljs shared-style trap: column/row styles are shared objects — always assign fresh objects (`cell.font = {...}`), never mutate `cell.font.color`.
+- P1-S1 footer: a normal-flow element at the end (prints once), never `position: fixed` (Chrome repeats it per page but reserves no space, so it overlaps the last lines).
+- P1-S2 page-counter bidi: margin boxes take the root's `rtl`, so `counter(page) " / " counter(pages)` renders visually as "3 / 1". Add `direction: ltr` in the margin box (inside the allowed physical exception) and check the preview with Chrome's "Headers and footers" on and off (duplicate numbers possible).
+- P1-S3 print contrast: zebra ≥ #f4f4f4 (gray-50 #fafafa fine; gray-100 #f4f4f4 borderline 4.56); the net box may be accent-soft only because a positive net is gray-900 (`signed`) — do not colour a positive net green on it (4.41).
+- P1-S4 the old `* { color:#000 !important; background:transparent !important }` and `th,td { border:#000 }` must go entirely. Layered `!important` beats unlayered `!important`, so mixing `print:` utilities with the unlayered block surprises — pick one mechanism (the unlayered block with selectors like `thead th`, `tbody tr:nth-child(even)`, since Table/Card/MoneyText are not frontend-owned this task). `.print-only{display:block}` still beats `flex` → inner wrapper. `print-color-adjust` is inherited: set it (+`-webkit-`) once on `html` in print. Table's `overflow-x-auto` wrapper → `overflow: visible` in print (clipping at page breaks).
+- N1-S1 bar colour: `#006c35` on the TopBar's 4px `#004d26` strip is 1.53:1 — invisible. Use white (10:1 there) or accent-line #a7cdb6 (5.77), ≤3px so it stays inside the strip.
+- N1-S2 verification cannot happen as briefed: the `/login`↔`/signup` links live in `src/features/auth/components/**` (not owned), are not nav Links, and AppShell is not on auth pages. Only (c) the fade is verifiable signed out; (a) the bar and (b) the pending style are left to the user entirely — say so in the brief.
+- N1-S3 expectation: with production viewport prefetch and a loading.tsx on every nav target, useLinkStatus is skipped when the route is prefetched and ends when history updates (skeleton commit, ~20ms measured in v1.1a-2), not when data lands. The bar and pending style will show mostly on slow first taps. Do NOT add `prefetch={false}` to make it visible. A ~100ms appearance delay avoids flashes.
+
+**NOTE**
+- N1-N1 `@media (prefers-reduced-motion: no-preference)` also matches print — use `screen and (…)` so "nothing animated in print" is literal.
+- N1-N2 double rise: skeleton then page both fade + rise 4px → two small jumps per navigation on the 17 loading-bound routes. Accept or tell the user.
+- N1-N3 pending style on the Link from a child hook: via `:has()` (`has-data-[pending]:…`) or the child paints the visual. The old active item stays styled until commit (two "active" items briefly) unless the context also de-styles it.
+- N1-N4 transform containing block: Toasts only follow action failures, not navigation, so the 220ms window is theoretical; NavProgress must not live inside `#main`.
+- P1-N1 "تاريخ الطباعة" is the server-render time; a tab left open overnight prints yesterday's date. Accept or relabel.
+- P1-N2 A4 is the binding width (180mm printable at 15mm margins ≈ 680 CSS px), Letter the binding height; content is already `width:100%`.
+- X1-N1 5 frozen rows take a lot of height in phone Excel; acceptable.
+- X1-N2 rows (paginated listTransactions) and getReport are separate reads; a concurrent insert can make «الملخص» differ from the sheet-1 SUMIFs. Pre-existing, now visible side by side.
+- X1-N3 numFmt currency from `t.common.currency` — assert it contains no `"`; negatives render with an ASCII hyphen (the app's U+2212 is screen-only). Check RTL rendering of `-1,234.50 ر.س` once in real Excel.
+
+## 2026-09-29 — v1.1c R-P1 (print redesign)
+Files: globals.css (print block), PrintHeader.tsx, new PrintFooter.tsx, ReportTables.tsx (hook classes), reports/page.tsx. Checked against docs/FRONTEND.md /owner/reports, TASKS P1, and my R-brief items P1-S1..S4.
+
+**Result: no BLOCKER.** One SHOULD, the rest NOTE.
+
+Verified:
+- **Chrome hidden:** TopBar, SideNav, BottomTabs, Footer, h1, range picker, export/print button row and `.nav-progress` (NavProgress.tsx:51) all carry `no-print`, which is still `display:none !important`.
+- **+/− kept:** MoneyText is untouched. Category rows and tfoot totals pass `direction`; the net keeps `signed`.
+- **Old rules gone:** the old `* {color/background !important}` and the black th/td borders are removed. `print-color-adjust` (+ `-webkit-`) is set once, on `html`.
+- **Footer:** an ordinary `<p class="print-only report-print-footer">` after the tables. Not fixed. Its text comes from `t.print.generatedBy`.
+- **Page numbers:** `@page @bottom-center` uses `counter(page) " / " counter(pages)` with `direction: ltr`. Digits only. The only Arabic in globals.css is the pre-existing line-18 comment.
+- **Page size:** no fixed `size`; margins are 14/12/16 mm.
+- **Compiled CSS:** in the current chunk `44o5ad9lq7wai.css` (built 22:07:02; globals.css saved 22:06:52), the `@page` block is intact, Lightning CSS kept the nested margin box, and every `.report-*`, `thead th`, `tfoot`, `.overflow-x-auto`, `.min-h-dvh` rule sits inside `@media print` at top level (not layered). I checked the brace depth with a script.
+- **No leak to screen:** `report-card` / `report-net` have no rules outside `@media print`. `.print-only` is `display:none` on screen, so PrintFooter adds no gap to the flex column.
+- **RTL:** only logical properties are used, plus `text-align:center`. The one physical name is the margin box, which is allowed.
+- **Contrast, re-measured with the WCAG formula:**
+
+  | Text | Background | Ratio |
+  |---|---|---|
+  | white | #006c35 | 6.57 |
+  | #15803d (IN) | #fafafa (zebra) | 4.81 |
+  | #15803d (IN) | #fff | 5.02 |
+  | #b91c1c (OUT) | #fafafa | 6.20 |
+  | #b91c1c (OUT) | #e8f3ec (net box) | 5.69 |
+  | #171717 | #e8f3ec (net box) | 15.76 |
+  | #004d26 (card h2) | #fff | 10.05 |
+  | #525252 (dt, footer, page numbers) | #fff | 7.81 |
+  | #666 (EmptyState) | #fff | 5.74 |
+
+  All are ≥ 4.5. No green text is placed on accent-soft.
+- **page.tsx:** the diff adds only `todayISO` + `PrintFooter` imports, `printedAt={todayISO()}` and `<PrintFooter />`. The auth, data and range logic are unchanged.
+- **Gate:** `tsc --noEmit` exits 0 (re-run by me).
+
+The items frontend flagged:
+- **tfoot as `table-row-group`: reasoning correct.** Chromium repeats a `table-footer-group` in every fragment of a table that spans pages, just as it repeats the thead. A repeated «إجمالي الوارد» at a page foot reads as a page subtotal, which is a wrong-number reading. As a row group it paints in DOM order, and in `CategoryTable` TFoot comes after TBody, so the total prints once, last. `break-before: avoid` applies to table row groups (CSS Fragmentation), so the total cannot be orphaned at the top of a page with no rows. The thead still repeats. Accepted.
+- **Global `th, td { padding-block: 4px }` in print:** it also applies if someone prints the ledger or settings page. Harmless, even an improvement. NOTE only.
+- **`.min-h-dvh { min-height:0 }` in print:** it also reaches the auth and not-found frames. Harmless, since nothing there is meant to print. NOTE only.
+- **Hook classes:** there is no on-screen change. Card joins the class into its className and no rule outside print targets it.
+
+**SHOULD**
+- **P1-S5:** `PrintHeader` renders the print date with `<DateText compact>`, which is Gregorian only. CLAUDE.md states "Hijri shown alongside in the UI", and DateText's own doc reserves `compact` for dense table columns. Fix: drop `compact` — the non-compact span is `flex flex-col`, which sits fine in the `<dd>`. (The period line was already Gregorian-only before v1.1c; it can stay as is or get the same treatment — lead's call.)
+
+**NOTE**
+- **tfoot DOM order:** the once-last total now depends on TFoot staying after TBody in the DOM. HTML also allows tfoot before tbody, and a table-footer-group would still render it last, but a row group would not. Worth one line in a comment beside `tfoot { display: table-row-group }` or in the Table component.
+- **Evidence I relied on:** frontend's headless PDFs (A4/Letter, background graphics off, headers/footers on/off, 1 page for 12 categories, 3 for 43). I did not re-print; my checks were by code and on the compiled CSS. With "Headers and footers" on, frontend reports that our margin box replaces Chrome's bottom footer and Chrome's date/title still print at the top. That is acceptable.
+- **Left to the user:** the real `/owner/reports` print from the browser dialog, with their own data.
+
+## 2026-09-29 — v1.1c R-X1 (Excel export redesign)
+Files: route.ts (87 lines), workbook.ts (105), ledgerSheet.ts (170), summarySheet.ts (197), style.ts (123), export.test.ts (436, size accepted by the lead). I inspected the sample workbook's XML directly (JSZip). I re-ran `vitest` on export + scoping: 77/77.
+
+**Result: no BLOCKER.** One SHOULD, the rest NOTE.
+
+Verified:
+- **Security invariants:**
+  - `requireOwner()` is the first statement in the route.
+  - `establishmentId` and the meta (`user.name`, `user.establishmentName`) come only from the session.
+  - Data is read only through `listTransactions` / `getReport`. The `allRows` pager is unchanged.
+  - The 400 key behaviour, the filename, Content-Type and `Cache-Control: private, no-store` are unchanged, and a test still pins them.
+  - `git diff HEAD` is empty for scoping.test.ts, both queries.ts files and src/lib.
+  - No `db`/prisma reference exists in any non-test export file.
+- **No Arabic literals:** Arabic appears only in comments. Every label comes from `t.*`, and `MONEY_FORMAT` is built from `t.common.currency`. A test asserts the currency contains no `"`.
+- **Sheet 1 XML:**
+  - `rightToLeft="1"` and a frozen pane (`ySplit="5"`, `topLeftCell="A6"`).
+  - `autoFilter ref="A5:H12"`: header plus data only. The totals sit at rows 14–16 after a blank row 13.
+  - Merges are A1:H1, A2:H2, A3:D3, E3:H3 and the totals labels A:B.
+  - Column widths are measured from the header and body only, clamped to 10–50. The note column is 50 wide with wrap.
+- **Dates:** `isoToDate` gives UTC midnight with `yyyy-mm-dd`, and they read back as `Date`.
+- **Signs:** IN is positive and OUT negative, on sheet 1 and in «الملخص».
+- **Cached results:** each is summed in integer halalas and divided once in `riyals()`. The `+0` kills -0.
+- **Empty period:** plain 0s with no formula, and the autofilter becomes `A5:H5`.
+- **Generated-at:** Riyadh text built by Intl with `h23`. The test for 21:30Z → the next day 00:30 is good.
+- **Styles:** every style helper assigns a freshly built object, so no style is mutated in place.
+- **Contrast (WCAG):**
+
+  | Text | Background | Ratio |
+  |---|---|---|
+  | white | #006C35 | 6.57 |
+  | #15803D | #FAFAFA (zebra) | 4.81 |
+  | #B91C1C | #FAFAFA | 6.20 |
+  | #006C35 (title) | white | 6.57 |
+  | #4B5563 (meta) | white | 7.56 |
+
+  Totals rows have no fill, so green on white is 5.02.
+- **Sample formulas are consistent:** SUMIF>0 15375.25, SUMIF<0 −4784.49, SUM 10590.76. «الملخص» has `SUM(B6:B6)`, `SUM(B10:B13)` and net `B7+B14`, with the same three numbers. The method table has `SUM(B20:B23)` / `SUM(C20:C23)` / `SUM(D20:D23)`, again the same.
+
+**SHOULD**
+- **X1-S10: the «الملخص» formulas are not pinned by any test.** Only their cached `result` is asserted (`cached(...)` in the category test, `net.result` in the method test). The cached value comes from `report.*` / the halalas sums, not from the formula. So these mutations all stay green:
+  - the net formula written as `B7-B14` (the classic IN − OUT slip, which with OUT already negative doubles the outflow);
+  - a SUM range that is off by one into the header or the totals row;
+  - a method-table SUM on the wrong column.
+
+  Desktop Excel recalculates on open (calcId 171027), so the owner would see the formula's wrong number, not the cached right one. That is the undetectable-wrong-number class, in the file most likely to be forwarded. The ledger sheet's formulas *are* pinned by string.
+
+  Fix: add one case with a tiny evaluator for the three shapes used — `SUM(Xa:Xb)`, `SUMIF(Xa:Xb,">0"|"<0")`, `Xn+Xm`. The case evaluates every formula cell on sheets 1 and 2 from the loaded cell values and asserts that it equals the cell's cached `result`. This pins every formula at once, independent of the layout. Mutation-check it with `+`→`-` in the net and an off-by-one range.
+
+**NOTE**
+- **X1-N4, the source scan can be bypassed.** It catches `@/lib/db` and `db.`/`tx.`/`client.` receivers. It misses a relative `../../../lib/db` import and a direct `@/generated/prisma` / `@prisma/client` import with a fresh client. Consider `/lib\/db\b|generated\/prisma|@prisma\//`. Low risk; the current regexes are already mutation-checked.
+- **X1-N5, no negative-net colour.** The net cells in «الملخص» and on sheet 1 have no colour for a negative value, unlike the screen's `signed`. The sign still carries the meaning, so this is acceptable.
+- **X1-N6, `COLOUR.muted` is `#4B5563`.** That is Tailwind's stock blue-tinted gray-600, not the app's neutral `#525252`. Cosmetic only; the contrast is fine either way.
+- **X1-N7, no `_xlnm._FilterDatabase` defined name.** exceljs writes no such name for the autofilter. Excel and LibreOffice rebuild it themselves; this is the same as before v1.1c.
+- **Carried over:** X1-N2 (rows and getReport are separate reads) and X1-N3 (check once in real Excel how `-1,234.50 ر.س` renders in an RTL sheet) are still open, for the user's manual check.
+
+## 2026-09-29 — v1.1c R-N1 (navigation feedback) + R-P1 follow-ups
+Files: NavProgress.tsx (new), AppShell.tsx, RoleNav.tsx, globals.css (fade + .nav-progress). Checked on the compiled chunk `04z-_yo4txg99.css` (built 22:11:10, newer than every source file). Gates I re-ran: `tsc --noEmit` 0; vitest 286/286 (one more than reported — backend's concurrent case).
+
+**Result: no BLOCKER, no SHOULD.**
+
+Verified:
+- **The R-brief blocker N1-B1 is resolved as recommended.** One `<NavProgress>` is the first child of AppShell's root div, outside the nav and `#main`. The provider adds no DOM node, and no ancestor creates a stacking context or a transform. It is fixed at z-50 over the sticky z-30 TopBar, sitting in its 4px `#004d26` strip.
+- **The skip link's `focus:z-50`:** same stacking context and later in the DOM, so it would paint above the bar. They never overlap anyway (bar 0–3px, link from top-2).
+- **The counter in `LinkPending` is correct.**
+  - The effect runs only while `pending` and returns `track()`'s decrement as its cleanup. So `pending → false`, unmount and a superseding click (useLinkStatus clears the earlier link) all release it.
+  - Under StrictMode the sequence +1, −1, +1 nets to 1.
+  - The count cannot go negative: a decrement exists only after an increment.
+  - The two contexts (a stable `track` and the boolean) mean only the bar re-renders. The Provider's children are the same element, so React skips them.
+  - The default no-op context is safe outside the provider.
+- **The delay:** `transition: visibility 0s 100ms` is declared only on `[data-active]`. A transition takes its timing from the *new* style, so the bar appears after 100ms and hides at once (the base rule has none). A navigation under 100ms never shows it.
+- **The no-fill keyframes:** `from { inline-size: 10% }` ends on the rule's own 90%, so there is no fill and nothing persists. Under reduced motion the width is a static 100%. The animation is inside `@media screen and (…)`, so it never runs in print.
+- **Pending vs hover:** `:has([data-pending])` compiles to 0,2,0, the same specificity as `.hover\:bg-gray-100:hover`, and it sits after it in the chunk (offset 30689 vs 29191), so pending wins over hover. That matters on desktop, where the pointer is still over the item just clicked. Only the inactive branch carries the `has-data-pending:` classes. The span is `hidden`, so it is out of the accessibility tree and takes no flex gap.
+- **Semantics:** `aria-current` still comes only from `activeHref`. There is no onClick, no `prefetch` prop and no `"use client"` on AppShell. `nav.ts`, TopBar and Footer are identical to HEAD. No page changed, so every page is still dynamic.
+- **The bar:** `aria-hidden`, `no-print`, `#a7cdb6` at 3px, with logical insets, so it grows from the inline start (the right edge in RTL).
+- **The fade:** `@media screen and (prefers-reduced-motion: no-preference)`, 220ms, opacity + translateY(4px), no fill. Print and reduced motion give `none`, which frontend measured.
+- **Contrast:** the bar `#a7cdb6` on `#004d26` is 5.77; the pending style, `#004d26` on `#e8f3ec`, is 8.84 (identical to the active style).
+- **No Arabic:** only in a comment.
+
+**NOTE**
+- **The untested join:** `useLinkStatus` → context → bar has never run with a real session. frontend verified the CSS and the pending style against the compiled chunk, but the wiring only on paper. It is left to the user: DevTools "Fast 3G", a first tap on السجل / التقارير.
+- **Scope:** only the nav items drive the bar. The TopBar account link and in-page links (dashboard, ledger edit) do not. This matches the brief.
+- **Pending-style layout shift:** the side nav's pending style adds `font-semibold`, which reflows that item's label a little. It is the same shift the active style already causes on commit, so acceptable.
+
+**R-P1 follow-ups:**
+- **S5 is done.** PrintHeader now uses `<DateText date={printedAt} className="items-start" />`, which gives Gregorian plus the Hijri line. frontend's `items-start` is a good catch: a stretched LTR `<bdi>` inside an RTL flex column would otherwise push the digits to the far left.
+- **The tfoot note is done.** A comment beside `<TFoot>` in ReportTables.tsx:88 says it must stay after TBody.
+
+## 2026-09-29 — v1.1c R-X1 follow-up (X1-S10, X1-N4)
+- **Closed.** export.test.ts gains "has every formula on both sheets compute its own cached result": a strict evaluator for SUM / SUMIF(>0,<0) / A+B that fails on an unknown formula shape or a reference to a cell holding no amount. It compares in halalas and expects exactly 9 formulas (3 on the ledger, 3 in the category summary, 3 method totals). Pairing it with the existing cached-value assertions pins both the numbers and the formulas.
+- **The scan** is now `/lib\/db\b|generated\/prisma|@prisma\//`, which also catches relative and direct-Prisma imports.
+- **Mutations:** backend reports 4 now fail (net + → −, a method range one row long, the ledger range into the blank row, a category range into the header). I did not re-run them, because I am read-only.
+- **Checks:** no source file changed, scoping.test.ts is still unchanged vs HEAD, and the export tests pass 20/20 (re-run by me).
+
+## 2026-09-29 — v1.1c final sweep
+**Verdict: clean for the commit. No BLOCKER, no SHOULD.**
+
+X1 follow-ups:
+- The evaluator case expects 9 formulas and is strict on cells with no amount; the export tests pass 20/20.
+- The no-db regex is `/lib\/db\b|generated\/prisma|@prisma\//`.
+- `style.ts` muted is `FF525252`.
+- The regenerated sample (22:13:15) has FF525252 in its styles and no FF4B5563. Its 9 formulas are unchanged; ledger and summary totals agree (15375.25 / −4784.49 / 10590.76) and the autofilter is A5:H12.
+
+Tree vs HEAD:
+- **Frozen files:** no diff in scoping.test.ts, src/lib, both queries.ts, nav.ts, TopBar, Footer, prisma, proxy.ts, next.config.mjs, package.json or package-lock.json.
+- **Changed files:** 11 modified. They are the four lead-owned docs, three progress notes, reports/page.tsx, the export route and test, globals.css, AppShell, RoleNav, PrintHeader, ReportTables and ar.ts.
+- **Untracked files:** 6, all intended: export ledgerSheet / style / summarySheet / workbook, NavProgress, PrintFooter.
+- **Routes:** only `health` and `export` have a route.ts.
+- **Database access:** no db/prisma reference under export/** outside the test.
+- **Arabic:** none in changed source outside comments; test titles aside.
+- **Direction:** no physical-direction utility, no `style=`, no `<script>`, no dangerouslySetInnerHTML added. The `@page @bottom-center` margin box is the one allowed exception.
+- **Print:** no-print is present on TopBar, both navs, Footer, NavProgress, the range picker, the reports h1 + button row and Toast.
+
+Build and gates:
+- **Build:** `.next/BUILD_ID` is 22:14:12, newer than every source file (newest is style.ts at 22:12:53), so I did not rebuild.
+- **Static pages:** `prerender-manifest` routes = `/_global-error` only, with no dynamicRoutes. There is no `export const revalidate`, force-static or generateStaticParams; the `revalidatePath` calls are pre-existing.
+- **Gates:** `tsc --noEmit` 0; vitest 286/286 in 15 files.
+
+**Left to the user:** a real print of /owner/reports; opening the export in real Excel (how `-1,234.50 ر.س` looks in an RTL sheet); the progress bar and pending style with a session on Fast 3G.

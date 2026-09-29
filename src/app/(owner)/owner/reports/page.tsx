@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { PrintButton } from "@/features/reports/components/PrintButton";
+import { PrintFooter } from "@/features/reports/components/PrintFooter";
 import { PrintHeader } from "@/features/reports/components/PrintHeader";
 import { ReportRangePicker } from "@/features/reports/components/ReportRangePicker";
 import { ReportTables } from "@/features/reports/components/ReportTables";
@@ -8,6 +9,7 @@ import { parseReportRange } from "@/features/reports/components/reportRange";
 import { getReport } from "@/features/reports/queries";
 import { t } from "@/i18n/ar";
 import { requireOwner } from "@/lib/auth";
+import { todayISO } from "@/lib/dates";
 
 export const metadata: Metadata = { title: t.reports.title };
 
@@ -32,6 +34,7 @@ export default async function OwnerReportsPage({
         establishmentName={user.establishmentName}
         from={range.from}
         to={range.to}
+        printedAt={todayISO()}
       />
 
       <ReportRangePicker range={range} basePath={BASE} />
@@ -48,6 +51,8 @@ export default async function OwnerReportsPage({
       </div>
 
       <ReportTables report={report} />
+
+      <PrintFooter />
     </div>
   );
 }
