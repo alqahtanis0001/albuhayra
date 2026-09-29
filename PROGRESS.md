@@ -20,7 +20,7 @@ npm run typecheck        # tsc --noEmit, not part of build
 **Phase:** Phase 1 complete. Checkpoint 5b committed: W3/W4 done, no stub remains anywhere in `src/`.
 **Status:** 274 tests in 15 files; `npm run build`, `npm test` and `tsc --noEmit` all exit 0, verified on real exit codes in the 5b session.
 **Exactly where we stopped:** Checkpoint 5b committed. No team running.
-**Next concrete action:** the user's first sign-in test (checklist below) — the user is running it. Then Phase 2: integration pass, README with Render deploy steps, final PROGRESS.md.
+**Next concrete action:** the user's first sign-in test (checklist below) — steps 1–3 passed, 4–11 remain. Test on `http://localhost:3000` (see Gotchas). Then Phase 2: integration pass, README with Render deploy steps, final PROGRESS.md.
 **Teammates:** `backend`, `frontend`, `reviewer` — all shut down at handover. Their full notes are in `progress/*.md`; everything durable is merged here. **`PROGRESS.md` is the source of truth where they disagree** — a teammate's notes stop being updated at shutdown, so a claim there can be true-when-written and stale now. One such correction is annotated in `progress/backend.md` (it recorded `src/lib/auth.test.ts` as held out of the commit; the user ruled it stays, and it is in `7417419`).
 
 ## First sign-in test — the two gaps no test in this repo can reach
@@ -79,6 +79,28 @@ Server actions have never been submitted end to end (every action test calls the
 | 5 | R-F9/R-F10/R-P1/R-W7/R-W8 + six briefs reviewed pre-code | reviewer | 2026-09-29 |
 | 5b | W3/W4 — the form's swap points (`components/actions.ts`, `components/data.ts`) re-export the real actions and `getTransaction`; `stubActions.ts` and `stubData.ts` deleted | lead | 2026-09-29 |
 | 5b | `transactions/actions.test.ts` (9 cases): each mutation's guard, both months on update, lock on delete — mutation-verified | lead | 2026-09-29 |
+| 5b | First sign-in checklist steps 1–3 pass: admin login, owner sign-up, admin approval, owner dashboard | user | 2026-09-29 |
+
+## v1.1 plan
+Not started. Runs after Phase 2. In this order.
+
+**(a) Theme pass — governmental look. `frontend` only, no logic changes.**
+- Primary colour in the Saudi green family (`#006C35`), neutral greys, squared corners.
+- Formal top bar: establishment name + an emblem-style **placeholder** on the right; user + logout on the left.
+- Formal wording: تسجيل الدخول للنظام · طلب تسجيل منشأة · بانتظار اعتماد الطلب; statuses قيد المراجعة / معتمد / موقوف.
+- Footer with version and a contact line.
+- Font stays IBM Plex Sans Arabic. Every string through `src/i18n/ar.ts`.
+- **Must NOT** use the Saudi emblem, any ministry logo, or a gov.sa look-alike header.
+
+**(b) Google + Microsoft sign-in, on our own pages — no hosted vendor UI.** Runs **after the first Render deploy**: it needs real https redirect URLs.
+- Role, and establishment name (owner) or join code (staff), are collected and validated **before** the redirect and carried across it in a short-lived signed cookie.
+- On return the user is created **PENDING**. A provider identity never sets ACTIVE; approval is unchanged.
+- Auto-link to an existing password account **only** when the provider reports `email_verified`.
+- Schema: `passwordHash` nullable, plus `authProvider` and `providerAccountId` with a unique composite.
+- The three conflicts logged in the social-login Decision (below) still apply, and this design answers them — check each against the build:
+  1. *Join code across the redirect* → captured before the round-trip, carried in the signed cookie.
+  2. *A hosted UI's error copy reveals account existence*, undoing B10 and the `signupOwner` ruling → our own pages, our own `err.*` keys; the B10 generic-error rule must hold on the provider path too.
+  3. *Account linking rule* → link only on `email_verified`; otherwise refuse.
 
 ## Decisions
 Format: date — decision — reason. Anything that changed from the docs or chose between valid options.
@@ -222,6 +244,7 @@ Failing builds, bugs, must-not-forget TODOs. Remove when fixed.
 - Duplicate category names are prevented in application code against **active** categories only, not by a DB constraint — see the Decision above. A concurrent double-submit can still create two.
 - **Tests may import `auth.ts` when they mock `server-only` and Prisma.** (Amended 2026-09-29 by the user; the original rule said not to, because these are `server-only` — that obstacle is gone, `server-only` is mocked in several suites.) Prefer `permissions.ts` for anything the pure predicate can express: it needs no mocks and is faster to read. Reach for the wrapper when the behaviour under test is a *destination* or a database read — those cannot be expressed by a predicate, which is why `auth.test.ts` exists.
 - **A server action in a client bundle is callable by id whether or not its button renders.** `deleteTransaction` is registered on the *staff* ledger page too, because `DeleteEntryButton` lives in the shared row component; staff never see the button, but the id is in the bundle. Hiding a button is presentation — the `requireX()` at the top of the action is the only protection, which is why `transactions/actions.test.ts` pins which guard each mutation calls.
+- **Test locally on `http://localhost:3000`, never on the LAN IP `npm start` prints.** Under `npm start` the session cookie is `secure` (`src/lib/session.ts`: `secure` when `NODE_ENV === "production"`), and browsers accept a secure cookie over plain http only for `localhost`. On the LAN IP the cookie is dropped without an error and login silently loops back to `/login`. Found by the user in the first sign-in test. Related, not separately verified: the CSP also sends `upgrade-insecure-requests`, which can push subresources on a plain-http non-localhost origin to https. The fix for phone testing on the LAN is a real https origin (the Render deploy), not relaxing either setting.
 
 ## File map
 ```
