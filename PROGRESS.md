@@ -18,9 +18,9 @@ npm run typecheck        # tsc --noEmit, not part of build
 
 ## Current phase
 **Phase:** v1.1e done and user-tested — next: the contract migration dropping `User.name` (once v1.1e is live), then Google sign-in.
-**Status:** v1.1e committed (`e1066b7`) and handed over; the user's Gmail test passed. Live site runs v1.1d until the user pushes (the project denies `git push` to agents). 530 tests in 25 files; `npm run build`, `npm test`, `tsc --noEmit` all exit 0.
-**Exactly where we stopped:** v1.1e finalized; all teammates (backend, frontend, reviewer) asked to shut down. Waiting for the user to push.
-**Next concrete action:** the user pushes (`git push`); Render's build runs `prisma migrate deploy` on production — **watch that first build log** (a failed migration blocks every later deploy until `prisma migrate resolve`). Then a quick live check: sign-up → email → `/verify`. Then the contract migration dropping `User.name`, then Google sign-in.
+**Status:** v1.1e (`e1066b7`) is **pushed** (the user pushed it at 00:40 on 2026-09-30), so Render builds it and runs the v1.1e migration on production. The user's Gmail test passed on a Neon branch. 530 tests in 25 files; `npm run build`, `npm test`, `tsc --noEmit` all exit 0.
+**Exactly where we stopped:** v1.1e finalized and pushed; handover docs committed after it. All teammates (backend, frontend, reviewer) asked to shut down.
+**Next concrete action:** confirm Render's build for `e1066b7` succeeded — the build log must show `migrate deploy` applying `20260930000000_v1_1e_email_names` (a failed migration blocks every later deploy until `prisma migrate resolve`) — then a quick live check: sign-up → email → `/verify`. Then the contract migration dropping `User.name`, then Google sign-in.
 **Teammates:** `backend`, `frontend`, `reviewer` — all shut down at handover. Their full notes are in `progress/*.md`; everything durable is merged here. **`PROGRESS.md` is the source of truth where they disagree** — a teammate's notes stop being updated at shutdown, so a claim there can be true-when-written and stale now. One such correction is annotated in `progress/backend.md` (it recorded `src/lib/auth.test.ts` as held out of the commit; the user ruled it stays, and it is in `7417419`).
 
 ## First sign-in test — PASSED in full on localhost (2026-09-29)
