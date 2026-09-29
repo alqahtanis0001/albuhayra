@@ -61,7 +61,11 @@ const { requireCanEdit, requireUser } = await import("./auth");
 
 type Row = {
   id: string;
-  name: string;
+  firstName: string;
+  middleName: string | null;
+  lastName: string;
+  legacyName: string | null;
+  emailVerifiedAt: Date | null;
   email: string;
   role: "ADMIN" | "OWNER" | "STAFF";
   status: "PENDING" | "ACTIVE" | "DISABLED";
@@ -73,7 +77,11 @@ type Row = {
 function row(overrides: Partial<Row> = {}): Row {
   return {
     id: "user_1",
-    name: "تجربة",
+    firstName: "تجربة",
+    middleName: null,
+    lastName: "اختبار",
+    legacyName: null,
+    emailVerifiedAt: new Date(0),
     email: "t@example.com",
     role: "STAFF",
     status: "ACTIVE",
@@ -233,5 +241,42 @@ describe("H1: a throwing destroy() must not swallow the redirect", () => {
     stub.row = row({ status: "PENDING" });
     expect(await destinationOf(requireUser)).toBe("/pending");
     expect(stub.destroyCalls).toBe(0);
+  });
+});
+
+/**
+ * v1.1e verification gate. Such an account is never issued a session, so this
+ * is the backstop — and it must go to the signed-out login, not /verify: a
+ * render cannot clear the cookie, so /verify would loop through the proxy.
+ */
+describe("v1.1e: an unverified address never gets past requireUser()", () => {
+  it.each(["ACTIVE", "PENDING"] as const)("%s but unverified → /login?signedOut=1", async (status) => {
+    stub.row = row({ role: "OWNER", status, emailVerifiedAt: null });
+    expect(await destinationOf(requireUser)).toBe("/login?signedOut=1");
+    expect(stub.destroyCalls).toBe(1);
+  });
+
+  it("an unverified ADMIN too", async () => {
+    stub.row = row({ role: "ADMIN", establishmentId: null, establishment: null, emailVerifiedAt: null });
+    expect(await destinationOf(requireUser)).toBe("/login?signedOut=1");
+  });
+
+  it("still reaches the redirect when destroy() throws (H1)", async () => {
+    stub.row = row({ emailVerifiedAt: null });
+    stub.destroyThrows = true;
+    expect(await destinationOf(requireUser)).toBe("/login?signedOut=1");
+  });
+
+  it("a verified account passes, with its display name built from the parts", async () => {
+    stub.row = row({ role: "OWNER" });
+    const { user } = await requireUser();
+    expect(user.displayName).toBe("تجربة اختبار");
+    expect(user).not.toHaveProperty("name");
+  });
+
+  it("a row the previous release inserted shows its legacy name", async () => {
+    stub.row = row({ role: "OWNER", firstName: "", lastName: "", legacyName: "سالم علي" });
+    const { user } = await requireUser();
+    expect(user.displayName).toBe("سالم علي");
   });
 });

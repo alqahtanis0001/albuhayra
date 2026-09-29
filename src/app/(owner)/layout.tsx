@@ -15,7 +15,7 @@ export default async function OwnerLayout({ children }: { children: ReactNode })
   return (
     <AppShell
       items={OWNER_NAV}
-      userName={user.name}
+      userName={user.displayName}
       establishmentName={user.establishmentName}
       accountHref="/owner/settings?tab=account"
     >

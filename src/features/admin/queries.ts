@@ -2,6 +2,7 @@ import "server-only";
 
 import { todayISO } from "@/lib/dates";
 import { db } from "@/lib/db";
+import { fullName, NAME_SELECT } from "@/lib/names";
 
 /**
  * The platform administrator's view. **Security rule 10: no amounts, ever.**
@@ -22,8 +23,11 @@ import { db } from "@/lib/db";
 
 export type PendingOwner = {
   userId: string;
-  name: string;
+  /** First + middle + last (src/lib/names.ts). */
+  fullName: string;
   email: string;
+  /** The approve button is disabled — and the server refuses — until this is true. */
+  emailVerified: boolean;
   establishmentName: string;
   /** ISO `YYYY-MM-DD` in Riyadh — a `DateTime`, so `todayISO`, not `dateToISO`. */
   requestedAt: string;
@@ -42,8 +46,11 @@ export type EstablishmentSummary = {
    * An id carries no amount, so Security rule 10 is untouched.
    */
   ownerUserId: string | null;
+  /** The owner's full name (first + middle + last). */
   ownerName: string;
   ownerEmail: string;
+  /** The owner's address is verified (the owner is who the badge is about). */
+  emailVerified: boolean;
   status: EstablishmentStatus;
   staffCount: number;
   transactionCount: number;
@@ -79,7 +86,14 @@ export async function getAdminOverview(): Promise<AdminOverview> {
         createdAt: true,
         users: {
           where: { role: "OWNER" },
-          select: { id: true, name: true, email: true, status: true, createdAt: true },
+          select: {
+            id: true,
+            ...NAME_SELECT,
+            email: true,
+            emailVerifiedAt: true,
+            status: true,
+            createdAt: true,
+          },
           take: 1,
         },
       },
@@ -110,8 +124,9 @@ export async function getAdminOverview(): Promise<AdminOverview> {
       id: est.id,
       name: est.name,
       ownerUserId: owner?.id ?? null,
-      ownerName: owner?.name ?? "",
+      ownerName: owner ? fullName(owner) : "",
       ownerEmail: owner?.email ?? "",
+      emailVerified: owner?.emailVerifiedAt != null,
       status: summaryStatus(est.active, owner?.status),
       staffCount: staffOf.get(est.id) ?? 0,
       transactionCount: seen?._count._all ?? 0,
@@ -125,8 +140,9 @@ export async function getAdminOverview(): Promise<AdminOverview> {
       const owner = est.users[0]!;
       return {
         userId: owner.id,
-        name: owner.name,
+        fullName: fullName(owner),
         email: owner.email,
+        emailVerified: owner.emailVerifiedAt !== null,
         establishmentName: est.name,
         requestedAt: todayISO(owner.createdAt),
       };

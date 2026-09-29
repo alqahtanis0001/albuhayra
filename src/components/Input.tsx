@@ -1,4 +1,4 @@
-import type { InputHTMLAttributes } from "react";
+import type { InputHTMLAttributes, ReactNode, Ref } from "react";
 
 import { errorMessage } from "@/i18n/ar";
 
@@ -16,6 +16,15 @@ export type InputProps = InputHTMLAttributes<HTMLInputElement> & {
   hint?: string;
   /** Rendered after the field, e.g. the ر.س suffix on an amount. */
   suffix?: string;
+  /**
+   * Rendered under the hint and error — the password strength meter, the
+   * email typo hint. Give anything the field should announce an id and pass
+   * it as `describedBy` too.
+   */
+  children?: ReactNode;
+  describedBy?: string;
+  /** Reaches the <input> (React 19 passes `ref` as a prop). */
+  ref?: Ref<HTMLInputElement>;
 };
 
 export function Input({
@@ -25,6 +34,8 @@ export function Input({
   error,
   hint,
   suffix,
+  children,
+  describedBy,
   className = "",
   required,
   ...rest
@@ -46,7 +57,7 @@ export function Input({
           name={name}
           required={required}
           aria-invalid={error ? true : undefined}
-          aria-describedby={[errorId, hintId].filter(Boolean).join(" ") || undefined}
+          aria-describedby={[errorId, hintId, describedBy].filter(Boolean).join(" ") || undefined}
           className={[
             "min-h-11 w-full rounded-lg border bg-white px-3 text-base text-gray-900",
             "placeholder:text-gray-500",
@@ -78,6 +89,7 @@ export function Input({
           {errorMessage(error)}
         </p>
       ) : null}
+      {children}
     </div>
   );
 }

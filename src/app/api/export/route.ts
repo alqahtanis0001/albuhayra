@@ -67,7 +67,7 @@ export async function GET(request: Request): Promise<Response> {
       establishmentName: user.establishmentName ?? "",
       from,
       to,
-      generatedBy: user.name,
+      generatedBy: user.displayName,
       generatedAt: new Date(),
       appVersion: packageJson.version,
     },

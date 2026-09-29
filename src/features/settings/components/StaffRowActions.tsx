@@ -39,7 +39,15 @@ export function StaffRowActions({ staff }: { staff: StaffRow }) {
       <div className="flex flex-wrap items-center justify-end gap-2">
         {staff.status === "PENDING" ? (
           <>
-            <Button size="sm" pending={pending} onClick={() => run(() => approveStaff(staff.id))}>
+            {/* approveStaff refuses an unverified account too
+                (err.emailNotVerified); the reason is shown under the row. */}
+            <Button
+              size="sm"
+              pending={pending}
+              disabled={!staff.emailVerified}
+              aria-describedby={staff.emailVerified ? undefined : `unverified-${staff.id}`}
+              onClick={() => run(() => approveStaff(staff.id))}
+            >
               {t.common.accept}
             </Button>
             <Button
@@ -73,6 +81,11 @@ export function StaffRowActions({ staff }: { staff: StaffRow }) {
           </>
         )}
       </div>
+      {staff.status === "PENDING" && !staff.emailVerified ? (
+        <p id={`unverified-${staff.id}`} className="text-end text-xs text-gray-600">
+          {t.err.emailNotVerified}
+        </p>
+      ) : null}
 
       {/* Only a pending row can be rejected, so only a pending row carries the
           dialog — otherwise every active staff member has hidden markup titled

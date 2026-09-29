@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { Card } from "@/components/Card";
 import { DateText } from "@/components/DateText";
 import { EmptyState } from "@/components/EmptyState";
+import { VerifiedBadge } from "@/components/VerifiedBadge";
 import { PendingOwnerActions } from "@/features/admin/components/PendingOwnerActions";
 import { getAdminOverview } from "@/features/admin/queries";
 import { t } from "@/i18n/ar";
@@ -32,8 +33,9 @@ export default async function AdminRequestsPage() {
                 className="flex flex-col gap-2 border-b border-gray-200 p-3 last:border-b-0"
               >
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-medium text-gray-900">{row.name}</span>
+                  <span className="font-medium text-gray-900">{row.fullName}</span>
                   <bdi className="text-sm text-gray-600">{row.email}</bdi>
+                  <VerifiedBadge verified={row.emailVerified} />
                 </div>
                 <p className="text-sm text-gray-700">
                   {t.admin.establishment}: {row.establishmentName}
@@ -41,7 +43,7 @@ export default async function AdminRequestsPage() {
                 <p className="text-xs text-gray-500">
                   {t.admin.requestedAt}: <DateText date={row.requestedAt} compact />
                 </p>
-                <PendingOwnerActions userId={row.userId} />
+                <PendingOwnerActions userId={row.userId} emailVerified={row.emailVerified} />
               </li>
             ))}
           </ul>

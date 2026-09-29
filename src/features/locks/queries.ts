@@ -2,6 +2,7 @@ import "server-only";
 
 import { currentMonthKey, lastMonths, todayISO, ymString } from "@/lib/dates";
 import { db } from "@/lib/db";
+import { displayName, NAME_SELECT } from "@/lib/names";
 
 export type LockRow = {
   year: number;
@@ -46,7 +47,7 @@ export async function listLocks(establishmentId: string): Promise<LockRow[]> {
       year: true,
       month: true,
       lockedAt: true,
-      lockedBy: { select: { name: true } },
+      lockedBy: { select: NAME_SELECT },
     },
   });
 
@@ -64,7 +65,7 @@ export async function listLocks(establishmentId: string): Promise<LockRow[]> {
         ym,
         locked: lock !== undefined,
         lockedAt: lock ? todayISO(lock.lockedAt) : null,
-        lockedByName: lock?.lockedBy.name ?? null,
+        lockedByName: lock ? displayName(lock.lockedBy) : null,
         lockable: year * 12 + month < now.year * 12 + now.month,
       };
     })

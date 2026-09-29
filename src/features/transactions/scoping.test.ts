@@ -125,7 +125,7 @@ vi.mock("@/lib/auth", () => {
   const context = {
     user: {
       id: USER,
-      name: "تجربة",
+      firstName: "تجربة", middleName: null, lastName: "", displayName: "تجربة",
       email: "t@example.com",
       role: "OWNER" as const,
       status: "ACTIVE" as const,
@@ -298,7 +298,7 @@ beforeEach(() => {
     // getTransaction maps through these; the actions select a narrower shape and
     // simply ignore them.
     category: { nameAr: "إيجار" },
-    createdBy: { name: "تجربة" },
+    createdBy: { firstName: "تجربة", middleName: null, lastName: "", legacyName: null },
   });
   harness.responses.set("user.findFirst", { canEdit: true });
 });
@@ -628,7 +628,7 @@ describe("B11: the migrated staff and settings writes scope in SQL", () => {
   beforeEach(() => {
     harness.responses.set("user.findFirst", {
       id: "staff_1",
-      name: "موظف",
+      emailVerifiedAt: new Date(0),
       status: "PENDING",
       canEdit: false,
     });
@@ -642,6 +642,17 @@ describe("B11: the migrated staff and settings writes scope in SQL", () => {
     record();
   });
 
+  it("v1.1e: approveStaff refuses an unverified address and writes nothing", async () => {
+    harness.responses.set("user.findFirst", {
+      id: "staff_1",
+      emailVerifiedAt: null,
+      status: "PENDING",
+      canEdit: false,
+    });
+    expect(await approveStaff("staff_1")).toEqual({ ok: false, error: "err.emailNotVerified" });
+    expect(observedPairs()).not.toContain("user.updateMany");
+  });
+
   it("rejectStaff", async () => {
     expect(await rejectStaff("staff_1")).toEqual({ ok: true, data: null });
     expect(failures()).toEqual([]);
@@ -651,7 +662,7 @@ describe("B11: the migrated staff and settings writes scope in SQL", () => {
   it("setCanEdit", async () => {
     harness.responses.set("user.findFirst", {
       id: "staff_1",
-      name: "موظف",
+      emailVerifiedAt: new Date(0),
       status: "ACTIVE",
       canEdit: false,
     });
@@ -663,7 +674,7 @@ describe("B11: the migrated staff and settings writes scope in SQL", () => {
   it("setStaffActive", async () => {
     harness.responses.set("user.findFirst", {
       id: "staff_1",
-      name: "موظف",
+      emailVerifiedAt: new Date(0),
       status: "ACTIVE",
       canEdit: true,
     });
@@ -674,7 +685,7 @@ describe("B11: the migrated staff and settings writes scope in SQL", () => {
 
   it("resetStaffPassword", async () => {
     const form = new FormData();
-    form.append("newPassword", "averylongpassword");
+    form.append("newPassword", "averylongpassword7");
     expect(await resetStaffPassword("staff_1", null, form)).toEqual({
       ok: true,
       data: null,
@@ -692,11 +703,25 @@ describe("B11: the migrated staff and settings writes scope in SQL", () => {
     record();
   });
 
+  it("v1.1e: the owner's staff reset and change-password refuse a common password (A12 amended)", async () => {
+    const reset = new FormData();
+    reset.append("newPassword", "Password123");
+    const change = new FormData();
+    change.append("currentPassword", "oldpassword");
+    change.append("newPassword", "Password123");
+    change.append("confirmPassword", "Password123");
+    const refused = { ok: false, error: "err.invalidInput", fieldErrors: { newPassword: "err.passwordCommon" } };
+
+    expect(await resetStaffPassword("staff_1", null, reset)).toEqual(refused);
+    expect(await changeOwnPassword(null, change)).toEqual(refused);
+    expect(observedPairs()).not.toContain("user.updateMany");
+  });
+
   it("changeOwnPassword scopes by the caller's own id", async () => {
     const form = new FormData();
     form.append("currentPassword", "oldpassword");
-    form.append("newPassword", "averylongpassword");
-    form.append("confirmPassword", "averylongpassword");
+    form.append("newPassword", "averylongpassword7");
+    form.append("confirmPassword", "averylongpassword7");
 
     // verifyPassword is not mocked here, so the compare fails and the action
     // stops at err.passwordWrong — the lookup still happened, which is the call
@@ -763,7 +788,7 @@ describe("B11: a 0-row write is err.notFound, never a silent success", () => {
   beforeEach(() => {
     harness.responses.set("user.findFirst", {
       id: "staff_1",
-      name: "موظف",
+      emailVerifiedAt: new Date(0),
       status: "PENDING",
       canEdit: false,
     });
@@ -782,7 +807,7 @@ describe("B11: a 0-row write is err.notFound, never a silent success", () => {
   it("setCanEdit", async () => {
     harness.responses.set("user.findFirst", {
       id: "staff_1",
-      name: "موظف",
+      emailVerifiedAt: new Date(0),
       status: "ACTIVE",
       canEdit: false,
     });
@@ -794,7 +819,7 @@ describe("B11: a 0-row write is err.notFound, never a silent success", () => {
 
   it("resetStaffPassword", async () => {
     const form = new FormData();
-    form.append("newPassword", "averylongpassword");
+    form.append("newPassword", "averylongpassword7");
     expect(await resetStaffPassword("staff_1", null, form)).toEqual({
       ok: false,
       error: "err.notFound",
@@ -941,7 +966,7 @@ describe("filterTotals span the filter, not the page", () => {
     counterparty: null,
     note: null,
     category: { nameAr: "إيجار" },
-    createdBy: { name: "موظف" },
+    createdBy: { firstName: "موظف", middleName: null, lastName: "", legacyName: null },
   }));
 
   const expectedIn = ROWS.filter((r) => r.direction === "IN").reduce(

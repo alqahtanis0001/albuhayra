@@ -1304,3 +1304,105 @@ Gates (after N1): build 0, `tsc --noEmit` 0, vitest 285/285 in 15 files. Ports 3
   tfoot a plain row group and the total then prints in DOM order.
 - Re-verified in the fixture: typical month still 1 page on A4 and Letter (header/footer on and off);
   long report 3 pages. Gates: build 0, tsc 0, vitest 285/285.
+
+## 2026-09-30 — v1.1e (sign-up, verification, reset screens; names and badges)
+
+### G1 — sign-up redesign
+Files: new `src/features/auth/components/SignupForm.tsx` (owner + staff in one form, `role` prop — they
+differed only in the last field, schema and action), `EmailField.tsx`, `PasswordFields.tsx`; new shared
+`src/components/PasswordStrength.tsx`; `src/components/Input.tsx` gained `children` (rendered under hint
+and error) and `describedBy` (merged into `aria-describedby`); `src/app/(auth)/signup/page.tsx` renders
+`<SignupForm role>`; **deleted** `SignupOwnerForm.tsx` / `SignupStaffForm.tsx`.
+- Field order per the doc; every field has its `t.signupForm.*Help` line; errors (`err.*`) render under
+  it. `autocomplete` given-name / additional-name / family-name / email / new-password / organization;
+  email and join code `dir="ltr"`; join code uppercases as typed.
+- **Every field is controlled.** Two reasons: the meter needs names + email live, and React 19 resets
+  *uncontrolled* fields after a form action, which emptied the old forms on every validation error.
+- Meter: `measurePassword()` in `PasswordFields.tsx` = backend's `passwordStrength()` (level) +
+  `passwordError()` (first failing rule, shown under the word while weak). Three segments + the word,
+  `aria-live="polite"` on an always-present `<p>`. Submit is disabled while weak or mismatched — the
+  reason is on screen (meter reason / live mismatch). The reason is suppressed when a server error for
+  the same field is showing (it would repeat word for word).
+- Live mismatch under the confirmation only once it is as long as the password or has lost focus.
+  A stale server `passwordMismatch` hides once the two match.
+- Typo hint: `emailTypoSuggestion()` on **blur** (mid-typing "gmail.co" is on the list), rendered as a
+  button inside an always-present polite live region; click fills the address. No `aria-invalid`.
+  `t.signupForm.didYouMean` value is now `"هل تقصد {email}؟"` (lead approved) — split on `{email}`,
+  address in `<bdi dir="ltr">`, so no Arabic «؟» is hard-coded.
+- Measured (headless Chrome, compiled CSS, canvas-resolved colours): weak word/segment #b91c1c 6.47,
+  fair word amber-800 #973c00 7.09 / segments amber-700 #bb4d00 5.03, strong #006c35 6.57, empty segment
+  #e5e5e5 (unfilled, not information), helper #666 5.74, typo button #004d26 10.05 on white / 8.84 on
+  hover `accent-soft`, 44px tall; disabled submit 6.2.
+
+### G2 — /verify, /forgot, /reset
+Files: `src/app/(auth)/{verify,forgot,reset}/{page,loading}.tsx`; `VerifyForm.tsx`, `ResendCode.tsx`,
+`ForgotForm.tsx`, `ResetForm.tsx`; shared `src/components/CodeInput.tsx`; `AuthSkeleton` variants
+`verify`/`forgot`/`reset`; `LoginForm.tsx` (+ «نسيت كلمة المرور؟» under the password, `t.reset.done`
+banner via `passwordReset` prop), `login/page.tsx` (reads `?reset=1`), `pending/page.tsx`
+(`t.verify.done` on `?verified=1`); `components/actions.ts` re-exports the four new actions and
+`ResendState`.
+- `getVerifyFlow` is imported by `verify/page.tsx` straight from the server-only
+  `@/features/auth/queries` — **never** re-export it from `components/actions.ts` (client forms import
+  that file; `server-only` would break the build).
+- CodeInput: one input, `inputMode="numeric"`, `autocomplete="one-time-code"`, `dir="ltr"`; digits
+  folded with backend's `toWesternDigits`, non-digits dropped, capped at `CODE_LENGTH` in the handler
+  (no `maxLength` — the browser would truncate a paste before it is cleaned).
+- Resend countdown runs off a **deadline**, not a decrementing counter (a backgrounded phone tab throttles
+  timers); the first deadline is taken in an effect so server and client render the same number.
+  `role="timer"` (not announced per tick); result in a `role="status"`.
+- Verify: every code error under the field; `err.verifySessionExpired` alone gets the `FormError` banner
+  with the /login link. Reset: `err.codeInvalidOrExpired` (no fieldErrors from the server) is shown
+  under the code field, not in a toast; other form-level errors keep the toast.
+- Forgot: after `{ ok: true }` the form is replaced by `t.forgot.sent` (role=status) and a link on to
+  /reset. Only the address's shape is ever reported.
+
+### G3 — names and badges
+`src/app/({owner,staff,admin})/layout.tsx` → `user.displayName`; `admin/page.tsx` → `row.fullName` +
+`VerifiedBadge`; `EstablishmentsTable` → badge under the owner (only when there is an owner);
+`StaffTab` → `row.fullName` + badge; new `src/components/VerifiedBadge.tsx` (`in` / `warn` tones, text
+carries the meaning). قبول disabled for an unverified account in `PendingOwnerActions` and
+`StaffRowActions`, with `t.err.emailNotVerified` beside it (`aria-describedby`) — a disabled button
+never appears without its reason. رفض stays available.
+
+### After R-G1/R-G3
+- **G-S1 fixed:** the typo-hint button unmounts when used, so focus fell to `<body>`. `Input` now declares
+  `ref?: Ref<HTMLInputElement>` (React 19 passes `ref` as a prop; it reaches the `<input>` via `...rest`);
+  `EmailField` refocuses the email input after filling the suggestion.
+- G-B1 (common list in 13 routes' chunks) waits on backend/lead's A12 ruling; my side is one import in
+  `PasswordFields.tsx`.
+- Stale name/email fieldErrors until the next submit: left as the existing pattern (reviewer NOTE).
+- **Optional stale-error item done after all (lead left it to me):** `SignupForm` records the submitted
+  values (`sent`, set inside the action wrapper) and shows a server error on a text field only while its
+  value still equals what was sent. Password/confirmation keep their own handling (meter, live mismatch).
+
+### G2 signed-out pass (after backend's proxy paths)
+Rebuilt under the lock (build 0); `/verify`, `/forgot`, `/reset` → 200 signed out. Headless Chrome on
+:3092, every non-GET failed in the browser (none attempted). `/verify` without a flow: title,
+`t.err.verifySessionExpired` (role=alert), /login button — no DB touched. `/forgot`: intro, email, a
+malformed address answers under the field client-side and the value survives. `/reset`: code field turns
+`١٢٣ ۴۵6 7` into `123456` (numeric / one-time-code / ltr), meter works, submit disabled until ready,
+footer link «لم يصلك الرمز؟ أعد الإرسال» → /forgot. G-S1 confirmed: after the typo hint, focus is on
+`#email` with the corrected address. Back link 9.63:1 on the body.
+Seen during the pass: `password123` measured «مقبولة», because backend's generated common list is
+mid-regeneration (5 entries in the tree right now) — the G-B1 repoint will be re-verified.
+- **R-G2 NOTE 2 done:** `ResendCode` takes `onResent`; `VerifyForm` hides the current failure (`dismissed`
+  = that state object) after a successful resend, until the next submit replaces `state`.
+- R-G2 NOTE 1 (the /reset meter has no email context, so it can say مقبولة where the server later says
+  `passwordPersonal`) is left as is: fixing it needs a `getResetFlow()` contract addition through the lead.
+  The server message still names the rule under the field.
+
+### G-B1 — common list only on /signup and /reset (done)
+`PasswordFields.tsx` is the only client importer of `@/lib/passwords/common.generated` (NCSC, 5,794
+entries) and passes it as `common` to `passwordStrength`/`passwordError` inside `measurePassword`
+(without `common` the rules skip the check — `password123` read «مقبولة»). A comment there forbids moving
+the import or reusing the component elsewhere.
+Evidence after a fresh build: the marker entry `#1princess` is in exactly one chunk,
+`static/chunks/2b7_88wf3662f.js` (80,430 bytes); the only files in `.next` naming that chunk are the
+`(auth)/reset` and `(auth)/signup` client-reference manifests and `diagnostics/route-bundle-stats.json`
+(routes `/signup`, `/reset`) — 2 of 25 manifests. In headless Chrome the chunk is fetched on
+`/signup?as=owner` and `/reset`, not on `/login`, `/forgot`, `/verify`. Meter: `password123` → «ضعيفة» +
+`err.passwordCommon` on both pages (reset submit disabled); `password123Qz` → «قوية».
+Gates: build 0, tsc 0, vitest 528/528 in 25 files. Ports 3092/9333 freed.
+- **/forgot helper line (user requirement #5):** the email field now renders `t.forgot.emailHelp` via
+  `Input`'s `hint` (id `email-hint`, in `aria-describedby`, `text-xs text-gray-500` — same as EmailField).
+  Gates: tsc 0, vitest 530/530, build 0 (under the lock).

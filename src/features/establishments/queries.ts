@@ -2,6 +2,7 @@ import "server-only";
 
 import { todayISO } from "@/lib/dates";
 import { db } from "@/lib/db";
+import { fullName, NAME_SELECT } from "@/lib/names";
 
 /**
  * Reads for the owner's staff and join-code tabs. `establishmentId` always comes
@@ -10,8 +11,11 @@ import { db } from "@/lib/db";
 
 export type StaffRow = {
   id: string;
-  name: string;
+  /** First + middle + last (src/lib/names.ts). */
+  fullName: string;
   email: string;
+  /** Approve is disabled — and refused by the server — until this is true. */
+  emailVerified: boolean;
   status: "PENDING" | "ACTIVE" | "DISABLED";
   canEdit: boolean;
   /**
@@ -28,16 +32,25 @@ export async function listStaff(establishmentId: string): Promise<StaffRow[]> {
     where: { establishmentId, role: "STAFF" },
     select: {
       id: true,
-      name: true,
+      ...NAME_SELECT,
       email: true,
+      emailVerifiedAt: true,
       status: true,
       canEdit: true,
       createdAt: true,
     },
-    orderBy: [{ status: "asc" }, { name: "asc" }],
+    orderBy: [{ status: "asc" }, { firstName: "asc" }, { lastName: "asc" }],
   });
 
-  return rows.map((row) => ({ ...row, createdAt: todayISO(row.createdAt) }));
+  return rows.map((row) => ({
+    id: row.id,
+    fullName: fullName(row),
+    email: row.email,
+    emailVerified: row.emailVerifiedAt !== null,
+    status: row.status,
+    canEdit: row.canEdit,
+    createdAt: todayISO(row.createdAt),
+  }));
 }
 
 /** The code the owner reads out to a new employee, for the join-code tab. */

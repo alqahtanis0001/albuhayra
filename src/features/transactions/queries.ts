@@ -3,6 +3,7 @@ import "server-only";
 import type { Prisma } from "@/generated/prisma";
 import { dateToISO, isoToDate } from "@/lib/dates";
 import { db } from "@/lib/db";
+import { displayName, NAME_SELECT, type NameParts } from "@/lib/names";
 import {
   PAGE_SIZE,
   type DirectionValue,
@@ -58,7 +59,7 @@ const ROW_SELECT = {
   counterparty: true,
   note: true,
   category: { select: { nameAr: true } },
-  createdBy: { select: { name: true } },
+  createdBy: { select: NAME_SELECT },
 } satisfies Prisma.TransactionSelect;
 
 type SelectedRow = {
@@ -71,7 +72,7 @@ type SelectedRow = {
   counterparty: string | null;
   note: string | null;
   category: { nameAr: string };
-  createdBy: { name: string };
+  createdBy: NameParts;
 };
 
 function toRow(row: SelectedRow): LedgerRow {
@@ -85,7 +86,7 @@ function toRow(row: SelectedRow): LedgerRow {
     paymentMethod: row.paymentMethod,
     counterparty: row.counterparty,
     note: row.note,
-    createdByName: row.createdBy.name,
+    createdByName: displayName(row.createdBy),
   };
 }
 

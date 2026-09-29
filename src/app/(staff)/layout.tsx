@@ -11,7 +11,7 @@ export default async function StaffLayout({ children }: { children: ReactNode })
   return (
     <AppShell
       items={STAFF_NAV}
-      userName={user.name}
+      userName={user.displayName}
       establishmentName={user.establishmentName}
       accountHref="/staff/account"
     >

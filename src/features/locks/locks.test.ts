@@ -26,7 +26,7 @@ vi.mock("@/lib/audit", () => ({
 }));
 vi.mock("@/lib/auth", () => ({
   requireOwner: async () => ({
-    user: { id: "owner_1", name: "مالك", establishmentId: "est_1" },
+    user: { id: "owner_1", firstName: "مالك", middleName: null, lastName: "", displayName: "مالك", establishmentId: "est_1" },
     establishmentId: "est_1",
   }),
 }));
@@ -294,7 +294,7 @@ describe("listLocks", () => {
         year: target.year,
         month: target.month,
         lockedAt: new Date(Date.UTC(2026, 8, 25, 10, 0)),
-        lockedBy: { name: "مالك" },
+        lockedBy: { firstName: "مالك", middleName: null, lastName: "", legacyName: null },
       },
     ];
 

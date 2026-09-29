@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 
 import { db } from "./db";
+import { displayName, NAME_SELECT } from "./names";
 import { getSession } from "./session";
 import {
   canEditTransactions,
@@ -34,7 +35,11 @@ export async function verifyPassword(
 
 export type AuthedUser = {
   id: string;
-  name: string;
+  firstName: string;
+  middleName: string | null;
+  lastName: string;
+  /** First + last — what the top bar and "entered by" show (src/lib/names.ts). */
+  displayName: string;
   email: string;
   role: Role;
   status: "PENDING" | "ACTIVE" | "DISABLED";
@@ -76,8 +81,9 @@ export async function requireUser(): Promise<AuthContext> {
     where: { id: session.userId },
     select: {
       id: true,
-      name: true,
+      ...NAME_SELECT,
       email: true,
+      emailVerifiedAt: true,
       role: true,
       status: true,
       canEdit: true,
@@ -87,6 +93,14 @@ export async function requireUser(): Promise<AuthContext> {
   });
 
   if (!row) {
+    forget(session);
+    redirect(SIGNED_OUT_LOGIN_PATH);
+  }
+  // v1.1e: an unverified address never gets past here. Such an account is never
+  // issued a session in the first place; this is the backstop. It goes to the
+  // signed-out login, not /verify: a render cannot clear the cookie, so /verify
+  // would bounce through the proxy forever, while /login re-enters the flow.
+  if (row.emailVerifiedAt === null) {
     forget(session);
     redirect(SIGNED_OUT_LOGIN_PATH);
   }
@@ -103,7 +117,10 @@ export async function requireUser(): Promise<AuthContext> {
 
   const user: AuthedUser = {
     id: row.id,
-    name: row.name,
+    firstName: row.firstName,
+    middleName: row.middleName,
+    lastName: row.lastName,
+    displayName: displayName(row),
     email: row.email,
     role: row.role,
     status: row.status,

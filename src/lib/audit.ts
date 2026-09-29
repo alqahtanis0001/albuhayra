@@ -24,7 +24,10 @@ export type AuditAction =
   | "CATEGORY_CREATE"
   | "CATEGORY_UPDATE"
   | "DISABLE_ESTABLISHMENT"
-  | "ENABLE_ESTABLISHMENT";
+  | "ENABLE_ESTABLISHMENT"
+  // v1.1e
+  | "EMAIL_VERIFIED"
+  | "PASSWORD_RESET_SELF";
 
 export type AuditEntity =
   | "Transaction"

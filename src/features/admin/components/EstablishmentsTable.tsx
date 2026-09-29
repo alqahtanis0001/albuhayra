@@ -1,6 +1,7 @@
 import { DateText } from "@/components/DateText";
 import { EmptyState } from "@/components/EmptyState";
 import { StatusBadge } from "@/components/StatusBadge";
+import { VerifiedBadge } from "@/components/VerifiedBadge";
 import { TBody, Table, Td, Th, Tr } from "@/components/Table";
 import { t } from "@/i18n/ar";
 import type { EstablishmentSummary } from "@/features/admin/queries";
@@ -39,6 +40,11 @@ export function EstablishmentsTable({ rows }: { rows: EstablishmentSummary[] }) 
             <Td>
               <span className="block">{row.ownerName}</span>
               <bdi className="block text-xs text-gray-500">{row.ownerEmail}</bdi>
+              {row.ownerUserId ? (
+                <span className="mt-1 block">
+                  <VerifiedBadge verified={row.emailVerified} />
+                </span>
+              ) : null}
             </Td>
             <Td>
               <StatusBadge status={row.status} />

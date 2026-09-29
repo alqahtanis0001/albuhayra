@@ -251,3 +251,33 @@ describe("next.config.mjs", () => {
     expect(nextConfig.poweredByHeader).toBe(false);
   });
 });
+
+/**
+ * v1.1e routing. `/verify` is open (a signed-out visitor mid-flow must reach
+ * it, and a still-signed-in one must not be bounced off it — the requireUser
+ * gate sends an unverified account to the signed-out login, never here).
+ * `/forgot` and `/reset` are signed-out pages like `/login`.
+ */
+describe("v1.1e paths", () => {
+  function destination(response: Response): string | null {
+    const location = response.headers.get("location");
+    return location ? new URL(location).pathname : null;
+  }
+
+  it.each(["/verify", "/forgot", "/reset"])("a signed-out visitor reaches %s", async (path) => {
+    session.value = null;
+    expect(destination(await proxy(request(path)))).toBeNull();
+  });
+
+  it("a signed-in visitor is not bounced off /verify", async () => {
+    expect(destination(await proxy(request("/verify")))).toBeNull();
+  });
+
+  it.each(["/forgot", "/reset"])("a signed-in visitor is sent home from %s", async (path) => {
+    expect(destination(await proxy(request(path)))).toBe("/owner");
+  });
+
+  it("…unless requireUser() sent them (the signedOut marker), as on /login", async () => {
+    expect(destination(await proxy(request("/reset?signedOut=1")))).toBeNull();
+  });
+});

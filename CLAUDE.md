@@ -57,7 +57,7 @@ Team shape: **lead** + `backend` + `frontend` + `reviewer`. Do not spawn more wi
 Contract between backend and frontend: the exported types and zod schemas in `src/lib/validation.ts`, the action signatures listed in `docs/BACKEND.md`, and the string keys in `src/i18n/ar.ts`. Change any of these only through the lead.
 
 ## Stack (do not change without a logged Decision)
-Next.js 14+ App Router, TypeScript, Tailwind CSS · PostgreSQL on Render via Prisma · iron-session + bcrypt · zod · recharts (one chart) · exceljs · Vitest. Nothing else unless tiny and RTL-safe.
+Next.js 14+ App Router, TypeScript, Tailwind CSS · PostgreSQL on Render via Prisma · iron-session + bcrypt · zod · recharts (one chart) · exceljs · Vitest · transactional email via the **Brevo REST API** with plain `fetch` (no SDK) since v1.1e · `@electric-sql/pglite` as a dev-only test dependency for migration tests. Nothing else unless tiny and RTL-safe.
 
 ## Build plan
 **Phase 0 — lead alone, sequential.** Scaffold, Prisma schema + first migration, seed script, `src/lib/` (db, session, auth helpers, money, dates, validation with all zod schemas and exported types), `src/i18n/ar.ts` with every key the screens need (values can be rough), `render.yaml`, `.env.example`, `.claude/settings.json`, `PROGRESS.md` filled in. `npm run build` must pass before Phase 1.
@@ -79,4 +79,4 @@ Checkpoint after every 3–4 completed tasks: lead merges `progress/*.md` into `
 - All Arabic strings in `src/i18n/ar.ts`. No file over ~250 lines. Boring, readable code.
 
 ## Out of scope (do not build)
-Invoicing, VAT, ZATCA, receipts/attachments, bank integrations, budgets, recurring entries, notifications/email, password-reset by email, dark mode, English UI, native apps, E2E suite, payments/subscriptions for owners.
+Invoicing, VAT, ZATCA, receipts/attachments, bank integrations, budgets, recurring entries, notifications/marketing email (transactional email for sign-up verification and password reset **is in scope since v1.1e** — user's ruling), dark mode, English UI, native apps, E2E suite, payments/subscriptions for owners.

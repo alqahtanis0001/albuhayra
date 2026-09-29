@@ -19,8 +19,11 @@ import { SESSION_COOKIE, SESSION_TTL_SECONDS } from "@/lib/sessionConfig";
  *    requireX() helpers, which re-read role and status from the database.
  */
 
-/** Reachable without a session, and pointless once you have one. */
-export const SIGNED_OUT_PATHS = ["/login", "/signup"] as const;
+/**
+ * Reachable without a session, and pointless once you have one. v1.1e adds
+ * `/forgot` and `/reset`: a signed-in user changes their password in settings.
+ */
+export const SIGNED_OUT_PATHS = ["/login", "/signup", "/forgot", "/reset"] as const;
 
 /**
  * Reachable with or without a session, and never redirected either way.
@@ -30,6 +33,9 @@ export const SIGNED_OUT_PATHS = ["/login", "/signup"] as const;
  */
 export const OPEN_PATHS = [
   "/pending",
+  // v1.1e: the code screen is reached with no session by design, and must not
+  // bounce a still-signed-in visitor either — it only reads the flow cookie.
+  "/verify",
   "/api/health",
   "/manifest.json",
   "/sw.js",

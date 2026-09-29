@@ -291,3 +291,66 @@ Full evidence: `progress/reviewer.md` → "v1.1c R-brief".
 - **Pending style:** read in the Link's child — `:has()` (e.g. `has-data-[pending]:…`) or the child draws the highlight. Two items may look active for a moment until the navigation commits — accepted.
 - **Fade:** `@media screen and (prefers-reduced-motion: no-preference)` so print is literally excluded. The skeleton and then the page both fade+rise (two small jumps) — accepted, will be told to the user.
 - **S2 (verification):** only (c) the fade can be checked signed-out. (a) the bar and (b) the pending style are left to the user; say so. Expectation for the user: in production most nav targets are prefetched with a `loading.tsx`, so the bar mostly shows on slow first taps (Fast 3G helps).
+
+---
+
+# v1.1e — email verification, password reset, sign-up quality
+
+Team: lead + `backend` + `frontend` + `reviewer`. One commit at the end by the lead:
+`v1.1e: email verification, password reset, sign-up quality`. Nobody pushes, nobody amends.
+
+## Shared facts (every teammate)
+- **The spec is in the docs, written before code:** `docs/BACKEND.md` → *Email verification, password reset, sign-up
+  quality (v1.1e)* and `docs/FRONTEND.md` → *Sign-up, verification and reset screens (v1.1e)*. Decisions in
+  `PROGRESS.md` (scope ruling, Brevo REST, PGlite, expand-only migration, **no enumeration anywhere**, Western digits).
+- **Contracts already in the tree (lead):** `prisma/schema.prisma` (User name parts, `emailVerifiedAt`, `legacyName`
+  `@map("name")`, `EmailCode`) with the client regenerated; string keys in `src/i18n/ar.ts` (`t.err.*` new rule keys,
+  `t.signupForm.*`, `t.verify.*`, `t.forgot.*`, `t.reset.*`, `t.mail.*`, `t.status.verified/unverified`). `tsc` currently
+  fails (~25 errors) only because code still reads `.name` — E0 fixes that first.
+- **LIVE DATABASE — stricter than before:** the local `.env` points at production Neon, which does **not** have the v1.1e
+  columns yet. Never run `prisma migrate deploy`/`dev`/`reset`/`db push`, never sign up, sign in, or create data. The
+  migration is tested only on PGlite; the user applies it. Any page that queries users will fail locally until then —
+  expected.
+- **REAL EMAIL:** `.env` may hold a live `BREVO_API_KEY`. Never trigger a real send: no local server submission of any
+  sign-up/verify/forgot/reset form, and every test mocks `fetch`. The user tests delivery with their own Gmail.
+- Every string through `src/i18n/ar.ts` (keys are the lead's; `frontend` may polish **values**; need a new key → message
+  "main"). Western digits everywhere. RTL logical utilities only. Contrast ≥ 4.5:1. Every page stays dynamic.
+- Gates before reporting a task complete: `npm run build`, `npm test`, `npx tsc --noEmit`, real exit codes. Build lock:
+  `mkdir .claude/build.lock` / `rmdir .claude/build.lock` around `npm run build`. Never serve on port 3000; use 3091
+  (backend) / 3092 (frontend) / 3093 (reviewer). TS2307 from `.next/dev/types` → delete `.next/dev/types`.
+- Notes in `progress/<your-name>.md` (append a dated "v1.1e" section). Do not `git commit`.
+
+## Ownership for this task
+| Path | Owner |
+|---|---|
+| `prisma/migrations/**` (new migration only), `src/lib/**` (validation, auth, session, rateLimit, new `names.ts`, `codes.ts`, `mail/**`, `passwords/**`, `emails/**`), `src/features/*/actions.ts`, `src/features/*/queries.ts`, `src/app/api/export/route.ts` (generatedBy only), `src/proxy.ts`, all `*.test.ts` | `backend` |
+| `src/app/(auth)/**` (new `verify/`, `forgot/`, `reset/` pages + `loading.tsx`, login link), `src/features/auth/components/**`, `src/features/admin/components/**`, `src/features/settings/components/**`, `src/app/(admin)/admin/page.tsx` (name → fullName, badge), the three role `layout.tsx` (`userName` → display name), `src/components/**` (new shared pieces, e.g. `PasswordStrength`, `FieldHelp`), `src/i18n/ar.ts` **values** | `frontend` |
+| read-only everything | `reviewer` |
+| `prisma/schema.prisma`, `package.json`, `src/i18n/ar.ts` keys, `docs/*`, `CLAUDE.md`, `PROGRESS.md`, `progress/TASKS.md`, `render.yaml`, `.env.example` | lead |
+
+## backend
+| ID | Task | Status |
+|---|---|---|
+| E0 | **Contract layer first, so the tree compiles and `frontend` builds on real types.** `src/lib/names.ts`; `AuthedUser` without `name`; every `.name` read of a user replaced (queries return `createdByName`/`lockedByName` as display name, lists gain `fullName` + `emailVerified`); `validation.ts` exports — new sign-up schemas, the per-rule functions, `passwordStrength`, `emailTypoSuggestion`, and the client entry for the common list — and the new action signatures (`verifyEmail`, `resendVerification`, `requestPasswordReset`, `resetPassword`, changed `signupOwner`/`signupStaff`). Message `frontend` and "main" the moment `tsc` is green, with the exact exported names. | done |
+| E1 | **Migration** per the doc (generated with `migrate diff`, backfill hand-written in the same file, expand-only) + a PGlite test that applies `init` then the new migration to seeded rows and asserts the split and the backfill. | done |
+| E2 | **Lists + validators:** `src/lib/passwords/common.txt` (SecLists 10k, MIT) + README credit + the generated client module + the equality test; `src/lib/emails/disposable.txt` (a few hundred, CC0) + README; every name/password/email rule with its exact `err.*` key, tested one by one. | done |
+| E3 | **Codes, flow cookie, mail, actions, gates:** `codes.ts`, the `zk_flow` cookie, `mail/**` (Brevo REST via `fetch`, `after()`, no secrets in logs), the actions per the doc (non-enumerating sign-up, verify, resend, forgot, reset, login → `/verify`), `requireUser` gate, approval refusal, proxy paths, rate limits, audits. Tests per the doc's *Tests (v1.1e)* list, mutation-checked where a rule could silently weaken (attempt cap, generic reset key, equal query count). | done |
+
+## frontend
+| ID | Task | Status |
+|---|---|---|
+| G1 | **Sign-up redesign** per `docs/FRONTEND.md` (after E0 lands; build the pieces meanwhile): field order, helper line under every field, exact-rule errors, strength meter (text + segments, `aria-live`, dynamic import of the common list), submit disabled while weak/mismatched, email typo hint, autocomplete attributes. | done |
+| G2 | **`/verify`, `/forgot`, `/reset`** + their `loading.tsx` + «نسيت كلمة المرور؟» on login: 6-digit code field, 60 s countdown resend, spam note, the generic `/forgot` sentence. | done |
+| G3 | **Names and badges on screen:** display name in the top bar (three role layouts), full name + «مُوثّق»/«غير مُوثّق» badge on the admin pending owners, admin establishments and the owner's staff list; approve disabled for unverified. | done |
+
+## reviewer (read-only)
+| ID | Reviews | Status |
+|---|---|---|
+| R-brief | Every brief above against the two v1.1e doc sections, `CLAUDE.md` and the Decisions, before any code | done |
+| R-E0..E3, R-G1..G3 | Security (enumeration on every path incl. timing/query count, code storage, attempt cap races, cookie flags, `after()` send, secrets in logs), the migration on PGlite (re-run it), validators vs the doc, RTL, contrast, no Arabic outside `ar.ts`, dynamic pages | done — nothing open |
+
+## v1.1e — Resolutions after R-brief (lead, binding)
+All reviewer findings accepted (5 BLOCKER, 14 SHOULD, 10 NOTE — evidence in `progress/reviewer.md` → "v1.1e"). They are written into `docs/BACKEND.md` → *Amendments after the pre-code review* **A1–A14**, which override the section above them, plus FRONTEND.md tweaks, corrected `ar.ts` values (spam note, 72-byte message, 2–30 name messages) and a corrected Brevo Decision (free-mail senders are rewritten to `@brevosend.com`).
+- **Ownership addenda:** `prisma/seed.ts` → `backend` (name parts, `legacyName`, `emailVerifiedAt`); `src/app/(admin)/admin/establishments/page.tsx` → `frontend` (full name + badge).
+- **A6 changes E3's shape:** every email-dependent branch of sign-up and `/forgot` runs in `after()`; the flow id is a pre-made `randomUUID()` used as the new user's id.
+- **A14:** split `auth/actions.ts` and `validation.ts` by concern, keeping existing import paths.

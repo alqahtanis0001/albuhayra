@@ -24,7 +24,7 @@ async function submit(prev: AuthState, formData: FormData): Promise<AuthState> {
   return login(prev, formData);
 }
 
-export function LoginForm() {
+export function LoginForm({ passwordReset = false }: { passwordReset?: boolean }) {
   const [state, action, pending] = useActionState(submit, null);
 
   return (
@@ -36,6 +36,17 @@ export function LoginForm() {
         </Link>
       }
     >
+      {/* After /reset (?reset=1). A status, not an alert: it confirms what the
+          user just did. */}
+      {passwordReset ? (
+        <p
+          role="status"
+          className="mb-4 rounded-lg border border-money-in bg-money-in-soft p-3 text-sm font-medium text-money-in"
+        >
+          {t.reset.done}
+        </p>
+      ) : null}
+
       <form action={action} className="flex flex-col gap-4" noValidate>
         <Input
           label={t.auth.email}
@@ -52,7 +63,14 @@ export function LoginForm() {
           type="password"
           autoComplete="current-password"
           required
-        />
+        >
+          <Link
+            href="/forgot"
+            className="flex min-h-11 items-center self-end text-sm font-medium text-accent-dark underline"
+          >
+            {t.forgot.link}
+          </Link>
+        </Input>
         <Button type="submit" block pending={pending} pendingLabel={t.common.loading}>
           {t.auth.loginSubmit}
         </Button>

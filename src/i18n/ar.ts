@@ -51,6 +51,8 @@ export const t = {
     loading: "جارٍ التحميل…",
     saving: "جارٍ الحفظ…",
     signingOut: "جارٍ تسجيل الخروج…",
+    sending: "جارٍ الإرسال…",
+    verifying: "جارٍ التحقق…",
     saved: "تم الحفظ",
     deleted: "تم الحذف",
     copy: "نسخ",
@@ -152,6 +154,8 @@ export const t = {
     PENDING: "قيد المراجعة",
     ACTIVE: "معتمد",
     DISABLED: "موقوف",
+    verified: "مُوثّق",
+    unverified: "غير مُوثّق",
   },
 
   transaction: {
@@ -314,8 +318,8 @@ export const t = {
     passwordShort: "كلمة المرور يجب أن تكون 10 أحرف على الأقل",
     passwordMismatch: "كلمتا المرور غير متطابقتين",
     passwordWrong: "كلمة المرور الحالية غير صحيحة",
-    nameShort: "الاسم قصير جدا",
-    nameLong: "الاسم طويل جدا",
+    nameShort: "الاسم يجب أن يكون حرفين على الأقل",
+    nameLong: "الاسم يجب ألا يتجاوز 30 حرفًا",
     establishmentNameShort: "اسم المنشأة قصير جدا",
     establishmentNameLong: "اسم المنشأة طويل جدا",
     joinCodeInvalid: "رمز الانضمام غير صحيح",
@@ -341,6 +345,97 @@ export const t = {
     monthLocked: "الشهر مقفل ولا يمكن التعديل عليه",
     cannotLockCurrentMonth: "لا يمكن إقفال الشهر الحالي أو شهر قادم",
     unexpected: "حدث خطأ غير متوقع. حاول مرة أخرى.",
+
+    // v1.1e — names (each part: 2–30 characters)
+    nameChars: "يُسمح بالحروف العربية أو الإنجليزية فقط، مع مسافة أو شرطة (-) أو فاصلة عليا (')",
+    nameDigits: "لا يُسمح بالأرقام في الاسم",
+    nameRepeated: "لا يُسمح بتكرار الحرف نفسه 3 مرات متتالية",
+    nameJunk: "يرجى إدخال الاسم الحقيقي كما في الهوية",
+    nameFirstLastSame: "يجب أن يختلف الاسم الأول عن اسم العائلة",
+
+    // v1.1e — password (10–72 characters)
+    passwordLong: "كلمة المرور طويلة جدًا: الحد الأقصى 72 حرفًا إنجليزيًا، أو نحو 36 حرفًا عربيًا",
+    passwordLetterDigit: "كلمة المرور يجب أن تحتوي على حرف ورقم على الأقل",
+    passwordPersonal: "كلمة المرور يجب ألا تحتوي على اسمك أو على الجزء الأول من بريدك",
+    passwordCommon: "كلمة المرور هذه شائعة جدًا ويسهل تخمينها، اختر غيرها",
+
+    // v1.1e — email
+    emailDots: "البريد الإلكتروني لا يحتوي على نقطتين متتاليتين",
+    emailDomain: "نطاق البريد يجب أن يحتوي على نقطة، مثل example.com",
+    emailDisposable: "لا نقبل عناوين البريد المؤقتة، استخدم بريدك الدائم",
+
+    // v1.1e — codes. Reset uses only the generic key (no existence oracle).
+    codeFormat: "الرمز مكوّن من 6 أرقام",
+    codeInvalid: "الرمز غير صحيح",
+    codeExpired: "انتهت صلاحية الرمز، اطلب رمزًا جديدًا",
+    codeAttempts: "تجاوزت عدد المحاولات المسموح، اطلب رمزًا جديدًا",
+    codeInvalidOrExpired: "الرمز غير صحيح أو انتهت صلاحيته",
+    resendTooSoon: "انتظر حتى ينتهي العد التنازلي ثم أعد الإرسال",
+    verifySessionExpired: "انتهت مهلة التحقق، سجّل الدخول مرة أخرى",
+    emailNotVerified: "لا يمكن اعتماد حساب لم يُوثّق بريده الإلكتروني بعد",
+  },
+
+  /** v1.1e — sign-up field labels and helper lines. Western digits throughout. */
+  signupForm: {
+    firstName: "الاسم الأول",
+    middleName: "اسم الأب",
+    lastName: "اسم العائلة",
+    firstNameHelp: "كما في الهوية، بالعربية أو الإنجليزية، بدون أرقام",
+    middleNameHelp: "اختياري، كما في الهوية",
+    lastNameHelp: "كما في الهوية، ويختلف عن الاسم الأول",
+    emailHelp: "سنرسل إليه رمز تحقق من 6 أرقام",
+    passwordHelp: "10 أحرف على الأقل، فيها حرف ورقم، ولا تحتوي اسمك أو بريدك",
+    confirmPasswordHelp: "أعد كتابة كلمة المرور نفسها",
+    establishmentNameHelp: "كما سيظهر في التقارير، من 2 إلى 80 حرفًا",
+    joinCodeHelp: "8 أحرف وأرقام إنجليزية، اطلبه من صاحب المنشأة",
+    /** `{email}` is replaced by the suggested address, rendered left-to-right. */
+    didYouMean: "هل تقصد {email}؟",
+    strengthLabel: "قوة كلمة المرور",
+    strengthWeak: "ضعيفة",
+    strengthFair: "مقبولة",
+    strengthStrong: "قوية",
+  },
+
+  verify: {
+    title: "تأكيد البريد الإلكتروني",
+    sentTo: "أرسلنا رمزًا من 6 أرقام إلى",
+    codeLabel: "رمز التحقق",
+    codeHelp: "6 أرقام، صالح لمدة 10 دقائق",
+    submit: "تأكيد",
+    resend: "لم يصلك الرمز؟ أعد الإرسال",
+    resendIn: "يمكنك إعادة الإرسال بعد",
+    seconds: "ثانية",
+    resent: "أرسلنا رمزًا جديدًا",
+    spamNote: "إن لم تجد الرسالة خلال دقيقة، فتحقق من مجلد الرسائل غير المرغوبة (Spam)",
+    done: "تم تأكيد بريدك الإلكتروني",
+  },
+
+  forgot: {
+    link: "نسيت كلمة المرور؟",
+    title: "نسيت كلمة المرور",
+    intro: "أدخل بريدك الإلكتروني وسنرسل إليك رمزًا لإعادة تعيين كلمة المرور.",
+    emailHelp: "البريد الذي أنشأت به حسابك في زخم، بالأحرف الإنجليزية",
+    submit: "إرسال الرمز",
+    sent: "إن كان البريد مسجلاً فقد أُرسل رمز التحقق",
+  },
+
+  reset: {
+    title: "إعادة تعيين كلمة المرور",
+    submit: "حفظ كلمة المرور الجديدة",
+    done: "تم تغيير كلمة المرور. سجّل الدخول بكلمة المرور الجديدة.",
+  },
+
+  /** v1.1e — transactional email (Brevo). Sender display name is the app name. */
+  mail: {
+    senderName: APP_NAME,
+    verifySubject: `رمز تأكيد بريدك في ${APP_NAME}`,
+    resetSubject: `رمز إعادة تعيين كلمة المرور في ${APP_NAME}`,
+    existsSubject: `محاولة تسجيل ببريدك في ${APP_NAME}`,
+    verifyIntro: "استخدم الرمز التالي لتأكيد بريدك الإلكتروني:",
+    resetIntro: "استخدم الرمز التالي لإعادة تعيين كلمة المرور:",
+    existsBody: "طلب أحدهم إنشاء حساب بهذا البريد، وهو مسجل لدينا بالفعل. إن كنت أنت، فسجّل الدخول أو استخدم «نسيت كلمة المرور؟».",
+    expiry: "الرمز صالح لمدة 10 دقائق.",
+    ignore: "إن لم تطلب هذا فتجاهل هذه الرسالة، ولن يتغير شيء في حسابك.",
   },
 
   a11y: {

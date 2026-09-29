@@ -40,7 +40,13 @@ async function main(): Promise<void> {
     const admin = await db.user.create({
       data: {
         email,
-        name: "مدير النظام",
+        // v1.1e: name parts, the legacy column dual-written for the expand step
+        // (docs/BACKEND.md A9), and a verified address — without it the fresh
+        // ADMIN would be refused by requireUser()'s verification gate.
+        firstName: "مدير",
+        lastName: "النظام",
+        legacyName: "مدير النظام",
+        emailVerifiedAt: new Date(),
         passwordHash: await bcrypt.hash(password, BCRYPT_COST),
         role: "ADMIN",
         status: "ACTIVE",

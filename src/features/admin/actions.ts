@@ -27,6 +27,7 @@ import { z } from "zod";
 import { writeAudit } from "@/lib/audit";
 import { hashPassword, requireAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { commonPasswordError } from "@/lib/passwords/server";
 import {
   SetPasswordSchema,
   invalid,
@@ -72,6 +73,7 @@ function revalidateAdmin(): void {
 
 type OwnerTarget = {
   id: string;
+  emailVerifiedAt: Date | null;
   status: "PENDING" | "ACTIVE" | "DISABLED";
   establishmentId: string | null;
 };
@@ -80,7 +82,7 @@ type OwnerTarget = {
 async function findOwner(userId: string): Promise<OwnerTarget | null> {
   return db.user.findFirst({
     where: { id: userId, role: "OWNER" },
-    select: { id: true, status: true, establishmentId: true },
+    select: { id: true, emailVerifiedAt: true, status: true, establishmentId: true },
   });
 }
 
@@ -92,6 +94,8 @@ export async function approveOwner(userId: string): Promise<ActionResult<null>> 
   const owner = await findOwner(parsed.data);
   if (!owner || !owner.establishmentId) return { ok: false, error: "err.notFound" };
   if (owner.status !== "PENDING") return { ok: false, error: "err.forbidden" };
+  // v1.1e: an address nobody has proved may not become an account.
+  if (!owner.emailVerifiedAt) return { ok: false, error: "err.emailNotVerified" };
   const establishmentId = owner.establishmentId;
 
   await db.$transaction(async (tx) => {
@@ -225,6 +229,8 @@ export async function resetOwnerPassword(
     newPassword: formData.get("newPassword"),
   });
   if (!parsed.success) return invalid(parsed.error);
+  const common = commonPasswordError(parsed.data.newPassword);
+  if (common) return { ok: false, error: "err.invalidInput", fieldErrors: { newPassword: common } };
 
   const owner = await findOwner(parsed.data.userId);
   if (!owner) return { ok: false, error: "err.notFound" };

@@ -4,10 +4,45 @@
  * validation imports the same schema so the two can never drift.
  *
  * Every message is an i18n key from src/i18n/ar.ts, not Arabic text.
+ *
+ * v1.1e split by concern (docs/BACKEND.md A14): the auth schemas and the name,
+ * password and email rules live beside this file and are re-exported here, so
+ * `@/lib/validation` stays the one import path.
  */
 import { z } from "zod";
-import { MAX_AMOUNT_HALALAS } from "./money";
-import { todayISO } from "./dates";
+import { MAX_AMOUNT_HALALAS } from "../money";
+import { todayISO } from "../dates";
+import { enteredPassword } from "./auth";
+import { newPassword } from "./password";
+
+export * from "./auth";
+export {
+  emailError,
+  emailTypoSuggestion,
+  normalizeEmail,
+  MAX_EMAIL_LENGTH,
+} from "./email";
+export {
+  nameError,
+  nameKey,
+  sameName,
+  NAME_MAX_LETTERS,
+  NAME_MIN_LETTERS,
+} from "./names";
+export { normalizeText, toWesternDigits } from "./normalize";
+export {
+  emailTokens,
+  nameTokens,
+  passwordBaseError,
+  passwordError,
+  passwordPersonalError,
+  passwordStrength,
+  MAX_PASSWORD_BYTES,
+  MIN_PASSWORD_LENGTH,
+  STRONG_PASSWORD_LENGTH,
+  type PasswordContext,
+  type PasswordStrength,
+} from "./password";
 
 /* ---------------------------------------------------------------- primitives */
 
@@ -19,41 +54,6 @@ export const PaymentMethodEnum = z.enum(
   { error: "err.invalidInput" },
 );
 export type PaymentMethodValue = z.infer<typeof PaymentMethodEnum>;
-
-export const MIN_PASSWORD_LENGTH = 10;
-export const JOIN_CODE_LENGTH = 8;
-
-const email = z
-  .string({ error: "err.required" })
-  .trim()
-  .toLowerCase()
-  .min(1, "err.required")
-  .max(200, "err.tooLong")
-  .pipe(z.email("err.emailInvalid"));
-
-const password = z
-  .string({ error: "err.required" })
-  .min(MIN_PASSWORD_LENGTH, "err.passwordShort")
-  .max(200, "err.tooLong");
-
-const personName = z
-  .string({ error: "err.required" })
-  .trim()
-  .min(2, "err.nameShort")
-  .max(60, "err.nameLong");
-
-const establishmentName = z
-  .string({ error: "err.required" })
-  .trim()
-  .min(2, "err.establishmentNameShort")
-  .max(80, "err.establishmentNameLong");
-
-export const joinCode = z
-  .string({ error: "err.required" })
-  .trim()
-  .toUpperCase()
-  .length(JOIN_CODE_LENGTH, "err.joinCodeInvalid")
-  .regex(/^[A-Z0-9]+$/, "err.joinCodeInvalid");
 
 /** ISO calendar date, not in the future (Riyadh "today"). */
 const pastOrTodayISODate = z
@@ -87,29 +87,8 @@ const cuid = z
   .min(1, "err.required")
   .max(64, "err.tooLong");
 
+
 /* -------------------------------------------------------------------- schemas */
-
-export const SignupOwnerSchema = z.object({
-  name: personName,
-  email,
-  password,
-  establishmentName,
-});
-export type SignupOwnerInput = z.infer<typeof SignupOwnerSchema>;
-
-export const SignupStaffSchema = z.object({
-  name: personName,
-  email,
-  password,
-  joinCode,
-});
-export type SignupStaffInput = z.infer<typeof SignupStaffSchema>;
-
-export const LoginSchema = z.object({
-  email,
-  password: z.string({ error: "err.required" }).min(1, "err.required").max(200, "err.tooLong"),
-});
-export type LoginInput = z.infer<typeof LoginSchema>;
 
 export const TransactionInputSchema = z.object({
   date: pastOrTodayISODate,
@@ -144,11 +123,8 @@ export type LockInput = z.infer<typeof LockInputSchema>;
 
 export const ChangePasswordSchema = z
   .object({
-    currentPassword: z
-      .string({ error: "err.required" })
-      .min(1, "err.required")
-      .max(200, "err.tooLong"),
-    newPassword: password,
+    currentPassword: enteredPassword,
+    newPassword,
     confirmPassword: z
       .string({ error: "err.required" })
       .min(1, "err.required")
@@ -163,7 +139,7 @@ export type ChangePasswordInput = z.infer<typeof ChangePasswordSchema>;
 /** OWNER/ADMIN setting someone else's password: no current password to compare. */
 export const SetPasswordSchema = z.object({
   userId: cuid,
-  newPassword: password,
+  newPassword,
 });
 export type SetPasswordInput = z.infer<typeof SetPasswordSchema>;
 

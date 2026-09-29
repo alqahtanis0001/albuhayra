@@ -12,6 +12,9 @@ import {
   SignupStaffSchema,
   TransactionFilterSchema,
   TransactionInputSchema,
+  ForgotPasswordSchema,
+  ResetPasswordSchema,
+  VerifyCodeSchema,
   toFieldErrors,
 } from "./validation";
 
@@ -27,26 +30,43 @@ function validTransaction() {
   };
 }
 
+const PASSWORD = "Bright-river42";
+
+function owner(extra: Record<string, unknown> = {}) {
+  return {
+    firstName: "عبدالله",
+    lastName: "القحطاني",
+    email: "owner@example.com",
+    password: PASSWORD,
+    confirmPassword: PASSWORD,
+    establishmentName: "مؤسسة",
+    ...extra,
+  };
+}
+
+function staff(extra: Record<string, unknown> = {}) {
+  const { establishmentName: _unused, ...rest } = owner();
+  return { ...rest, email: "staff@example.com", joinCode: "AB23CD45", ...extra };
+}
+
 describe("SignupOwnerSchema", () => {
-  it("normalises the email and trims the names", () => {
-    const parsed = SignupOwnerSchema.parse({
-      name: "  عبدالله  ",
-      email: "  Owner@Example.COM ",
-      password: "averylongpassword",
-      establishmentName: "  مؤسسة البحيرة  ",
-    });
+  it("normalises the email and the names", () => {
+    const parsed = SignupOwnerSchema.parse(
+      owner({
+        firstName: "  عبد\u00A0 الله  ",
+        middleName: "",
+        email: "  Owner@Example.COM ",
+        establishmentName: "  مؤسسة البحيرة  ",
+      }),
+    );
     expect(parsed.email).toBe("owner@example.com");
-    expect(parsed.name).toBe("عبدالله");
+    expect(parsed.firstName).toBe("عبد الله");
+    expect(parsed.middleName).toBeUndefined();
     expect(parsed.establishmentName).toBe("مؤسسة البحيرة");
   });
 
   it("rejects a short password with the i18n key", () => {
-    const result = SignupOwnerSchema.safeParse({
-      name: "عبدالله",
-      email: "owner@example.com",
-      password: "short",
-      establishmentName: "مؤسسة",
-    });
+    const result = SignupOwnerSchema.safeParse(owner({ password: "short", confirmPassword: "short" }));
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(toFieldErrors(result.error).password).toBe("err.passwordShort");
@@ -54,12 +74,7 @@ describe("SignupOwnerSchema", () => {
   });
 
   it("rejects an invalid email", () => {
-    const result = SignupOwnerSchema.safeParse({
-      name: "عبدالله",
-      email: "not-an-email",
-      password: "averylongpassword",
-      establishmentName: "مؤسسة",
-    });
+    const result = SignupOwnerSchema.safeParse(owner({ email: "not-an-email" }));
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(toFieldErrors(result.error).email).toBe("err.emailInvalid");
@@ -67,42 +82,95 @@ describe("SignupOwnerSchema", () => {
   });
 
   it("strips unknown fields so a client cannot inject a role", () => {
-    const parsed = SignupOwnerSchema.parse({
-      name: "عبدالله",
-      email: "owner@example.com",
-      password: "averylongpassword",
-      establishmentName: "مؤسسة",
-      role: "ADMIN",
-      status: "ACTIVE",
-    } as Record<string, unknown>);
+    const parsed = SignupOwnerSchema.parse(
+      owner({ role: "ADMIN", status: "ACTIVE", emailVerifiedAt: "2026-01-01" }),
+    );
     expect(parsed).not.toHaveProperty("role");
     expect(parsed).not.toHaveProperty("status");
+    expect(parsed).not.toHaveProperty("emailVerifiedAt");
+  });
+
+  it("reports each cross-field rule on the field the user must change", () => {
+    const result = SignupOwnerSchema.safeParse(
+      owner({ lastName: "عبدالله", confirmPassword: "Bright-river43" }),
+    );
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const errors = toFieldErrors(result.error);
+      expect(errors.lastName).toBe("err.nameFirstLastSame");
+      expect(errors.confirmPassword).toBe("err.passwordMismatch");
+    }
+  });
+
+  it("reports a personal password on the password field, even while another field is invalid", () => {
+    const result = SignupOwnerSchema.safeParse(
+      owner({
+        password: "Qahtani-2026x",
+        confirmPassword: "Qahtani-2026x",
+        lastName: "Qahtani",
+        email: "bad",
+      }),
+    );
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const errors = toFieldErrors(result.error);
+      expect(errors.password).toBe("err.passwordPersonal");
+      expect(errors.email).toBe("err.emailInvalid");
+    }
   });
 });
 
 describe("SignupStaffSchema", () => {
-  it("uppercases the join code", () => {
-    const parsed = SignupStaffSchema.parse({
-      name: "سالم",
-      email: "staff@example.com",
-      password: "averylongpassword",
-      joinCode: " ab23cd45 ",
-    });
+  it("uppercases the join code and strips invisible marks", () => {
+    const parsed = SignupStaffSchema.parse(staff({ joinCode: " ab23\u200Fcd45 " }));
     expect(parsed.joinCode).toBe("AB23CD45");
   });
 
   it("rejects a join code that is not 8 alphanumerics", () => {
     for (const code of ["ABC", "ABCDEFGHI", "ABCD-234", "ABCD 234"]) {
-      const result = SignupStaffSchema.safeParse({
-        name: "سالم",
-        email: "staff@example.com",
-        password: "averylongpassword",
-        joinCode: code,
-      });
+      const result = SignupStaffSchema.safeParse(staff({ joinCode: code }));
       expect(result.success, code).toBe(false);
       if (!result.success) {
         expect(toFieldErrors(result.error).joinCode).toBe("err.joinCodeInvalid");
       }
+    }
+  });
+});
+
+describe("VerifyCodeSchema", () => {
+  it("accepts Arabic-Indic digits and spaces", () => {
+    expect(VerifyCodeSchema.parse({ code: "١٢٣ ٤٥٦" }).code).toBe("123456");
+    expect(VerifyCodeSchema.parse({ code: "۰۱۲۳۴۵" }).code).toBe("012345");
+  });
+
+  it("answers err.codeFormat for anything but six digits", () => {
+    for (const code of ["12345", "1234567", "12345a", "", 123456]) {
+      const result = VerifyCodeSchema.safeParse({ code });
+      expect(result.success, String(code)).toBe(false);
+      if (!result.success) expect(toFieldErrors(result.error).code).toBe("err.codeFormat");
+    }
+  });
+});
+
+describe("ResetPasswordSchema", () => {
+  it("applies the account-free password rules and the confirmation", () => {
+    const weak = ResetPasswordSchema.safeParse({
+      code: "123456",
+      newPassword: "onlyletterslong",
+      confirmPassword: "onlyletterslong",
+    });
+    expect(weak.success).toBe(false);
+    if (!weak.success) {
+      expect(toFieldErrors(weak.error).newPassword).toBe("err.passwordLetterDigit");
+    }
+    const mismatch = ResetPasswordSchema.safeParse({
+      code: "123456",
+      newPassword: PASSWORD,
+      confirmPassword: `${PASSWORD}x`,
+    });
+    expect(mismatch.success).toBe(false);
+    if (!mismatch.success) {
+      expect(toFieldErrors(mismatch.error).confirmPassword).toBe("err.passwordMismatch");
     }
   });
 });
@@ -195,8 +263,8 @@ describe("ChangePasswordSchema", () => {
   it("requires the confirmation to match", () => {
     const result = ChangePasswordSchema.safeParse({
       currentPassword: "oldpassword",
-      newPassword: "averylongpassword",
-      confirmPassword: "averylongpasswordx",
+      newPassword: PASSWORD,
+      confirmPassword: `${PASSWORD}x`,
     });
     expect(result.success).toBe(false);
     if (!result.success) {
@@ -208,10 +276,22 @@ describe("ChangePasswordSchema", () => {
     expect(
       ChangePasswordSchema.safeParse({
         currentPassword: "oldpassword",
-        newPassword: "averylongpassword",
-        confirmPassword: "averylongpassword",
+        newPassword: PASSWORD,
+        confirmPassword: PASSWORD,
       }).success,
     ).toBe(true);
+  });
+
+  it("applies the account-free rules to a changed password too (A11)", () => {
+    const result = ChangePasswordSchema.safeParse({
+      currentPassword: "oldpassword",
+      newPassword: "a1".repeat(37),
+      confirmPassword: "a1".repeat(37),
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(toFieldErrors(result.error).newPassword).toBe("err.passwordLong");
+    }
   });
 });
 
@@ -259,9 +339,11 @@ describe("ReportRangeSchema", () => {
 describe("toFieldErrors", () => {
   it("keeps only the first error per field", () => {
     const result = SignupOwnerSchema.safeParse({
-      name: "x",
+      firstName: "x",
+      lastName: "y",
       email: "nope",
       password: "s",
+      confirmPassword: "s",
       establishmentName: "y",
     });
     expect(result.success).toBe(false);
@@ -270,7 +352,8 @@ describe("toFieldErrors", () => {
       expect(Object.keys(errors).sort()).toEqual([
         "email",
         "establishmentName",
-        "name",
+        "firstName",
+        "lastName",
         "password",
       ]);
       expect(Object.values(errors).every((v) => v.startsWith("err."))).toBe(true);
@@ -328,6 +411,11 @@ describe("every zod message is an err.* i18n key", () => {
     ["Report/bad", ReportRangeSchema, { from: "bad", to: "worse" }],
     ["SetPassword/bad", SetPasswordSchema, { userId: "", newPassword: "s" }],
     ["SetPassword/wrongTypes", SetPasswordSchema, { userId: 3, newPassword: null }],
+    ["SignupOwner/wrongTypes", SignupOwnerSchema, owner({ firstName: 1, middleName: 2, email: 3, password: 4 })],
+    ["VerifyCode/empty", VerifyCodeSchema, {}],
+    ["Forgot/wrongType", ForgotPasswordSchema, { email: 5 }],
+    ["Forgot/empty", ForgotPasswordSchema, { email: "" }],
+    ["Reset/empty", ResetPasswordSchema, {}],
   ];
 
   it.each(cases)("%s", (_label, schema, input) => {

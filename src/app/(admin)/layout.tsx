@@ -15,7 +15,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
   return (
     <AppShell
       items={ADMIN_NAV}
-      userName={user.name}
+      userName={user.displayName}
       establishmentName={null}
       accountHref="/admin/account"
     >

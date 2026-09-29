@@ -2,6 +2,7 @@ import { Card } from "@/components/Card";
 import { DateText } from "@/components/DateText";
 import { EmptyState } from "@/components/EmptyState";
 import { StatusBadge } from "@/components/StatusBadge";
+import { VerifiedBadge } from "@/components/VerifiedBadge";
 import { t } from "@/i18n/ar";
 import { resetStaffPassword } from "@/features/establishments/actions";
 import type { StaffRow } from "@/features/establishments/queries";
@@ -66,9 +67,10 @@ export function StaffTab({ staff }: { staff: StaffRow[] }) {
 function StaffIdentity({ row }: { row: StaffRow }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <span className="font-medium text-gray-900">{row.name}</span>
+      <span className="font-medium text-gray-900">{row.fullName}</span>
       <bdi className="text-sm text-gray-600">{row.email}</bdi>
       <StatusBadge status={row.status} />
+      <VerifiedBadge verified={row.emailVerified} />
       <span className="text-xs text-gray-500">
         <DateText date={row.createdAt} compact />
       </span>

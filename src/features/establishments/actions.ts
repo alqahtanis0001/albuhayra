@@ -19,6 +19,7 @@ import { writeAudit } from "@/lib/audit";
 import { hashPassword, requireOwner } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { allocateJoinCode } from "@/lib/joinCode";
+import { commonPasswordError } from "@/lib/passwords/server";
 import {
   SetPasswordSchema,
   invalid,
@@ -38,7 +39,7 @@ const flagSchema = z.object({
 
 type StaffTarget = {
   id: string;
-  name: string;
+  emailVerifiedAt: Date | null;
   status: "PENDING" | "ACTIVE" | "DISABLED";
   canEdit: boolean;
 };
@@ -71,7 +72,7 @@ async function findOwnStaff(
 ): Promise<StaffTarget | null> {
   return db.user.findFirst({
     where: { id: userId, establishmentId, role: "STAFF" },
-    select: { id: true, name: true, status: true, canEdit: true },
+    select: { id: true, emailVerifiedAt: true, status: true, canEdit: true },
   });
 }
 
@@ -83,6 +84,8 @@ export async function approveStaff(userId: string): Promise<ActionResult<null>> 
   const staff = await findOwnStaff(establishmentId, parsed.data);
   if (!staff) return { ok: false, error: "err.notFound" };
   if (staff.status !== "PENDING") return { ok: false, error: "err.forbidden" };
+  // v1.1e: an address nobody has proved may not become an account.
+  if (!staff.emailVerifiedAt) return { ok: false, error: "err.emailNotVerified" };
 
   const updated = await updateOwnStaff(establishmentId, staff.id, {
     status: "ACTIVE",
@@ -205,6 +208,8 @@ export async function resetStaffPassword(
     newPassword: formData.get("newPassword"),
   });
   if (!parsed.success) return invalid(parsed.error);
+  const common = commonPasswordError(parsed.data.newPassword);
+  if (common) return { ok: false, error: "err.invalidInput", fieldErrors: { newPassword: common } };
 
   const staff = await findOwnStaff(establishmentId, parsed.data.userId);
   if (!staff) return { ok: false, error: "err.notFound" };

@@ -4,6 +4,9 @@
  * قبول / رفض for one owner sign-up. Both are behind a ConfirmDialog: approving
  * creates the establishment's default categories, and rejecting disables the
  * establishment — neither is a click to take back.
+ *
+ * قبول is disabled while the email is unverified, with the reason beside it;
+ * `approveOwner` refuses the same case (`err.emailNotVerified`). رفض stays.
  */
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -16,7 +19,13 @@ import { approveOwner, rejectOwner } from "@/features/admin/actions";
 
 type Asking = "approve" | "reject" | null;
 
-export function PendingOwnerActions({ userId }: { userId: string }) {
+export function PendingOwnerActions({
+  userId,
+  emailVerified,
+}: {
+  userId: string;
+  emailVerified: boolean;
+}) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [asking, setAsking] = useState<Asking>(null);
@@ -33,7 +42,13 @@ export function PendingOwnerActions({ userId }: { userId: string }) {
   return (
     <>
       <div className="flex flex-wrap gap-2">
-        <Button size="sm" pending={pending} onClick={() => setAsking("approve")}>
+        <Button
+          size="sm"
+          pending={pending}
+          disabled={!emailVerified}
+          aria-describedby={emailVerified ? undefined : `unverified-${userId}`}
+          onClick={() => setAsking("approve")}
+        >
           {t.common.accept}
         </Button>
         <Button
@@ -45,6 +60,11 @@ export function PendingOwnerActions({ userId }: { userId: string }) {
           {t.common.reject}
         </Button>
       </div>
+      {emailVerified ? null : (
+        <p id={`unverified-${userId}`} className="text-xs text-gray-600">
+          {t.err.emailNotVerified}
+        </p>
+      )}
 
       <ConfirmDialog
         open={asking === "approve"}

@@ -61,7 +61,7 @@ vi.mock("@/lib/auth", () => ({
   requireAdmin: async () => ({
     user: {
       id: "admin_1",
-      name: "مدير",
+      firstName: "مدير", middleName: null, lastName: "", displayName: "مدير",
       email: "a@example.com",
       role: "ADMIN" as const,
       status: "ACTIVE" as const,
@@ -74,13 +74,13 @@ vi.mock("@/lib/auth", () => ({
 }));
 
 const { getAdminOverview } = await import("./queries");
-const { approveOwner, rejectOwner, setEstablishmentActive } = await import(
+const { approveOwner, rejectOwner, resetOwnerPassword, setEstablishmentActive } = await import(
   "./actions"
 );
 
 const OWNER = {
   id: "owner_1",
-  name: "مالك",
+  firstName: "مالك", middleName: null, lastName: "", legacyName: null, emailVerifiedAt: new Date(0),
   email: "owner@example.com",
   status: "PENDING" as const,
   createdAt: new Date(Date.UTC(2026, 8, 20, 9, 0)),
@@ -238,6 +238,7 @@ describe("approveOwner", () => {
   beforeEach(() => {
     harness.responses.set("user.findFirst", {
       id: "owner_1",
+      emailVerifiedAt: new Date(0),
       status: "PENDING",
       establishmentId: "est_1",
     });
@@ -295,6 +296,23 @@ describe("approveOwner", () => {
     });
   });
 
+  it("v1.1e: refuses an owner whose address is not verified, and writes nothing", async () => {
+    harness.responses.set("user.findFirst", {
+      id: "owner_1",
+      emailVerifiedAt: null,
+      status: "PENDING",
+      establishmentId: "est_1",
+    });
+    expect(await approveOwner("owner_1")).toEqual({ ok: false, error: "err.emailNotVerified" });
+    expect(harness.calls.some((c) => c.method === "updateMany" || c.method === "createMany")).toBe(false);
+  });
+
+  it("v1.1e: reads the verification from the database row it approves", async () => {
+    await approveOwner("owner_1");
+    const lookup = harness.calls.find((c) => c.model === "user" && c.method === "findFirst");
+    expect((lookup!.args.select as Record<string, unknown>).emailVerifiedAt).toBe(true);
+  });
+
   it("only ever targets a row whose role is OWNER", async () => {
     await approveOwner("owner_1");
     const lookup = harness.calls.find(
@@ -304,7 +322,36 @@ describe("approveOwner", () => {
   });
 });
 
+describe("v1.1e: resetOwnerPassword refuses a common password on the server (A12 amended)", () => {
+  it("answers passwordCommon on the field and writes nothing", async () => {
+    harness.responses.set("user.findFirst", {
+      id: "owner_1",
+      emailVerifiedAt: new Date(0),
+      status: "ACTIVE",
+      establishmentId: "est_1",
+    });
+    const form = new FormData();
+    form.append("newPassword", "Password123");
+    expect(await resetOwnerPassword("owner_1", null, form)).toEqual({
+      ok: false,
+      error: "err.invalidInput",
+      fieldErrors: { newPassword: "err.passwordCommon" },
+    });
+    expect(harness.calls.some((c) => c.method === "updateMany")).toBe(false);
+  });
+});
+
 describe("rejectOwner disables both the owner and the establishment", () => {
+  it("v1.1e: an unverified request can still be rejected", async () => {
+    harness.responses.set("user.findFirst", {
+      id: "owner_1",
+      emailVerifiedAt: null,
+      status: "PENDING",
+      establishmentId: "est_1",
+    });
+    expect(await rejectOwner("owner_1")).toEqual({ ok: true, data: null });
+  });
+
   it("writes both, in one transaction", async () => {
     harness.responses.set("user.findFirst", {
       id: "owner_1",

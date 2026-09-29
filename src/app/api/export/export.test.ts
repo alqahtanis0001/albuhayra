@@ -108,7 +108,7 @@ vi.mock("@/lib/auth", () => ({
   requireOwner: async () => {
     spy.requireOwnerCalls += 1;
     return {
-      user: { id: "owner_1", name: "مالك", establishmentName: "منشأة الاختبار" },
+      user: { id: "owner_1", firstName: "مالك", middleName: null, lastName: "", displayName: "مالك", establishmentName: "منشأة الاختبار" },
       establishmentId: SESSION_EST,
     };
   },

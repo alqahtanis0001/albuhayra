@@ -30,3 +30,12 @@ services:
         sync: false
       - key: SESSION_SECRET
         sync: false
+      # v1.1e transactional email (Brevo REST API). Both are pasted in the
+      # dashboard; MAIL_FROM must be a sender verified in Brevo.
+      - key: BREVO_API_KEY
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+      # Public base URL, used for the logo image inside emails. Not a secret.
+      - key: APP_URL
+        value: https://ledger-8c5g.onrender.com

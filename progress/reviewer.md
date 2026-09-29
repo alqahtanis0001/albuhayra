@@ -1512,3 +1512,434 @@ Build and gates:
 - **Gates:** `tsc --noEmit` 0; vitest 286/286 in 15 files.
 
 **Left to the user:** a real print of /owner/reports; opening the export in real Excel (how `-1,234.50 ر.س` looks in an RTL sheet); the progress bar and pending style with a session on Fast 3G.
+
+---
+
+# v1.1e
+
+## 2026-09-29 — v1.1e R-brief (design + briefs, before code)
+**Verdict: 5 BLOCKER, 14 SHOULD, 10 NOTE.** Fix the BLOCKERs in the docs or briefs before E3 starts. Evidence was gathered read-only: the docs and diff, the auth code, Next 16.3.6 `after.md`, an in-memory PGlite probe and a Node 24 regex probe.
+
+### BLOCKER
+- **B1 — The fake `/verify` flow must emulate the whole code state machine** (BACKEND.md `verifyEmail`/`resendVerification`; Decision "No enumeration").
+  - The doc allows specific code errors because "the user proved the address or the password". That is false for the random-id flow: whoever signs up with a registered address has proved nothing.
+  - On the real flow, 5 wrong codes give `codeAttempts`, 10 minutes give `codeExpired`, a resend inside 60 s (read from `EmailCode.sentAt`) gives `resendTooSoon`, and a resend resets all of these.
+  - A random id has no row, so it would answer `codeInvalid` forever and every resend would succeed. That is a deterministic oracle; it needs no timing.
+  - **Fix:** in `codes.ts`, keep per-flow state for random ids in an in-memory Map keyed by flow id (`sentAt`, `expiresAt`, `attempts`, codes issued), swept like `rateLimit.ts`, with the same transitions. Run the same DB statements for them; they match zero rows, so the query count matches too.
+  - **Test:** drive both flows through one script (5 wrong, +10 min, resend at 30 s and at 61 s, wrong after the resend) and assert identical results. `getVerifyFlow()` (S13) returns the same `resendInSeconds` for both.
+- **B2 — Spend and clear the limiter identically on both sign-up paths.**
+  - `auth/actions.ts:180` and `:265` call `clearAttempts(key)` after a successful sign-up.
+  - If the new-address path keeps clearing and the exists path does not, the 6th sign-up with a registered address gets `err.tooManyAttempts`, while new addresses never do.
+  - **Fix:** remove `clearAttempts` from both sign-up actions. Every mail cap (S7) follows the same rule: when hit, skip the send silently and never change the response.
+- **B3 — The personal-info rule in `resetPassword` is an existence oracle** (BACKEND.md `resetPassword`: "names from the database when the account exists").
+  - With no code at all, a password containing a guessed first name returns `err.passwordPersonal` exactly when the account exists. It also confirms the name.
+  - **Fix:** check in this order: the context-free rules (length, bytes, letter+digit, common, email local part) → the code (generic key) → the name rule, only once the code is proven.
+  - **Test:** an unknown email with a name-bearing password returns `err.codeInvalidOrExpired`.
+- **B4 — Reset codes can be guessed across codes, which means account takeover.**
+  - The cap is 5 guesses per code. `/forgot` issues a fresh code, the doc states no 60 s gate for RESET, and the limiter is per IP.
+  - With rotating IPs that is 5 guesses per `/forgot`, without limit: about 200k requests for a takeover, each one also emailing the victim.
+  - **Fix (no schema change):** per user and purpose, over 24 h:
+    - issue at most 5 codes; after that, send nothing silently.
+    - treat every code as burnt once `_sum(attempts)` reaches 10.
+  - Also: apply the 60 s gate to RESET, and key `resetPassword` on the cookie email as well as the IP. Give VERIFY the same caps (emulated for the fake flow, B1). Mutation-test the cap.
+- **B5 — Attempt cap: increment first, then compare** (BACKEND.md Codes).
+  - First run `updateMany({where:{id, consumedAt:null, expiresAt:{gt:now}, attempts:{lt:5}}, data:{attempts:{increment:1}}})`. A count of 0 means burnt or expired. Only then compare the hash. Compare-then-increment lets N parallel guesses all slip under the cap.
+  - On success, run `updateMany({where:{id, consumedAt:null}, data:{consumedAt:now}})` and require count === 1. Do it in the same `$transaction` as the user write, so a double submit consumes the code once.
+  - Read only the newest unconsumed code (`orderBy sentAt desc, take 1`). "One live code" then holds even if two resends race.
+
+### SHOULD
+- **S1 — The migration split depends on the locale and mangles compound names.**
+  - PGlite 0.5.8 runs PG 18.3 with ctype C.UTF-8. There:
+    - `trim()` strips only U+0020; a tab or NBSP survives.
+    - SQL `'\s'` matches EM SPACE but not NBSP, while JS `\s` does match NBSP.
+    - `arr[2:1]` gives `''`, not NULL.
+  - Neon's ctype is unverified.
+  - «عبد الله محمد القحطاني» would split into first «عبد» and middle «الله محمد». The top bar would show «عبد القحطاني», and names cannot be edited in the app.
+  - **Fix:**
+    - Trim and split on an explicit class: `[\s\u00A0\u2000-\u200B\u202F\u205F\u3000\uFEFF]+`.
+    - Before splitting, glue `(عبد|أبو|ابو|آل|بن|ابن)` to the next word with a placeholder character, and turn the placeholder back into a space after the split.
+    - Wrap the middle name in `NULLIF(…,'')`.
+  - **PGlite cases:** NBSP, tab, double spaces, an empty or whitespace-only name, 1/2/3/4/6 words, «عبد الرحمن …», «محمد بن سلمان آل سعود», and Latin names.
+- **S2 — The expand step leaves gaps.**
+  - Rows the old release inserts during Render's build get empty names and a null `emailVerifiedAt`.
+  - A Render rollback to v1.1d after v1.1e has created users would crash on `name` NULL, because the old client types it as `String`.
+  - **Fix:** dual-write `legacyName = fullName` on every v1.1e create; `displayName` falls back to `legacyName` when `firstName` is `''`; the contract migration re-splits rows where `firstName = ''` before dropping `name`.
+- **S3 — Timing: an equal query count does not equalise writes.**
+  - A new sign-up does about 5 writes plus the join-code loop. The exists path does none, and `/forgot` is the same (insert or nothing). That is tens of ms on Neon.
+  - **Simplest equaliser:** run every email-dependent branch inside `after()`. The response path is: validate + bcrypt + (staff) join-code check + flow cookie with a pre-made `randomUUID()` id + redirect.
+  - Otherwise, record the residual in Known issues.
+- **S4 — The `requireUser` gate should redirect to `SIGNED_OUT_LOGIN_PATH`, not `/verify`.**
+  - `forget()` cannot clear the cookie during a render, so `/verify` without a flow cookie shows "expired".
+  - Following it to `/login`, the proxy sends the still-signed-in user back to their area, and the gate sends them to `/verify` again. That is a loop.
+- **S5 — Order the login branches:**
+  - wrong password → `loginFailed`
+  - DISABLED account or inactive establishment → `loginFailed`
+  - unverified → `/verify`
+  - PENDING → `/pending`
+
+  After `verifyEmail`, route by DB status: PENDING → `/pending?as=`, ACTIVE → `/login`.
+- **S6 — Name the limiter keys in BACKEND.md.** The doc says "5 failures/15 min/IP", but the code counts attempts per key. Suggested keys:
+  - `verify:${flowId}` and `verify:${ip}`
+  - `resend:${flowId}`
+  - `forgot:${ip}`
+  - `reset:${email}` and `reset:${ip}`
+
+  Consume them identically on the real and fake paths.
+- **S7 — Mail abuse and Brevo quota.**
+  - The Brevo free plan allows 300 mails/day. One IP at 5 sign-ups per 15 min is 480/day, so one person can exhaust the quota and then nobody can verify.
+  - **Fix:** give `consumeAttempt` a `windowMs` parameter and add caps on `mail:${ip}` (per day) and `mailto:${email}` (per hour). When a cap is hit, skip the send silently.
+  - In production, a missing API key should log at error level on every send.
+- **S8 — Brevo replaces free-mail senders.**
+  - Brevo's help centre says a sender on @gmail.com and similar is replaced with a compliant address on `@brevosend.com`, whoever the recipient is.
+  - Recipients will therefore not see the Gmail address. `t.verify.spamNote` («…من عنوان Gmail») is wrong, and the premise of the Decision needs correcting. Tell the user what From address to expect.
+- **S9 — Personal-info check on the email local part:** there is no minimum length, so `a@x.com` rejects every password containing "a". **Fix:** split the local part on `[._+-]` and check only tokens of 3+ characters.
+- **S10 — Apply the context-free password rules to every password setter.**
+  - The shared `password` constant (`validation.ts:33`) also feeds `ChangePasswordSchema` and `SetPasswordSchema`. Put the 72-byte, letter+digit and common checks there; a 100-byte password set through those forms is silently truncated.
+  - `err.passwordLong` says «72 حرفًا», but the limit is 72 bytes; an 80-byte Arabic password of 40 letters would be told it is over 72 letters. Reword it.
+  - Never normalise a password before hashing; normalise only the copy used for the checks.
+- **S11 — Normalise names first** (measured in Node 24).
+  - Tatweel is `\p{L}`, so «محـــمد» fails with `nameRepeated`.
+  - Harakat are Script=Inherited, so a script-only regex rejects «عليّ».
+  - RLM/LRM/ALM are neither `\s` nor removed by `trim()`.
+  - **Fix:** NFKC, then strip tatweel and the bidi/zero-width characters (also for email and join code), then collapse and trim.
+  - **Chars:** `/^[\p{L}\p{M} '\-’]+$/u` must match, and `/[^\p{sc=Arabic}\p{sc=Latin}\P{L}]/u` must not (verified: accepts عليّ, O’Brien, Jean-Luc; rejects Cyrillic and CJK).
+  - Require at least 2 letters: harakat-only input and «--» pass the check otherwise. Make the repeat check case-insensitive.
+- **S12 — Ship only the common passwords that can matter.**
+  - Entries under 10 characters, or without both a letter and a digit, already fail other rules. Filtering to the rest is exactly equivalent and leaves a small shared module: no dynamic import, no generated-module equality test.
+  - Keep the full `.txt` with its MIT credit, and test that the filter is equivalent.
+  - For disposable domains, match the domain and every parent domain.
+- **S13 — Contract gaps.**
+  - `getVerifyFlow(): {email, resendInSeconds} | null`
+  - the exact `resendVerification` signature
+  - where `t.verify.done` and `t.reset.done` render
+  - `prisma/seed.ts` needs name parts and `emailVerifiedAt`, or a fresh ADMIN is locked out; nobody owns it in v1.1e.
+  - `(admin)/admin/establishments/page.tsx` is not in the ownership table.
+- **S14 — `after()` behaviour.** Per the Next 16.3 docs it runs even when `redirect()` is called and even when the response errored. So call it only after the transaction commits. In tests, mock `next/server`'s `after`.
+
+### NOTE
+- **N1:** Use an HMAC key derived from `SESSION_SECRET` rather than the secret itself. `timingSafeEqual` needs Buffers of equal length. Rotating the secret voids live codes.
+- **N2:** Keep the flow-cookie payloads disjoint from the session's; add a test. Clear `zk_flow` on login and logout.
+- **N3:** zod 4 `z.email()` already rejects `..` and domains without a dot, so run `emailDots` and `emailDomain` first.
+- **N4:** Count the name minimum in letters.
+- **N5:** Keep all user-supplied text out of the email templates.
+- **N6:** `err.nameShort` and `err.nameLong` should state the 2–30 rule.
+- **N7:** In `.env.example`, the Brevo block splits the ADMIN comment from `SEED_ADMIN_*`.
+- **N8:** `auth/actions.ts` (270 lines) and `validation.ts` will exceed 250 lines; plan the split now.
+- **N9:** A self-reset does not end other sessions (stateless cookies). Add it to Known issues.
+- **N10:** A valid join code always leads to `/verify`. That reveals the code is valid, which a sign-up with a fresh email always did anyway; B10 stays closed.
+
+## 2026-09-30 — v1.1e R-G1 + R-G3 (frontend)
+**Verdict: 1 BLOCKER (the user's list-loading constraint; the cause is in a backend file), 1 SHOULD, 4 NOTE.** Everything else checks out. `tsc --noEmit` exits 0 (my run). The latest build, `.next/BUILD_ID` 00:09:30, is newer than every frontend file.
+
+### BLOCKER
+- **G-B1 — The common-password list reaches 13 client routes, not only sign-up and reset.**
+  - `src/lib/validation/password.ts:11` imports `COMMON_PASSWORDS` statically, and `:46` uses it as a default parameter.
+  - The barrel `@/lib/validation` re-exports `password.ts`. Its `newPassword` schema is built at module load, so the set survives tree-shaking.
+  - Every client component that imports anything from `@/lib/validation` therefore ships the list. There are 14 such components, among them ChangePasswordForm, ResetStaffPasswordForm, LoginForm, CodeInput, FormToast, TransactionForm, DirectionToggle and CategoryForms.
+  - Built chunk: `.next/static/chunks/3bxmjoke7w5af.js` contains `new Set(["1q2w3e4r5t",…"quant4307s"])`.
+  - The client-reference manifests that name this chunk:
+    - admin: `/admin/account`, `/admin/establishments`
+    - auth: `/forgot`, `/login`, `/reset`, `/signup`, `/verify`
+    - owner: `/owner/settings`, `/owner/transactions/new`, `/owner/transactions/[id]/edit`
+    - staff: `/staff/account`, `/staff/transactions/new`, `/staff/transactions/[id]/edit`
+  - No shared layout ships it: the owner and staff dashboards are not in the list.
+  - This matches A12 as written ("a module both server and client import directly"), so the doc and the user's constraint disagree. The lead has to rule on it.
+  - **Fix (backend + frontend, A12 amended):**
+    - `password.ts` must not import the list at all; even a default parameter keeps it in the bundle. `passwordBaseError`, `passwordError` and `passwordStrength` take `common` from the caller (empty set when not given).
+    - The shared `newPassword` schema drops the common check.
+    - Every server action that sets a password (sign-up ×2, reset, change, owner-reset-staff, admin-reset-owner) calls a `commonPasswordError()` that imports `common.generated` directly.
+    - `PasswordFields.tsx` imports `COMMON_PASSWORDS` and passes `common` to `measurePassword`, so only /signup and /reset load it. Keep the client-side schema pre-check as it is; the server still answers `err.passwordCommon` on other forms.
+    - **Gate:** a test that no file under `src/lib/validation/**` imports `passwords/common`. After the next build, grep the chunks for `charlie123` and check that its manifests are only signup and reset.
+  - **Scale, for the lead's ruling:** after A12 the list is 5 entries, about 70 bytes. If the user's constraint was about bundle weight rather than principle, relaxing it is a legitimate choice. It is still the user's call, not ours.
+
+### SHOULD
+- **G-S1 — The typo hint drops focus.**
+  - Clicking «هل تقصد …؟» unmounts the button (`EmailField.tsx`, `setSuggestion(null)` in `onClick`), so focus falls to `<body>` and keyboard and screen-reader users lose their place.
+  - **Fix:** give the email `<input>` a ref (React 19 `ref` passes through `...rest` in `Input`) and call `ref.current?.focus()` after filling the address.
+
+### NOTE
+- **G-N1 — Stale server errors.** A server or client-schema `fieldErrors[field]` stays under a name or email field after the user corrects it, until the next submit. This is the app's existing pattern, and `confirmPassword` already handles it. The password field practically never shows one, because submit is disabled while any rule fails. Optional: return the submitted values with the result and show an error only while `v[field] === submitted[field]`.
+- **G-N2 — React 19 form reset.** Controlled fields should survive the post-action `form.reset()`. I could not verify it: submitting a form is off-limits. Put it on the user's checklist: after a rejected sign-up (for example first name = last name), every field, passwords included, still holds its value.
+- **G-N3 — Contrast, re-measured** from the Tailwind v4 hex values against the white `AuthCard`:
+  - fair word amber-800 #973c00: 7.09 (the fair orange pair asked for)
+  - fair segment amber-700 #bb4d00: 5.03 (≥3:1 non-text)
+  - weak #b91c1c: 6.47
+  - strong #006c35: 6.57
+  - helper gray-500, which is `#666666` in `globals.css`: 5.74
+  - `warn` badge amber-800 on amber-50: about 6.9
+
+  Every pair matches frontend's figures.
+- **G-N4 — Checked and fine:**
+  - **Fields:** order first / middle / last / email / password / confirm / establishment-or-join-code. Every field has its `t.signupForm.*Help` line, with the error below it. Autocomplete values are given-name, additional-name, family-name, email, new-password (×2) and organization. Email and join code are `dir="ltr"`; the join code is uppercased.
+  - **Meter:**
+    - It uses `passwordStrength` + `passwordError`, and its context includes all three names and the email.
+    - Three `aria-hidden` segments sit alongside an always-present `<p aria-live="polite">` with the word and the first broken rule; the password input's `aria-describedby` points at it.
+    - Submit is disabled while the password is weak or the confirmation does not match, and the reason is always on screen.
+  - **Typo hint:** runs on blur, is a button inside a polite region, shows the address in `<bdi dir="ltr">`, and splits `{email}` from the value.
+  - **G3:**
+    - `displayName` is used in all three layouts.
+    - `fullName` + `VerifiedBadge` appear in admin requests, the establishments table (only when an owner exists) and StaffTab.
+    - قبول is `disabled` when the account is unverified, and `aria-describedby` points at `t.err.emailNotVerified`. `Button` merges `disabled || busy`. رفض stays available.
+  - **General:**
+    - Arabic appears only in comments.
+    - No physical-direction utility, `style=` or `dangerouslySetInnerHTML`.
+    - Digits are Western.
+    - The disposable list is not in any client chunk (no `mailinator` in `.next/static`).
+    - `getVerifyFlow` is not reachable from client files.
+
+## 2026-09-30 — v1.1e R-E0 (contract layer) + R-E1 (migration)
+Snapshot taken at about 00:16; backend was still editing `src/lib/validation/*` during the review.
+- **My run:** `tsc` 0 (earlier today). `vitest` on migration, validation, `validation/names`, `lib/auth` and `features/auth` passes 159/159.
+- **Rule probes:** scratch files run with `tsx`, plus an in-memory PGlite for the migration.
+
+### R-E0 — verdict: 2 BLOCKER (both open items, not defects in what was written), 1 SHOULD, 4 NOTE
+
+**BLOCKER**
+- **E0-B1 — (b) is still open: the list is reachable from the barrel.**
+  - `src/lib/validation/password.ts:11` still imports `COMMON_PASSWORDS`, so everything that imports `@/lib/validation` ships it.
+  - The latest build (`BUILD_ID` 00:13:09) has it in `.next/static/chunks/22l32obpn_r3q.js`. That chunk is named by 13 client-reference manifests.
+  - Fix as in G-B1:
+    - `password.ts` takes `common` from its caller.
+    - `newPassword` has no common check.
+    - Server actions call a server-side `commonPasswordError()`.
+    - `PasswordFields` passes the list.
+    - A test that nothing under `src/lib/validation/**` imports `passwords/common`.
+  - With the 100k list (about 5.9k shipped entries) this matters for size too, not only for the principle.
+- **E0-B2 — (a) is not done.**
+  - `common.txt` is still SecLists `10k-most-common.txt` (10,001 lines; the README says so), and the module has 5 entries.
+  - `password.test.ts` asserts "ships the full SecLists 10k list".
+  - Needed:
+    - replace `common.txt` with SecLists `Passwords/Common-Credentials/100k-most-used-passwords-NCSC.txt` (MIT, same SecLists credit, name the file and commit in the README);
+    - regenerate;
+    - update the size assertion.
+  - The equivalence tests themselves are the right shape.
+
+**SHOULD**
+- **E0-S1 — Filter equivalence holds only for inputs that are list entries.**
+  - `passwordBaseError` checks length on the raw password, but the common check runs on the *normalised copy* (trim, collapsed spaces, invisibles stripped, NFKC).
+  - So `"password1 "` and `"password1\u200B"` pass: probed, both return `null`. Their copy `"password1"` is in `common.txt`, but it was filtered out of the module for having 9 characters.
+  - The full list would refuse both, so the claim of exact equivalence is false for these inputs. This is low impact today and grows with the 100k list.
+  - **Fix:** apply the length rule to the check copy as well (`[...checkCopy(pw)].length < 10` → `err.passwordShort`). Filtering is then exactly equivalent. Add both probes to `password.test.ts`.
+
+**NOTE**
+- **E0-N1 — (c) passes.** Probes:
+  - **Names:**
+    - «عليّ», «الله», «عبد الله», O’Brien, Jean-Luc, «ﷲ» (NFKC) and «\u200Fمحمد» pass.
+    - «محـــمد» passes because tatweel is stripped.
+    - Aaa → `nameRepeated` (case-insensitive).
+    - Harakat-only input, «--» and «ع» → `nameShort` (fewer than 2 letters).
+    - Cyrillic → `nameChars`; "a1" → `nameDigits`.
+  - **Password:**
+    - 72 bytes → `passwordLong`; applies to `SetPasswordSchema` and `ChangePasswordSchema` too.
+    - `emailTokens("a.b@x.com")` is `[]`.
+    - Arabic names and local-part tokens → `passwordPersonal`.
+  - **Email:** «a..b» → `emailDots` and «a@localhost» → `emailDomain`, both before `z.email()`. RLM, upper case and outer spaces are normalised away.
+  - **Cross-field rules:** reported on the right field while other fields are still invalid (`when`).
+  - **Junk list:** it includes "bar", which is also a real surname. Consider dropping it.
+- **E0-N2 — (d) passes.**
+  - `NAME_SELECT`, which includes `legacyName`, is used by every name reader: auth, admin, establishments, locks, transactions.
+  - `displayName` and `fullName` fall back to `legacyName` when `firstName` is blank.
+  - Sign-up dual-writes `legacyName: fullName(person)` (`actions/signup.ts:56`).
+  - The seed writes the name parts, `legacyName` and `emailVerifiedAt`.
+  - The export uses `user.displayName`.
+- **E0-N3 — (e) passes.** The gate sits after the missing-row check and before PENDING, and redirects to `SIGNED_OUT_LOGIN_PATH`. `approveOwner`/`approveStaff` refuse unverified accounts (`admin/actions.ts:97`, `establishments/actions.ts:87`). A read-then-check is race-free here because verification only ever moves from null to a date.
+- **E0-N4 — Two things to confirm later.**
+  - `disposable.ts` reads `process.cwd()/src/lib/emails/disposable.txt` at runtime. That works with `next start` from the repo root, as on Render. It would break under `output: "standalone"`, which is not set.
+  - For E3: after the gate sends a stale session to `/login?signedOut=1`, check that `login` for an unverified account also destroys the `ledger_session` cookie, not only `zk_flow`.
+
+### R-E1 — migration verdict: clean. No BLOCKER, no SHOULD, 3 NOTE
+- **Tests:** I re-ran `migration.test.ts` (23 split cases + 6 expand cases); it passes.
+- **Extra PGlite probe** (init → 9 more names → v1.1e):
+  - «بن علي الشهري» → first «بن علي» / last «الشهري»
+  - «عبد  الله» → «عبد الله»
+  - «عبد\u00A0الله القحطاني» → «عبد الله» / «القحطاني»
+  - O'Neil and Mary-Jane O’Brien are intact.
+  - No U+E000 left in any column.
+  - Re-applying the file fails loudly on `CREATE TYPE`; it never double-applies silently.
+- **Line by line:**
+  - The enum is created before the table that uses it.
+  - One `ALTER TABLE` adds the four columns and drops `NOT NULL` on `name`. `ADD COLUMN … NOT NULL DEFAULT ''` is a metadata-only default on PG 11+, so no table rewrite.
+  - Then the table, the index and the FK with `ON DELETE CASCADE`. The backfill runs after all the DDL.
+  - `emailVerifiedAt = CURRENT_TIMESTAMP`, as in `init`.
+  - The regex `\uXXXX` escapes are regex-engine escapes. They need `standard_conforming_strings = on`, which is Neon's default.
+  - Whitespace is an explicit class, so it does not depend on `\s` alone and does not depend on the locale. `btrim(…, ' ')` runs after the class collapse, and `regexp_replace` uses `'g'`. `chr(57344)` needs a UTF8 database, which Neon is.
+  - Two glue passes handle chained connectors.
+  - For a one-word name, `parts[2:0]` → `''` → `NULLIF` → NULL. For an empty name, `{''}` → `firstName ''`, which is then shown through `legacyName` (itself blank).
+  - Prisma sends the file as one script, so it runs as one implicit transaction. The `ACCESS EXCLUSIVE` lock on "User" lasts for a small UPDATE; old-release requests wait rather than fail.
+- **Expand-only confirmed.** Nothing is dropped, renamed or retyped; `name` is only loosened.
+  - An old-release `INSERT (name, …)` still works and gets `''` names with a null `emailVerifiedAt`. The A9 fallback displays it, and that user verifies through login.
+  - Old-release reads of `name` see non-null values for every existing row.
+- **E1-N1 — JS and SQL differ slightly on legacy rows only:**
+  - ZWSP and BOM become a space in SQL but are stripped in JS (`normalize.ts`). So «محمد\u200Bعلي» → first «محمد» / last «علي» in SQL, where JS would read it as one word.
+  - SQL does not apply NFKC, so presentation forms such as «ﻻ» stay.
+  - Harmless; noted only.
+- **E1-N2:** A name that is only a family phrase («آل سعود») becomes `firstName` «آل سعود», like any one-word name.
+- **E1-N3 — Deploy notes.**
+  - If this migration fails on Neon, it rolls back, but Prisma records it as failed, and every later deploy is blocked until `prisma migrate resolve`. The user should watch the first Render build log.
+  - The file is LF. This machine converts on checkout (autocrlf warnings), and a CRLF working copy would change the checksum Prisma compares locally. A `*.sql text eol=lf` line in `.gitattributes` (lead's file) prevents that.
+
+## 2026-09-30 — v1.1e R-G2 (/verify, /forgot, /reset, login link, banners) + G-S1 re-check
+**Verdict: clean. No BLOCKER, no SHOULD, 2 NOTE.**
+- `tsc` exits 0.
+- No Arabic outside comments, no physical-direction utilities, no `style=`.
+- Every auth route is dynamic: `prerender-manifest` holds `/_global-error` only.
+
+**Code review of `/verify` with a flow** (it cannot be rendered):
+- **Countdown:**
+  - The first deadline is taken in the mount effect, so server and client first render the same number.
+  - After a successful resend, `setDeadline` restarts the effect. The interval recomputes from the deadline every 500 ms.
+  - With `initialSeconds` 0 the button is enabled at once, and the interval stops itself.
+- **Resend wiring:**
+  - The wrapper around `resendVerification` sets the deadline from `retryAfterSeconds`.
+  - The result sits in an always-present `role="status"`, and errors go through `errorMessage`.
+  - The disabled button's `aria-describedby` points at the timer, and `Button` merges `disabled || busy`.
+- **Error mapping:**
+  - `codeFormat` is caught client-side and never reaches the server.
+  - Code errors and `tooManyAttempts` show under the field.
+  - `verifySessionExpired` alone gets the banner with the `/login` link.
+- **Spam note:** the value no longer names Gmail (S8 closed).
+- **Parity with the fake flow:**
+  - The UI renders only what the server returns: the flow email, `resendInSeconds` from the shared `getVerifyFlow` → `resendWaitSeconds`, the action results.
+  - The client computes nothing that could tell the two flows apart.
+  - The only residual is backend's accepted one: the fake Map is lost on a restart.
+- **`/forgot`:** the field is controlled; only shape errors appear, under the field. On success the form is replaced by `t.forgot.sent` (`role=status`) plus a `/reset` link, whatever the address.
+- **`/reset`:**
+  - `CodeInput` normalises Arabic-Indic digits and caps the length in the handler; it has `inputMode=numeric`, `one-time-code` and `dir=ltr`.
+  - `codeInvalidOrExpired` shows under the code field; other form-level errors go to the toast.
+  - The meter and the disabled submit come from the shared `PasswordFields`.
+- **Login and pending:**
+  - «نسيت كلمة المرور؟» is a 44 px link under the password, placed with `self-end`, which is logical.
+  - The `?reset=1` and `?verified=1` banners are `role=status`. They only echo the redirect: forging one reveals and grants nothing.
+- **Skeletons:** there are verify, forgot and reset variants.
+
+**G-S1 re-check:** fixed. `Input` types `ref` and passes it through `...rest`; `EmailField` focuses the input after filling the suggestion.
+
+**Stale errors:** SignupForm now keeps a `sent` snapshot, and a field's server error hides once that field's value differs from what was sent. The implementation is correct. `nameFirstLastSame` sits on `lastName`, so it stays until `lastName` changes or the next submit, which is acceptable.
+
+**NOTE**
+- **G2-N1:** The `/reset` meter has no email context, so it can rate a password containing the email's local part as fair or strong. The server then answers `passwordPersonal` at A3 step 1. That is no oracle, because the email is the requester's own input. Optional: a `getResetFlow()` read to pass the email. That would be a contract addition through main.
+- **G2-N2 (cosmetic):** After a successful resend, the previous wrong-code error stays under the code field until the next submit.
+- 2026-09-30 — **G2-N2 re-check: closed.**
+  - `ResendCode` has an `onResent` prop.
+  - On a successful resend, `VerifyForm` sets `dismissed` to the current failure (identity compare, `VerifyForm.tsx:46`).
+  - A new submit returns a new object, so it shows again.
+  - A resend landing mid-submit hides only the old failure.
+  - G2-N1 stays open as an optional contract question for main.
+
+## 2026-09-30 — v1.1e R-E3 (codes, flow cookie, mail, actions, gates)
+**Verdict: 1 BLOCKER, 2 SHOULD, 3 NOTE.**
+- **Full suite (my run):** 504/510. All 6 failures are common-list cases in `password.test.ts`, which matches the G-B1/NCSC rework backend is doing now; not re-filed (N1).
+
+### BLOCKER
+- **E3-B1 — A resend on a stale real flow turns a real user's id into a fake flow, and that user's self-reset then never works.**
+  - **The code path:**
+    1. `flows.ts resendVerifyCode` looks the user up with `findFirst({ id, emailVerifiedAt: null })`. For a user who is now *verified* that returns null, so it calls `startFakeFlow(flowId)` with the real user id.
+    2. `stores.ts storeFor` keys fakes on `userId` only, for **both** purposes.
+    3. `sendResetCode` does not check `isFakeFlow`. It mails a RESET code that lives only in the memory map.
+    4. `resetPassword`: `checkCode` passes against the fake store, then `consumeCode` hits the database, gets count 0, throws, and the user sees `GENERIC`. That repeats every time until the process restarts; the sweep only runs past 5,000 entries.
+  - **Realistic trigger:** an unverified user signs in on two devices and verifies on one. Within 30 minutes they tap «أعد الإرسال» on the other. `resendWaitSeconds` finds no unconsumed code, returns null → 0, and the resend goes ahead.
+  - **Fix:**
+    - (a) In `resendVerifyCode`, use `findUnique({ where: { id }, select: { emailVerifiedAt: true } })`:
+      - no row → `startFakeFlow`;
+      - verified → return without sending;
+      - unverified → `sendVerifyCode`.
+    - (b) As defence in depth, the fake store serves VERIFY only: `storeFor` returns `fakeStore` only when `purpose === "VERIFY"`.
+  - **Test:** verify on device B, resend on device A, then `/forgot` + `/reset` for the same user succeeds.
+
+### SHOULD
+- **E3-S1 — `login` leaves a stale `ledger_session` in place on the unverified and PENDING branches** (`login.ts`). Only the success branch replaces it, through `startSession`. **Fix:** call `destroySession()` before both redirects, next to `startFlow`/`clearFlow`. Test: a stale session cookie plus an unverified login leaves no session cookie.
+- **E3-S2 — Targeted reset lockout; record it in Known issues.**
+  - Anyone can `/forgot` a victim's address and spend 10 wrong `/reset` guesses. The A4 cap on summed attempts then refuses the victim's self-reset for 24 h, and the per-email limiter adds 15 minutes.
+  - This is the price of stopping cross-code guessing, and it is acceptable. The fallback is a manual reset by the owner or ADMIN. The single ADMIN has no such fallback other than the seed/DB, so say that explicitly.
+
+### NOTE
+- **E3-N1 — The tree is in flux:** 6 failures in `password.test.ts` (common list refused / `weak` expected). I will re-run after the G-B1, NCSC, E0-S1, "bar" and missing-entry ⇒ codeExpired fixes land.
+- **E3-N2 — Checked and fine:**
+  - **A1:** one state machine, and the fake store runs the same statements. A correct guess of a fake code fails at `consumeCode` → `codeInvalid`. Real success is the only difference, and it needs the code.
+  - **A2:** no `clearAttempts` in sign-up.
+  - **A3:** order is local part → limits → `findUnique` + `checkCode` (with `NO_USER` ""), so an unknown address runs the same statements → names only after the code.
+  - **A4:** caps on 5 issued and 10 summed attempts, and `capped` stays silent.
+  - **A5:** `spendAttempt` runs before the HMAC compare; `consumeCode` requires count === 1 inside the user transaction; only the newest unconsumed code is read.
+  - **A6:**
+    - Owner sign-up runs 0 queries in the response path; staff runs only the join-code lookup.
+    - Both set an identical `zk_flow` and `redirect("/verify")`.
+    - The email-dependent work runs inside `after()`, with the sign-up transaction committing there before the code is issued.
+    - `requestPasswordReset` runs 0 queries and always answers `{ ok: true }` plus the flow cookie.
+  - **A7:** limiter keys as specified. The mail caps are silent inside `deliver`. A missing key in production logs an error on every send.
+  - **A8:**
+    - Login runs the A8 order: wrong password → DISABLED or inactive establishment → unverified → PENDING.
+    - `zk_flow` is cleared on login and logout.
+    - The flow cookie is sealed with an HKDF-derived password, its payload shape is disjoint from the session's, and its flags are httpOnly / secure in production / lax / path=/ / 30 min.
+  - **A13:**
+    - The code key is HKDF-derived, and `timingSafeEqual` gets equal-length Buffers.
+    - Templates carry no user text, and the code must match `^\d{6}$`.
+    - The logo exists at `public/brand/zakham-brand/zakham-wordmark-green.png`.
+  - **Logging:** error names only; Brevo status plus its sanitised code; recipient domain only. No address, code or key is logged.
+  - **Proxy:** `/forgot` and `/reset` are signed-out paths; `/verify` is open.
+  - **Audit:** `EMAIL_VERIFIED` and `PASSWORD_RESET_SELF`.
+- **E3-N3:** Every `/reset` submission without a flow cookie shares one `reset:none` bucket. That is harmless, because they all fail anyway.
+
+## 2026-09-30 — v1.1e re-check of backend's six fixes
+**Verdict: all six closed. No new finding.**
+- My run: `tsc` 0; `vitest` 530/530 in 25 files. Backend is still adding E3-B1 tests; B1 is re-checked separately.
+- **(1) NCSC list:**
+  - `common.txt` has 99,840 lines, and the README credits SecLists `100k-most-used-passwords-NCSC.txt` at commit `1a7bb91` (MIT).
+  - `common.generated.ts` has 5,794 entries.
+  - Dropping the byte filter is sound: the 72-byte rule reads the password as typed, and the module only needs to be a superset of the relevant entries.
+  - The equivalence test covers each entry plus its upper-case, padded and ZWSP variants.
+- **(2) G-B1:**
+  - `validation/password.ts` imports no list, and its `common` defaults to an empty set.
+  - The list is imported only by `passwords/server.ts` (six call sites: both sign-ups, reset, change, owner-reset-staff, admin-reset-owner) and by `PasswordFields.tsx`, which only `SignupForm` and `ResetForm` use.
+  - **Fresh build** (`BUILD_ID` 00:34:51, newer than every client-relevant file): a probe entry (`february18`) sits only in `.next/static/chunks/2b7_88wf3662f.js` (80 KB). The only client-reference manifests naming that chunk are `/(auth)/reset` and `/(auth)/signup`.
+  - In `/reset` the common check is part of A3 step 1, so it runs before the code; that is fine, because it depends on nothing about the account. In sign-up it runs through `serverOnlyRules`, which does not depend on the email either.
+- **(3) E0-S1:** `passwordBaseError` applies the length rule to both the raw password and `passwordCheckCopy`.
+- **(4)** "bar" is gone from `JUNK_NAMES`.
+- **(5) A1 after a restart:**
+  - `checkCode` treats a missing code as `codeExpired`.
+  - `zk_flow.verify.startedAt` stands in for `sentAt` in `resendWaitSeconds` when there is no code.
+  - Parity reasoning: a lost fake flow can only differ from a real one if the process restarts less than 10 minutes after the sign-up. A Render idle restart needs 15 quiet minutes, by which time the real code has expired too.
+- **(6) Stale session on login:** both the unverified and the PENDING branches call `destroySession()` before redirecting (`login.ts:73`, `:82`).
+- 2026-09-30 — **E3-B1 re-check: closed.**
+  - The code: `resendVerifyCode` uses `findUnique` by id. No row → `startFakeFlow`; a verified user → returns without sending; an unverified user → `sendVerifyCode`. `storeFor` hands out the fake store only when `purpose === "VERIFY"`.
+  - The tests: the two-device script in `verify.test.ts:271` asserts the resend sends nothing, the id is not marked fake, and `/forgot` + `/reset` then succeed. The VERIFY-only case is `codes.test.ts:230`.
+  - The response to that resend is unchanged (`ok`, 60 s), so there is no new oracle.
+  - My run: `tsc` 0; vitest 530/530 in 25 files. **R-E3 has no open BLOCKER.** E3-S2 (Known issues) is main's to record.
+
+## 2026-09-30 — v1.1e final sweep (last review before the commit)
+**Verdict: clean for the commit.**
+- No BLOCKER and no SHOULD against code.
+- 2 NOTEs are doc hygiene in files I don't own: one in the lead's doc, one in backend's notes.
+
+**What I ran**
+- `tsc --noEmit` 0; vitest 530/530 in 25 files.
+- `prerender-manifest` lists only `/_global-error`, with no dynamic routes (`BUILD_ID` 00:36:51; only `ar.ts` values and a README changed after it).
+- **E3-B1** closed, as recorded above.
+- **G-B1:** the list chunk is named only by the signup and reset manifests. Frontend confirms it is fetched only on /signup and /reset in Chrome.
+
+**Sweep of all 109 files changed or new vs HEAD** (a scratch script; nothing written to the repo)
+- **Arabic outside `ar.ts`:**
+  - None in UI code.
+  - The remaining hits are data, not UI strings:
+    - `admin/actions.ts` default categories (unchanged since HEAD)
+    - `validation/names.ts` junk list
+    - the Arabic-Indic digit class in `normalize.ts`
+    - one comment line in `StaffRowActions.tsx`
+- **Physical-direction utilities:** none. The three hits are the words "right-to-left" in test titles and a comment.
+- **Inline style/script:** none added; the hits are comments in `proxy.ts` and `proxy.test.ts`.
+- **Export route:** no db, prisma or `@prisma/` import in non-test files under `src/app/api/export/**`.
+- **Scoping gate** (`scoping.test.ts`): the only removed lines are fixtures — `name:` → name parts, and the `averylongpassword` → `averylongpassword7` passwords for the letter+digit rule. It gains 2 tests (unverified approve refused; common password refused on staff reset and change). No `expect` was removed.
+- **Logging:**
+  - `auth/actions/shared.ts` logs the error name only.
+  - `mail/send.ts` logs the HTTP status, the sanitised Brevo code and the recipient domain only.
+  - Nothing logs a secret, a code or a full address.
+- **Stray files:**
+  - No scratch or log files tracked; `.env` is not tracked.
+  - Untracked: `.gitattributes` (the lead's) plus the v1.1e sources, tests and migration, all intended.
+- **Invisible characters** (U+200B–200F, U+202A–202E, U+2066–2069, U+FEFF, U+E000):
+  - None in any source, SQL or JSON file. The migration uses `\uXXXX` escapes and `chr(57344)`.
+  - The only hits are in Markdown notes; see the NOTEs.
+  - My own v1.1e section had 5 such characters. I replaced them with visible `\uXXXX` text in those 5 lines only; `git diff HEAD` shows 0 removed lines in `reviewer.md`, so earlier content is untouched.
+
+**NOTE**
+- **FS-N1:** `docs/BACKEND.md:321` (A10, lead's) writes the whitespace class with literal characters, including a real U+200B and U+FEFF. It should be written as `[\s  -​  　﻿]+`, as in the SQL.
+- **FS-N2:** `progress/backend.md:741` (new, backend's) contains the real U+200F it describes. `progress/frontend.md:1028` has a U+200D, but that is pre-existing, from commit `7e2e5d66`. Both are cosmetic; the owners can replace them with `‏` / `‍` text.

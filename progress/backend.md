@@ -689,3 +689,146 @@ Sample workbook (fixture data, not real) written by an uncommitted scratchpad sc
 - Lead note applied: the title-block muted grey is now `#525252`, the app's neutral (7.81:1 on
   white); it was `#4B5563`. Gates re-run under the lock: tsc 0 · 286/286 · build 0. Sample
   workbook regenerated from the same fixture.
+
+## 2026-09-29/30 — v1.1e (email verification, password reset, sign-up quality)
+
+### E0 — contract layer
+- `src/lib/names.ts` (`displayName`, `fullName`, `NAME_SELECT`; legacy fallback per A9).
+- `src/lib/validation.ts` → `src/lib/validation/{index,names,password,email,normalize}.ts` (A14);
+  `@/lib/validation` unchanged as the import path. New: sign-up schemas with name parts +
+  `confirmPassword`, `VerifyCodeSchema`, `ForgotPasswordSchema`, `ResetPasswordSchema`, rule
+  functions, `passwordStrength`, `emailTypoSuggestion`. Cross-field rules use
+  `superRefine(fn, { when: () => true })` so they show while other fields are still invalid.
+- `AuthedUser` drops `name` (+ first/middle/last/displayName); lists gain `fullName` +
+  `emailVerified` (`EstablishmentSummary.emailVerified` is the owner's).
+- Auth actions split into `src/features/auth/actions/{login,signup,verify,reset,flows,shared,types,index}.ts`.
+  `index.ts` is a plain re-export module; `shared.ts`/`flows.ts` are `server-only`, NOT
+  `"use server"` (every export of a `"use server"` file is a callable endpoint).
+- Gates: tsc 0 · 306/306 · build 0.
+
+### Gotchas
+- `git mv` stages the rename — I undid it with `git reset -- <paths>` so the index stays the lead's.
+- zod 4 object refinements are skipped when any field failed unless `when` is given.
+- The 10k SecLists list leaves 5 relevant entries after A12's filter (reported to lead).
+
+### E1 — migration `20260930000000_v1_1e_email_names`
+- DDL from `prisma migrate diff --from-schema <HEAD schema> --to-schema prisma/schema.prisma --script`
+  (no database; `--from-migrations` needs a shadow DB in Prisma 7). Backfill hand-written in the
+  same file per A10: explicit whitespace class, bidi/ZWNJ/tatweel stripped, connectors glued with
+  U+E000 (two passes, so chained «أبو عبد الله» stays together), `NULLIF` on the middle,
+  `emailVerifiedAt = CURRENT_TIMESTAMP` for all existing rows. `name` kept, nullable.
+- `src/lib/migration.test.ts` (PGlite): 23 split cases + 6 expand-step cases (verified backfill,
+  `name` nullable, old-release insert still works and shows its legacy name, EmailCode cascade,
+  no v1.1d column dropped). Mutations: NBSP out of the class (3 fail), single glue pass (1),
+  COALESCE for NULLIF (6), no mark stripping (1). Restored byte-identical (`cmp`).
+- Drift check (one-off, scratchpad): init + v1.1e on PGlite vs `migrate diff --from-empty
+  --to-schema` on another PGlite → columns, indexes and constraints identical.
+- Gates: tsc 0 · 342/342 · build 0.
+
+### E2 — lists + validators
+- `src/lib/passwords/common.txt` = SecLists `10k-most-common.txt` @913b327 (MIT, README);
+  `common.generated.ts` from `generate.mjs` — 5 entries survive A12's filter.
+- `src/lib/emails/disposable.txt` = 336 domains from disposable-email-domains @51fafcd (CC0,
+  README); `disposable.ts` server-only, matches the domain and every parent domain.
+- Tests: `validation/names.test.ts` (40), `password.test.ts` (28, incl. the A12 equivalence
+  against the full list and the generator-drift check), `email.test.ts` (27, incl. disposable).
+- Mutations (each failed its named cases, restored from byte copy): dots rule removed (3),
+  exact-domain-only disposable (1), script check removed (3), common on the raw password (2),
+  characters instead of bytes (2), no 3-char minimum on email tokens (5).
+- Gates: tsc 0 · 437/437 · build 0.
+
+### Gotcha — the Write tool decodes `\uXXXX`
+Writing `"‏"` into a .ts file with the Write tool stores the real (invisible) character.
+Harmless at runtime, unreadable in review. Fixed every file with a script that re-escapes by
+code point; in tests I now use `String.fromCodePoint(...)` for invisible characters.
+
+### E3 — codes, flow cookie, mail, actions, gates
+- `src/lib/codes/{index,stores,constants}.ts`: HMAC (HKDF-derived key) codes; one state machine
+  over two stores — EmailCode rows, or an in-memory map for the fake flow, which runs the DB
+  store's statements first (0 rows) so answers *and* statement counts match (A1). Increment
+  first (conditional `updateMany`), compare second (A5); newest unconsumed only; caps across
+  codes per user+purpose in 24 h: 5 issued, 10 summed attempts (A4); 60 s gate on both purposes.
+- `src/lib/session.ts`: `zk_flow` (`getFlow`/`startFlow`/`clearFlow`), sealed with a password
+  HKDF-derived from SESSION_SECRET; payload has no top-level userId.
+- `src/lib/mail/{send,templates}.ts`: Brevo REST via fetch, 10 s timeout, logs status + Brevo
+  code + recipient domain only; `deliver()` applies the mail caps silently; templates carry no
+  user text, logo only for an http(s) APP_URL.
+- Actions: sign-up response path = validate → disposable → limiter → (staff) join code → bcrypt
+  → flow cookie with `randomUUID()` → `/verify`; the address is first looked at inside `after()`
+  (`flows.ts`). No `clearAttempts` on sign-up (A2). verify/resend, forgot/reset (A3 order),
+  login (A8 order), logout clears `zk_flow`. Audits `EMAIL_VERIFIED`, `PASSWORD_RESET_SELF`.
+- Gates in `requireUser` (unverified → signed-out login) and approveOwner/approveStaff
+  (`!emailVerifiedAt` → `err.emailNotVerified`; falsy, so an unselected field also refuses).
+- Proxy: `/forgot`, `/reset` signed-out; `/verify` open.
+- Test helper `src/lib/testing/memoryDb.ts` (in-memory user/establishment/emailCode/auditLog +
+  `$transaction` rollback + statement log). Returns copies — returning the stored object hid an
+  off-by-one in the fake store that the twin test then caught.
+- Tests: codes (18), verify incl. the A1 twin script (8), reset (15), login (10), mail (12),
+  session (6), sign-up (14), approval refusals (4), proxy paths (6).
+- Mutations (each failed its named cases; restored from byte copies): no cap in the increment;
+  no issue cap; no summed-attempts cap (refusal and mismatch answer, after the test was fixed to
+  isolate it — it survived at first); fake skips a statement; fake ignores the issue cap;
+  specific reset keys; name rule before the code; owner looks the address up before the
+  response; clearAttempts back on sign-up; requireUser gate removed; both approval refusals
+  removed; DISABLED check dropped from login; consume count ignored in verify.
+- Gates: tsc 0 · 510/510 in 25 files · build 0 (first attempt died with a V8 fatal error — the
+  known flaky crash on this machine; the immediate retry exited 0).
+
+### Residuals (for Known issues)
+- Fake-flow state is in memory: across a restart a fake flow loses its code while a real one
+  keeps it in the DB, so the two can differ for one step (e.g. resend inside 60 s). Same class as
+  the in-memory limiter resetting on deploy.
+- A resend's code is issued in `after()`, so two resends a few ms apart can both pass the 60 s
+  gate; bounded by `resend:{flowId}` 5/15 min and the 5-codes/day cap.
+- `getVerifyFlow` has no requireX() by design (no session exists on /verify).
+
+### Rulings applied after E0 (2026-09-30)
+- **Common list → SecLists NCSC 100k** (`common.txt` full, 99,839 passwords, file as of `1a7bb91`);
+  generated module 5,794 entries. The generator no longer filters on bytes: every rule except
+  the byte limit reads the normalised copy, so the equivalence holds for any input.
+- **G-B1 / A12 amended:** `validation/password.ts` imports no list (rules take `common` from the
+  caller, default empty); `newPassword` schema has no common check; `src/lib/passwords/server.ts`
+  `commonPasswordError()` is called by both sign-ups, reset, change password, owner-resets-staff
+  and admin-resets-owner (each tested). A source scan fails if anything under
+  `src/lib/validation/**` imports `passwords/`. After a build, the chunk holding the list is
+  referenced only by the `/signup` and `/reset` client manifests.
+- **E0-S1:** the length rule also counts the normalised copy (`"password1 "`, `"password1"+ZWSP`
+  → passwordShort); the equivalence test covers padded/upper-case/ZWSP variants of every entry.
+- `"bar"` dropped from the junk names.
+- **A1 across a restart:** no code at all ⇒ `err.codeExpired` (what a lapsed real code answers);
+  the flow cookie carries `startedAt`, and with no code the countdown runs from it, so a real
+  flow right after sign-up and a fake flow whose state a restart lost read the same. Tested by a
+  second twin script at +15 min with the fake state wiped.
+- Login of an unverified or PENDING account also destroys a stale `ledger_session` (R-E0 note).
+- Mutations: length on raw only (3 fail), list as default param (2), change password without the
+  server check (1), missing state reads invalid (3), no-code countdown ignores flow start (1).
+
+### LIMITS (approved as-is by the lead)
+| Key | Max | Window |
+|---|---|---|
+| `verify:{flowId}` | 10 | 15 min |
+| `verify:{ip}` | 20 | 15 min |
+| `resend:{flowId}` | 5 | 15 min |
+| `forgot:{ip}` | 5 | 15 min |
+| `reset:{email}` | 10 | 15 min |
+| `reset:{ip}` | 20 | 15 min |
+| `mail:{ip}` | 20 | 24 h |
+| `mailto:{email}` | 5 | 1 h |
+Unchanged from before: `login:{ip}:{email}`, `signup:{ip}`, `join:{ip}` at 5 / 15 min.
+
+### Gotchas (tooling, this session)
+- The harness rewrites `\uXXXX` and sometimes `\r`/`\n` escapes in text I send (Write tool and
+  heredocs alike) into real characters. A `/\r?\n/` in a test became a raw CR/LF and the suite
+  failed to *load* — while my `grep "×|Tests "` filter still showed a green count for the other
+  files. Always grep `Test Files` too, and patch escapes by byte value (`bytes([92])`).
+- core.autocrlf=true here: working copies are CRLF, the index LF. Normal; not a diff.
+
+### R-E3 E3-B1 (2026-09-30)
+- `resendVerifyCode` now reads the row by id: none → (re)start the fake twin; already verified →
+  send nothing and never mark the id fake; unverified → send. `storeFor` returns the fake store
+  only for VERIFY, so RESET codes always live in the database.
+- Tests: two-device script (verify on B, resend on A, then /forgot + /reset succeeds and the id is
+  not fake) and a codes-level case (an id marked fake still gets DB RESET codes). Each fix
+  mutation-checked alone (1 named failure each).
+- E3-S1 (stale `ledger_session` on unverified/PENDING login) was already in, with tests.
+- Gates: tsc 0 · 530/530 · build 0; the list chunk is referenced only by /signup and /reset.

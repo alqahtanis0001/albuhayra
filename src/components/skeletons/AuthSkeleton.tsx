@@ -4,7 +4,7 @@
  */
 import { Bone, SkeletonField, SkeletonPage } from "./Skeleton";
 
-type Variant = "login" | "signup" | "pending";
+type Variant = "login" | "signup" | "pending" | "verify" | "forgot" | "reset";
 
 export function AuthSkeleton({ variant }: { variant: Variant }) {
   return (
@@ -42,6 +42,35 @@ export function AuthSkeleton({ variant }: { variant: Variant }) {
                 </div>
               ))}
             </div>
+          ) : null}
+
+          {/* Where the code went, the wide code field, تأكيد, the resend line. */}
+          {variant === "verify" ? (
+            <>
+              <Bone className="h-4 w-3/4" />
+              <SkeletonField />
+              <Bone className="h-11 w-full" />
+              <Bone className="mx-auto h-11 w-48" />
+            </>
+          ) : null}
+
+          {variant === "forgot" ? (
+            <>
+              <Bone className="h-4 w-full" />
+              <SkeletonField />
+              <Bone className="h-11 w-full" />
+            </>
+          ) : null}
+
+          {/* Code, new password with its meter, confirmation. */}
+          {variant === "reset" ? (
+            <>
+              <SkeletonField />
+              <SkeletonField />
+              <Bone className="h-1.5 w-full" />
+              <SkeletonField />
+              <Bone className="h-11 w-full" />
+            </>
           ) : null}
 
           {variant === "pending" ? (

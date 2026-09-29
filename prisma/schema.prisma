@@ -8,7 +8,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-
 }
 
 enum Role {
@@ -52,7 +51,19 @@ model Establishment {
 model User {
   id              String     @id @default(cuid())
   email           String     @unique
-  name            String
+  /// v1.1e: name split into parts. The defaults exist only so the release
+  /// before this one (still running while Render builds) can keep inserting
+  /// users; validation requires real values for every new user.
+  firstName       String     @default("")
+  middleName      String?
+  lastName        String     @default("")
+  /// v1.1e expand step: the old single-name column, kept (nullable) so the
+  /// previous release keeps working until this one is live. Renamed in Prisma
+  /// so any leftover `.name` read fails the typecheck. Dropped by a later
+  /// contract migration.
+  legacyName      String?    @map("name")
+  /// Null = not yet verified. Existing users are backfilled as verified.
+  emailVerifiedAt DateTime?
   passwordHash    String
   role            Role
   status          UserStatus @default(PENDING)
@@ -64,8 +75,32 @@ model User {
   transactions  Transaction[]
   locks         PeriodLock[]
   auditLogs     AuditLog[]
+  emailCodes    EmailCode[]
 
   @@index([establishmentId, role, status])
+}
+
+enum EmailCodePurpose {
+  VERIFY
+  RESET
+}
+
+/// v1.1e: one-time 6-digit codes, stored only as an HMAC. At most one live
+/// (unconsumed) code per user and purpose; a resend replaces it.
+model EmailCode {
+  id         String           @id @default(cuid())
+  userId     String
+  purpose    EmailCodePurpose
+  codeHash   String
+  expiresAt  DateTime
+  attempts   Int              @default(0)
+  sentAt     DateTime         @default(now())
+  consumedAt DateTime?
+  createdAt  DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose])
 }
 
 model Category {

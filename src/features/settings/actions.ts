@@ -17,6 +17,7 @@ import type { Prisma } from "@/generated/prisma";
 import { writeAudit } from "@/lib/audit";
 import { hashPassword, requireOwner, requireUser, verifyPassword } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { commonPasswordError } from "@/lib/passwords/server";
 import {
   CategoryInputSchema,
   ChangePasswordSchema,
@@ -49,6 +50,8 @@ export async function changeOwnPassword(
   const { user } = await requireUser();
   const parsed = ChangePasswordSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return invalid(parsed.error);
+  const common = commonPasswordError(parsed.data.newPassword);
+  if (common) return { ok: false, error: "err.invalidInput", fieldErrors: { newPassword: common } };
 
   const row = await db.user.findUnique({
     where: { id: user.id },
