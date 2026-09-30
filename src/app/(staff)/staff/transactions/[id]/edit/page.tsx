@@ -6,7 +6,9 @@ import { getTransaction } from "@/features/transactions/components/data";
 import { TransactionForm } from "@/features/transactions/components/TransactionForm";
 import { listLocks } from "@/features/locks/queries";
 import { listPartyOptions } from "@/features/parties/queries";
+import { getPaymentLink } from "@/features/plans/dues";
 import { listProjectOptions } from "@/features/projects/queries";
+import { PaymentBanner } from "@/features/transactions/components/PaymentBanner";
 import { listCategories } from "@/features/settings/queries";
 import { t } from "@/i18n/ar";
 import { requireCanEdit } from "@/lib/auth";
@@ -36,6 +38,8 @@ export default async function StaffEditTransactionPage({
     listProjectOptions(establishmentId),
   ]);
   if (!row) notFound();
+  // A payment keeps its plan's direction and party (W1): locked, not editable.
+  const link = row.instalmentId ? await getPaymentLink(establishmentId, row.instalmentId) : null;
   const lockedMonths = locks.filter((l) => l.locked).map((l) => l.ym);
 
   return (
@@ -53,6 +57,17 @@ export default async function StaffEditTransactionPage({
         today={todayISO()}
         doneHref="/staff/transactions"
         initial={row}
+        payment={link ? { direction: link.direction } : undefined}
+        banner={
+          link ? (
+            <PaymentBanner
+              mode="edit"
+              direction={link.direction}
+              partyId={link.partyId}
+              partyName={link.partyName}
+            />
+          ) : undefined
+        }
       />
     </div>
   );

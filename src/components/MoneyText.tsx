@@ -13,6 +13,9 @@ export type MoneyTextProps = {
   withCurrency?: boolean;
   /** Colour the neutral value red when it is negative (net totals). */
   signed?: boolean;
+  /** Neutral value on a coloured surface (the red overdue strip): take the
+   *  surrounding text colour instead of gray-900. Ignored with `direction`. */
+  inheritColor?: boolean;
   className?: string;
 };
 
@@ -21,6 +24,7 @@ export function MoneyText({
   direction,
   withCurrency = true,
   signed = false,
+  inheritColor = false,
   className = "",
 }: MoneyTextProps) {
   const text = withCurrency
@@ -34,7 +38,9 @@ export function MoneyText({
         ? "text-money-out"
         : signed && halalas < 0
           ? "text-money-out"
-          : "text-gray-900";
+          : inheritColor
+            ? ""
+            : "text-gray-900";
 
   return (
     <bdi className={`font-medium tabular-nums ${tone} ${className}`}>{text}</bdi>

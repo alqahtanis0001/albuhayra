@@ -14,33 +14,26 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { assertUnlocked } from "@/features/locks/assertUnlocked";
-import { checkLinks, linkColumns } from "@/features/transactions/links";
+import { checkCategory, EXISTING_SELECT, snapshot } from "@/features/transactions/links";
+import { CONFLICT, inEntryTransaction, paymentOf, resolveEntry } from "@/features/transactions/payments";
 import { writeAudit } from "@/lib/audit";
 import { requireCanEdit, requireMember, requireOwner } from "@/lib/auth";
-import { dateToISO, isoToDate, monthKey } from "@/lib/dates";
+import { isoToDate, monthKey } from "@/lib/dates";
 import { db } from "@/lib/db";
-import {
-  TransactionInputSchema,
-  invalid,
-  type ActionResult,
-  type DirectionValue,
-} from "@/lib/validation";
+import { TransactionInputSchema, invalid, type ActionResult } from "@/lib/validation";
 
 export type TransactionState = ActionResult<null> | null;
 
 const idSchema = z.string().trim().min(1, "err.required").max(64, "err.tooLong");
 
-/** Paths that show ledger numbers; all of them go stale on any mutation. */
-const LEDGER_PATHS = [
-  "/owner",
-  "/owner/transactions",
-  "/owner/reports",
-  "/staff",
-  "/staff/transactions",
-];
-
+/**
+ * Every page under both layouts can show ledger numbers since v1.2a — party
+ * balances, إضافة totals, plans, dues, the owner's overdue badge — so the two
+ * role segments are revalidated whole.
+ */
 function revalidateLedger(): void {
-  for (const path of LEDGER_PATHS) revalidatePath(path);
+  revalidatePath("/owner", "layout");
+  revalidatePath("/staff", "layout");
 }
 
 /**
@@ -57,8 +50,6 @@ function transactionInput(formData: FormData): Record<string, unknown> {
   };
 }
 
-type CategoryProblem = "err.categoryInvalid" | "err.categoryDirectionMismatch";
-
 /**
  * A rejection attributable to one input goes in `fieldErrors`, so the message
  * lands under that input rather than in a form-level toast (docs/BACKEND.md).
@@ -71,79 +62,8 @@ function fieldError(
   return { ok: false, error: key, fieldErrors: { [field]: key } };
 }
 
-/**
- * The category must exist in this establishment and match the direction.
- *
- * It must also be active — **unless** it is the one the entry already carries.
- * An owner who retires a category does not thereby freeze every old entry that
- * used it: without this, fixing a typo in the note of a two-year-old expense
- * would be impossible without also re-categorising it, which rewrites history to
- * satisfy a validation rule. `keptCategoryId` is the existing row's category,
- * read from the database, never from the form.
- */
-async function checkCategory(
-  establishmentId: string,
-  categoryId: string,
-  direction: DirectionValue,
-  keptCategoryId?: string,
-): Promise<CategoryProblem | null> {
-  const category = await db.category.findFirst({
-    where: { establishmentId, id: categoryId },
-    select: { type: true, active: true },
-  });
-
-  if (!category) return "err.categoryInvalid";
-  if (category.type !== direction) return "err.categoryDirectionMismatch";
-  if (!category.active && categoryId !== keptCategoryId) {
-    return "err.categoryInvalid";
-  }
-  return null;
-}
-
-type Snapshot = {
-  date: string;
-  direction: DirectionValue;
-  amountHalalas: number;
-  categoryId: string;
-  paymentMethod: string;
-  partyId: string | null;
-  projectId: string | null;
-  instalmentId: string | null;
-};
-
-function snapshot(row: {
-  date: Date;
-  direction: DirectionValue;
-  amountHalalas: number;
-  categoryId: string;
-  paymentMethod: string;
-  partyId?: string | null;
-  projectId?: string | null;
-  instalmentId?: string | null;
-}): Snapshot {
-  return {
-    date: dateToISO(row.date),
-    direction: row.direction,
-    amountHalalas: row.amountHalalas,
-    categoryId: row.categoryId,
-    paymentMethod: row.paymentMethod,
-    partyId: row.partyId ?? null,
-    projectId: row.projectId ?? null,
-    instalmentId: row.instalmentId ?? null,
-  };
-}
-
-const EXISTING_SELECT = {
-  id: true,
-  date: true,
-  direction: true,
-  amountHalalas: true,
-  categoryId: true,
-  paymentMethod: true,
-  partyId: true,
-  projectId: true,
-  instalmentId: true,
-} as const;
+const refusal = (r: { key: string; field?: string }): ActionResult<null> =>
+  r.field ? fieldError(r.field, r.key) : { ok: false, error: r.key };
 
 /** Any ACTIVE member of the establishment may add an entry. */
 export async function createTransaction(
@@ -156,21 +76,18 @@ export async function createTransaction(
   if (!parsed.success) return invalid(parsed.error);
   const input = parsed.data;
   const when = isoToDate(input.date);
+  // Payments (instalmentId) check canEdit before anything else (W3).
+  const entry = await resolveEntry(establishmentId, user, input);
+  if (!entry.ok) return refusal(entry);
+  const links = entry.links;
 
   const locked = await assertUnlocked(establishmentId, [monthKey(when)]);
   if (locked) return { ok: false, error: locked };
 
-  const badCategory = await checkCategory(
-    establishmentId,
-    input.categoryId,
-    input.direction,
-  );
+  const badCategory = await checkCategory(establishmentId, input.categoryId, input.direction);
   if (badCategory) return fieldError("categoryId", badCategory);
-  const badLink = await checkLinks(establishmentId, input);
-  if (badLink) return fieldError(badLink.field, badLink.key);
-  const links = linkColumns(input);
 
-  await db.$transaction(async (tx) => {
+  const done = await inEntryTransaction(entry.payment, establishmentId, user.id, async (tx) => {
     const row = await tx.transaction.create({
       data: {
         establishmentId,
@@ -195,6 +112,7 @@ export async function createTransaction(
       client: tx,
     });
   });
+  if (done === CONFLICT) return { ok: false, error: "err.concurrentChange" };
 
   revalidateLedger();
   return { ok: true, data: null };
@@ -231,19 +149,14 @@ export async function updateTransaction(
   ]);
   if (locked) return { ok: false, error: locked };
 
-  const badCategory = await checkCategory(
-    establishmentId,
-    input.categoryId,
-    input.direction,
-    existing.categoryId,
-  );
+  const badCategory = await checkCategory(establishmentId, input.categoryId, input.direction, existing.categoryId);
   if (badCategory) return fieldError("categoryId", badCategory);
-  const badLink = await checkLinks(establishmentId, input, existing);
-  if (badLink) return fieldError(badLink.field, badLink.key);
-  // instalmentId is not written: an absent one on edit means "keep" (V12).
-  const links = linkColumns(input);
+  // instalmentId is never rewritten: absent on edit means "keep" (V12).
+  const entry = await resolveEntry(establishmentId, user, input, existing);
+  if (!entry.ok) return refusal(entry);
+  const links = entry.links;
 
-  const changed = await db.$transaction(async (tx) => {
+  const changed = await inEntryTransaction(entry.payment, establishmentId, user.id, async (tx) => {
     const { count } = await tx.transaction.updateMany({
       where: { establishmentId, id: existing.id, deletedAt: null },
       data: {
@@ -272,7 +185,7 @@ export async function updateTransaction(
     });
     return count;
   });
-
+  if (changed === CONFLICT) return { ok: false, error: "err.concurrentChange" };
   if (changed === 0) return { ok: false, error: "err.notFound" };
 
   revalidateLedger();
@@ -299,7 +212,9 @@ export async function deleteTransaction(
   ]);
   if (locked) return { ok: false, error: locked };
 
-  const changed = await db.$transaction(async (tx) => {
+  // A payment's plan is re-allocated after the soft delete (un-pays).
+  const payment = await paymentOf(establishmentId, existing.instalmentId);
+  const changed = await inEntryTransaction(payment, establishmentId, user.id, async (tx) => {
     const { count } = await tx.transaction.updateMany({
       where: { establishmentId, id: existing.id, deletedAt: null },
       data: { deletedAt: new Date() },
@@ -317,7 +232,7 @@ export async function deleteTransaction(
     });
     return count;
   });
-
+  if (changed === CONFLICT) return { ok: false, error: "err.concurrentChange" };
   if (changed === 0) return { ok: false, error: "err.notFound" };
 
   revalidateLedger();

@@ -197,3 +197,11 @@ export async function getProject(
   ]);
   return { ...row!, description, byCategory: categories };
 }
+
+/** The owner home's «الإضافات الجارية»: ACTIVE, highest spend first. */
+export async function topActiveProjects(establishmentId: string, limit = 3): Promise<ProjectRow[]> {
+  const active = await listProjects(establishmentId, { status: "ACTIVE" });
+  return [...active]
+    .sort((a, b) => b.spentHalalas - a.spentHalalas || (a.startDate < b.startDate ? 1 : -1))
+    .slice(0, limit);
+}

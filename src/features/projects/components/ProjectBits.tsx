@@ -5,11 +5,10 @@
  * the number — المتبقي, or by how much the budget is exceeded — so nothing
  * depends on reading a bar or its colour.
  */
-import { Fragment, type ReactNode } from "react";
-
 import { Badge, type BadgeTone } from "@/components/Badge";
 import { DateText } from "@/components/DateText";
 import { MoneyText } from "@/components/MoneyText";
+import { fillTemplate } from "@/components/fillTemplate";
 import { t } from "@/i18n/ar";
 import type { ProjectStatusValue } from "@/lib/validation";
 
@@ -21,14 +20,6 @@ const STATUS_TONE: Record<ProjectStatusValue, BadgeTone> = {
 
 export function ProjectStatusBadge({ status }: { status: ProjectStatusValue }) {
   return <Badge tone={STATUS_TONE[status]}>{t.projectStatus[status]}</Badge>;
-}
-
-/** Replaces `{key}` placeholders in an i18n template with rendered nodes. */
-export function fillTemplate(template: string, nodes: Record<string, ReactNode>): ReactNode {
-  return template.split(/(\{\w+\})/).map((part, i) => {
-    const key = /^\{(\w+)\}$/.exec(part)?.[1];
-    return <Fragment key={i}>{key && key in nodes ? nodes[key] : part}</Fragment>;
-  });
 }
 
 export function BudgetMeter({

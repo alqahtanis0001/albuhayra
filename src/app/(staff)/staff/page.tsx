@@ -6,6 +6,8 @@ import { StatCard } from "@/components/StatCard";
 import { PlusIcon } from "@/components/icons";
 import { RecentTransactions } from "@/features/dashboard/components/RecentTransactions";
 import { getStaffDashboard } from "@/features/dashboard/queries";
+import { StaffDuesCard } from "@/features/dues/components/StaffDuesCard";
+import { getStaffDues } from "@/features/plans/dues";
 import { t } from "@/i18n/ar";
 import { requireStaff } from "@/lib/auth";
 
@@ -14,6 +16,9 @@ export const metadata: Metadata = { title: t.dashboard.staffTitle };
 export default async function StaffHomePage() {
   const { user, establishmentId } = await requireStaff();
   const data = await getStaffDashboard(establishmentId, user.id);
+  // Only a member who may record payments sees what is due — and without
+  // canEdit the query is not run at all (W13), not merely not shown.
+  const dues = user.canEdit ? await getStaffDues(establishmentId) : null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -67,6 +72,8 @@ export default async function StaffHomePage() {
         </div>
         <p className="text-xs text-gray-600">{t.dashboard.establishmentWideHint}</p>
       </div>
+
+      {dues ? <StaffDuesCard rows={dues} /> : null}
 
       <RecentTransactions rows={data.myRecent} title={t.dashboard.myRecent} />
     </div>

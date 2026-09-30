@@ -6,7 +6,9 @@ import { getTransaction } from "@/features/transactions/components/data";
 import { listCategories } from "@/features/settings/queries";
 import { listLocks } from "@/features/locks/queries";
 import { listPartyOptions } from "@/features/parties/queries";
+import { getPaymentLink } from "@/features/plans/dues";
 import { listProjectOptions } from "@/features/projects/queries";
+import { PaymentBanner } from "@/features/transactions/components/PaymentBanner";
 import { TransactionForm } from "@/features/transactions/components/TransactionForm";
 import { t } from "@/i18n/ar";
 import { requireCanEdit } from "@/lib/auth";
@@ -32,6 +34,8 @@ export default async function OwnerEditTransactionPage({
     listProjectOptions(establishmentId),
   ]);
   if (!row) notFound();
+  // A payment keeps its plan's direction and party (W1): locked, not editable.
+  const link = row.instalmentId ? await getPaymentLink(establishmentId, row.instalmentId) : null;
   // The form only needs which months are closed, not the whole lock row.
   const lockedMonths = locks.filter((l) => l.locked).map((l) => l.ym);
 
@@ -52,6 +56,18 @@ export default async function OwnerEditTransactionPage({
         today={todayISO()}
         doneHref="/owner/transactions"
         initial={row}
+        payment={link ? { direction: link.direction } : undefined}
+        banner={
+          link ? (
+            <PaymentBanner
+              mode="edit"
+              direction={link.direction}
+              partyId={link.partyId}
+              partyName={link.partyName}
+              plan={{ planId: link.planId, planTitle: link.planTitle }}
+            />
+          ) : undefined
+        }
       />
     </div>
   );

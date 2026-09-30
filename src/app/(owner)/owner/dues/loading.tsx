@@ -1,5 +1,5 @@
-import { ComingSoonSkeleton } from "@/components/skeletons/screens";
+import { DuesSkeleton } from "@/components/skeletons/v12a";
 
 export default function Loading() {
-  return <ComingSoonSkeleton />;
+  return <DuesSkeleton />;
 }

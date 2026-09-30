@@ -13,11 +13,14 @@ import {
   SkeletonStatCards,
 } from "./Skeleton";
 
-/** /owner: four stat cards, balance by method, the chart, top OUT, recent. */
+/** /owner: this week's dues, four stat cards, balance by method, the chart, top OUT, recent. */
 export function OwnerDashboardSkeleton() {
   return (
     <SkeletonPage>
       <SkeletonHeader action />
+      <SkeletonCard title>
+        <SkeletonRows count={3} />
+      </SkeletonCard>
       <SkeletonStatCards count={4} />
       <SkeletonCard title>
         <SkeletonRows count={3} />

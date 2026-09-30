@@ -38,6 +38,7 @@ export function LinkFields({
   projects,
   initial,
   disabled = false,
+  lockParty = false,
   fieldErrors,
 }: {
   parties: PartyOption[];
@@ -45,6 +46,8 @@ export function LinkFields({
   /** The entry being edited, or a new entry's presets (?projectId=). */
   initial: LinkInitial;
   disabled?: boolean;
+  /** Payment mode: the party is the plan's, posted by PaymentBanner — no picker. */
+  lockParty?: boolean;
   fieldErrors?: Record<string, string>;
 }) {
   const [party, setParty] = useState(
@@ -72,32 +75,34 @@ export function LinkFields({
 
   return (
     <>
-      <div className="flex flex-col gap-2">
-        <Select
-          label={`${t.transaction.party} (${t.common.optional})`}
-          id="partyChoice"
-          options={[{ value: "", label: t.parties.none }]}
-          groups={partyGroups}
-          trailing={[{ value: OTHER, label: t.parties.other }]}
-          value={party}
-          onChange={(e) => setParty(e.target.value)}
-          disabled={disabled}
-          error={fieldErrors?.partyId}
-        />
-        <input type="hidden" name="partyId" value={party === OTHER ? "" : party} />
-        {party === OTHER ? (
-          <Input
-            label={t.parties.otherName}
-            name="counterparty"
-            value={counterparty}
-            onChange={(e) => setCounterparty(e.target.value)}
-            hint={t.transaction.counterpartyHint}
-            maxLength={200}
+      {lockParty ? null : (
+        <div className="flex flex-col gap-2">
+          <Select
+            label={`${t.transaction.party} (${t.common.optional})`}
+            id="partyChoice"
+            options={[{ value: "", label: t.parties.none }]}
+            groups={partyGroups}
+            trailing={[{ value: OTHER, label: t.parties.other }]}
+            value={party}
+            onChange={(e) => setParty(e.target.value)}
             disabled={disabled}
-            error={fieldErrors?.counterparty}
+            error={fieldErrors?.partyId}
           />
-        ) : null}
-      </div>
+          <input type="hidden" name="partyId" value={party === OTHER ? "" : party} />
+          {party === OTHER ? (
+            <Input
+              label={t.parties.otherName}
+              name="counterparty"
+              value={counterparty}
+              onChange={(e) => setCounterparty(e.target.value)}
+              hint={t.transaction.counterpartyHint}
+              maxLength={200}
+              disabled={disabled}
+              error={fieldErrors?.counterparty}
+            />
+          ) : null}
+        </div>
+      )}
 
       <Select
         label={`${t.transaction.project} (${t.common.optional})`}

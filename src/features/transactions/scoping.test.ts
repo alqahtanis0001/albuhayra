@@ -86,6 +86,12 @@ const harness = vi.hoisted(() => {
         {
           get(_target, property) {
             const method = String(property);
+            // `db.instalment.fields.x` is a Prisma field reference, not a query:
+            // answered here and deliberately NOT recorded, or the sweep would
+            // report a phantom `instalment.fields` pair (W14).
+            if (method === "fields") {
+              return new Proxy({}, { get: (_t, field) => ({ fieldRef: `${model}.${String(field)}` }) });
+            }
             return async (args: Record<string, unknown> = {}) => {
               calls.push({ model, method, args });
               const key = `${model}.${method}`;
@@ -190,6 +196,19 @@ const { listProjects, listProjectOptions, getProject } = await import(
 const { createProject, updateProject, setProjectStatus, deleteProject } = await import(
   "@/features/projects/actions"
 );
+const { topActiveProjects } = await import("@/features/projects/queries");
+const { listPlans, getPlan } = await import("@/features/plans/queries");
+const {
+  getDues,
+  getOverdueCount,
+  getStaffDues,
+  getInstalmentForPayment,
+  getStaffPaymentPrefill,
+  getPaymentLink,
+} = await import("@/features/plans/dues");
+const { createPlan, updatePlan, cancelPlan, archivePlan } = await import("@/features/plans/actions");
+const { reallocatePlan } = await import("@/features/plans/allocate");
+const { getPartyStatement } = await import("@/features/parties/statement");
 
 /* ------------------------------------------------------------ the scope rule */
 
@@ -1453,13 +1472,18 @@ describe("v1.2a: a foreign link id is the field error, and the lookup is scoped"
       };
     harness.responses.set("party.findFirst", ownOnly({ active: true }, "party_mine"));
     harness.responses.set("project.findFirst", ownOnly({ status: "ACTIVE" }, "proj_mine"));
+    harness.responses.set(
+      "instalment.findFirst",
+      ownOnly({ planId: "plan_mine", amountDueHalalas: 1000, paidHalalas: 0 }, "inst_mine"),
+    );
   });
 
   it.each([
-    ["partyId", "party_foreign", "err.partyInvalid"],
-    ["projectId", "proj_foreign", "err.projectInvalid"],
-    ["instalmentId", "inst_foreign", "err.instalmentInvalid"],
-  ])("%s from another establishment", async (field, id, key) => {
+    ["partyId", "party_foreign", "err.partyInvalid", "err.partyInvalid"],
+    ["projectId", "proj_foreign", "err.projectInvalid", "err.projectInvalid"],
+    // CP2: an edit cannot add a payment link to an unlinked entry at all.
+    ["instalmentId", "inst_foreign", "err.instalmentInvalid", "err.paymentLinkFixed"],
+  ])("%s from another establishment", async (field, id, key, updateKey) => {
     const form = ledgerForm();
     form.set(field, id);
     expect(await createTransaction(null, form)).toEqual({
@@ -1468,7 +1492,7 @@ describe("v1.2a: a foreign link id is the field error, and the lookup is scoped"
       fieldErrors: { [field]: key },
     });
     expect(await updateTransaction("tx_existing", null, form)).toMatchObject({
-      fieldErrors: { [field]: key },
+      fieldErrors: { [field]: updateKey },
     });
     expect(observedPairs()).not.toContain("transaction.create");
     expect(observedPairs()).not.toContain("transaction.updateMany");
@@ -1481,6 +1505,182 @@ describe("v1.2a: a foreign link id is the field error, and the lookup is scoped"
     form.set("projectId", "proj_mine");
     expect(await createTransaction(null, form)).toEqual({ ok: true, data: null });
     expect(await updateTransaction("tx_existing", null, form)).toEqual({ ok: true, data: null });
+    expect(failures()).toEqual([]);
+    record();
+  });
+});
+
+/* ------------------------------------ v1.2a CP2: plans, dues, payments, statement */
+
+const day = (iso: string) => new Date(`${iso}T00:00:00Z`);
+
+const PLAN_ROW = {
+  id: "plan_1", title: "توريد", partyId: "party_1", direction: "OUT", startDate: day("2026-09-01"),
+  totalHalalas: 3000, reminderDays: 3, state: "OPEN", revision: 2, closedAt: null, createdAt: day("2026-09-01"),
+  categoryId: "cat_1", notes: null, party: { name: "مورد", type: "SUPPLIER" }, category: { nameAr: "موردون" },
+};
+
+const PLAN_REF = { title: "توريد", state: "OPEN", direction: "OUT", partyId: "party_1", categoryId: "cat_1",
+  totalHalalas: 3000, reminderDays: 3, party: { name: "مورد" } };
+
+const INSTALMENT = { id: "inst_1", planId: "plan_1", seq: 1, dueDate: day("2026-09-20"), amountDueHalalas: 1000, paidHalalas: 0, plan: PLAN_REF };
+
+/** One row that satisfies both the payment select and the ledger ROW_SELECT. */
+const PAYMENT_TX = {
+  id: "tx_pay", instalmentId: "inst_1", date: day("2026-09-21"), createdAt: day("2026-09-21"), amountHalalas: 500,
+  direction: "OUT", categoryId: "cat_1", paymentMethod: "CASH", counterparty: null, note: null,
+  partyId: "party_1", projectId: null, category: { nameAr: "موردون" }, party: { name: "مورد" }, project: null,
+  createdBy: { firstName: "تجربة", middleName: null, lastName: "", legacyName: null },
+};
+
+function populatePlans(): void {
+  harness.responses.set("plan.findMany", [PLAN_ROW]);
+  harness.responses.set("plan.findFirst", PLAN_ROW);
+  harness.responses.set("instalment.findMany", [INSTALMENT]);
+  harness.responses.set("instalment.findFirst", INSTALMENT);
+  harness.responses.set("transaction.findMany", [PAYMENT_TX]);
+  harness.responses.set("transaction.groupBy", []);
+  harness.responses.set("transaction.aggregate", { _sum: { amountHalalas: 500 } });
+  harness.responses.set("party.findFirst", PARTY);
+}
+
+function planForm(rows: Array<Record<string, unknown>>): FormData {
+  const form = new FormData();
+  for (const [k, v] of Object.entries({
+    partyId: "party_1", direction: "OUT", title: "توريد", totalHalalas: "3000", categoryId: "cat_1",
+    startDate: "2026-09-01", reminderDays: "3", instalments: JSON.stringify(rows),
+  })) form.append(k, v);
+  return form;
+}
+
+function paymentForm(): FormData {
+  const form = ledgerForm();
+  form.set("amountHalalas", "500");
+  form.set("instalmentId", "inst_1");
+  return form;
+}
+
+describe("v1.2a CP2: plans and dues scope every call", () => {
+  it("listPlans, empty and populated with every filter", async () => {
+    await listPlans(EST);
+    populatePlans();
+    const [row] = await listPlans(EST, { direction: "OUT", partyId: "party_1", status: "ACTIVE" }, "2026-10-01");
+    expect(row?.nextDue).toMatchObject({ instalmentId: "inst_1", status: "OVERDUE" });
+    expect(failures()).toEqual([]);
+    record();
+  });
+
+  it("getPlan, with payments and the reference probe", async () => {
+    populatePlans();
+    const plan = await getPlan(EST, "plan_1", "2026-10-01");
+    expect(plan?.instalments[0]?.payments).toHaveLength(1);
+    expect(failures()).toEqual([]);
+    record();
+  });
+
+  it("getDues, getOverdueCount, getStaffDues — the field reference is not a recorded call", async () => {
+    populatePlans();
+    const dues = await getDues(EST, "2026-09-20");
+    expect(dues.thisWeek).toHaveLength(1);
+    expect(await getOverdueCount(EST, "2026-09-20")).toBe(0);
+    const [staffRow] = await getStaffDues(EST, "2026-09-20");
+    expect(observedPairs()).not.toContain("instalment.fields");
+    const counted = harness.calls.find((c) => c.model === "instalment" && c.method === "count")!;
+    expect((counted.args.where as Record<string, unknown>).paidHalalas).toEqual({ lt: { fieldRef: "instalment.amountDueHalalas" } });
+    // W5: exactly the four fields of the user's ruling — nothing more.
+    expect(Object.keys(staffRow!).sort()).toEqual(["dueDate", "instalmentId", "partyName", "remainingHalalas"]);
+    expect(failures()).toEqual([]);
+    record();
+  });
+
+  it("the payment-form reads; the staff prefill has exactly six fields (W2)", async () => {
+    populatePlans();
+    expect(await getInstalmentForPayment(EST, "inst_1")).toMatchObject({ planRemainingHalalas: 2500 });
+    const prefill = await getStaffPaymentPrefill(EST, "inst_1");
+    expect(Object.keys(prefill!).sort()).toEqual([
+      "categoryId", "direction", "instalmentId", "instalmentRemainingHalalas", "partyId", "partyName",
+    ]);
+    expect(await getPaymentLink(EST, "inst_1")).toMatchObject({ planId: "plan_1", partyName: "مورد" });
+    expect(failures()).toEqual([]);
+    record();
+  });
+
+  it("topActiveProjects and getPartyStatement", async () => {
+    populatePlans();
+    await topActiveProjects(EST);
+    const statement = await getPartyStatement(EST, "party_1");
+    expect(statement?.rows.map((r) => r.kind)).toEqual(["PLAN", "PAYMENT"]);
+    expect(failures()).toEqual([]);
+    record();
+  });
+
+  it("rule 11: a foreign plan or instalment id reads as missing, through a scoped lookup", async () => {
+    const own = (row: unknown, id: string) => (args: Record<string, unknown>) => {
+      const where = args.where as Record<string, unknown>;
+      return where.establishmentId === EST && where.id === id ? row : null;
+    };
+    harness.responses.set("plan.findFirst", own(PLAN_ROW, "plan_1"));
+    harness.responses.set("instalment.findFirst", own(INSTALMENT, "inst_1"));
+    expect(await getPlan(EST, "plan_foreign")).toBeNull();
+    expect(await getInstalmentForPayment(EST, "inst_foreign")).toBeNull();
+    expect(await getStaffPaymentPrefill(EST, "inst_foreign")).toBeNull();
+    expect(await getPaymentLink(EST, "inst_foreign")).toBeNull();
+    expect(await archivePlan("plan_foreign")).toEqual({ ok: false, error: "err.notFound" });
+    const form = paymentForm();
+    form.set("instalmentId", "inst_foreign");
+    expect(await createTransaction(null, form)).toMatchObject({ fieldErrors: { instalmentId: "err.instalmentInvalid" } });
+    expect(failures()).toEqual([]);
+  });
+});
+
+describe("v1.2a CP2: plan and payment writes scope every call", () => {
+  it("createPlan: the plan and every instalment row carry the establishment", async () => {
+    harness.responses.set("party.findFirst", { active: true });
+    const result = await createPlan(null, planForm([{ dueDate: "2026-10-01", amountDueHalalas: 3000 }]));
+    expect(result.ok).toBe(true);
+    expect(observedPairs()).toContain("instalment.createMany");
+    expect(failures()).toEqual([]);
+    record();
+  });
+
+  it("updatePlan: bump, row update / delete / create, re-allocation, audit", async () => {
+    populatePlans();
+    harness.responses.set("party.findFirst", { active: true });
+    expect(await updatePlan("plan_1", null, planForm([
+      { id: "inst_1", dueDate: "2026-10-01", amountDueHalalas: 1000 },
+      { dueDate: "2026-11-01", amountDueHalalas: 2000 },
+    ]))).toEqual({ ok: true, data: null });
+    expect(await updatePlan("plan_1", null, planForm([{ dueDate: "2026-10-01", amountDueHalalas: 3000 }]))).toEqual({ ok: true, data: null });
+    for (const pair of ["plan.updateMany", "instalment.updateMany", "instalment.deleteMany", "instalment.createMany"]) {
+      expect(observedPairs()).toContain(pair);
+    }
+    expect(failures()).toEqual([]);
+    record();
+  });
+
+  it("cancelPlan and archivePlan", async () => {
+    populatePlans();
+    expect(await cancelPlan("plan_1")).toEqual({ ok: true, data: null });
+    expect(await archivePlan("plan_1")).toEqual({ ok: true, data: null });
+    expect(failures()).toEqual([]);
+    record();
+  });
+
+  it("reallocatePlan writes only through scoped updateMany", async () => {
+    populatePlans();
+    await reallocatePlan(harness.db as never, EST, "plan_1", USER);
+    expect(observedPairs()).toContain("instalment.updateMany");
+    expect(failures()).toEqual([]);
+    record();
+  });
+
+  it("a payment: create, edit, delete", async () => {
+    populatePlans();
+    expect(await createTransaction(null, paymentForm())).toEqual({ ok: true, data: null });
+    harness.responses.set("transaction.findFirst", { ...PAYMENT_TX, date: day(todayISO()) });
+    expect(await updateTransaction("tx_pay", null, paymentForm())).toEqual({ ok: true, data: null });
+    expect(await deleteTransaction("tx_pay")).toEqual({ ok: true, data: null });
+    expect(observedPairs()).toContain("transaction.aggregate");
     expect(failures()).toEqual([]);
     record();
   });
@@ -1521,6 +1721,14 @@ describe("static sweep: no call site escapes the runtime net", () => {
     "src/features/parties/actions.ts",
     "src/features/projects/queries.ts",
     "src/features/projects/actions.ts",
+    // v1.2a CP2
+    "src/features/parties/statement.ts",
+    "src/features/plans/queries.ts",
+    "src/features/plans/dues.ts",
+    "src/features/plans/actions.ts",
+    "src/features/plans/allocate.ts",
+    "src/features/plans/scheduleEdit.ts",
+    "src/features/transactions/payments.ts",
   ];
 
   it("every (model, method) pair in the source was exercised above", () => {
@@ -1582,6 +1790,54 @@ describe("static sweep: no call site escapes the runtime net", () => {
       }
     }
     expect(scanned).toBeGreaterThanOrEqual(4);
+  });
+
+  /**
+   * W5: `paidHalalas` is a cache of `allocate()`, written only by
+   * `reallocatePlan` in plans/allocate.ts. For every `data:` in src (not tests,
+   * not generated), the expression after it — scanned to its end at depth 0 —
+   * must not name `paidHalalas`. Catches `data: { … }` and
+   * `data: rows.map((r) => ({ … }))` alike; `select: { paidHalalas: true }` is
+   * a read and does not match. A spread of an object built elsewhere would
+   * escape — none exists, and review holds that line.
+   */
+  function dataWritesOf(source: string): string[] {
+    const found: string[] = [];
+    for (const match of source.matchAll(/\bdata\s*:/g)) {
+      let i = match.index! + match[0].length;
+      let depth = 0;
+      const start = i;
+      for (; i < source.length; i++) {
+        const c = source[i]!;
+        if ("([{".includes(c)) depth++;
+        else if (")]}".includes(c)) {
+          if (depth === 0) break;
+          depth--;
+        } else if (c === "," && depth === 0) break;
+      }
+      found.push(source.slice(start, i));
+    }
+    return found;
+  }
+  const writesPaid = (source: string) => dataWritesOf(source).some((d) => /\bpaidHalalas\b/.test(d));
+
+  it("W5: the scanner finds the shapes it forbids, and ignores a read", () => {
+    expect(writesPaid("x.updateMany({ where, data: { paidHalalas: 3 } })")).toBe(true);
+    expect(writesPaid("x.createMany({ data: rows.map((r) => ({ seq: 1, paidHalalas })) })")).toBe(true);
+    expect(writesPaid("x.findMany({ where, select: { paidHalalas: true } })")).toBe(false);
+    expect(writesPaid("x.updateMany({ data: { seq: 1 }, where: { paidHalalas: 0 } })")).toBe(false);
+  });
+
+  it("W5: nothing but plans/allocate.ts writes paidHalalas", () => {
+    const walk = (dir: string): string[] =>
+      readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+        const path = `${dir}/${e.name}`;
+        if (e.isDirectory()) return ["src/generated", "src/lib/testing"].includes(path) ? [] : walk(path);
+        return /\.tsx?$/.test(e.name) && !e.name.endsWith(".test.ts") ? [path] : [];
+      });
+    const writers = walk("src").filter((file) => writesPaid(readFileSync(file, "utf8")));
+    // Non-vacuous: the one legitimate writer is found by the same scan.
+    expect(writers).toEqual(["src/features/plans/allocate.ts"]);
   });
 
   it("no unique-where write in any of those files", () => {

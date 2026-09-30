@@ -9,7 +9,11 @@ import { BalanceByMethod } from "@/features/dashboard/components/BalanceByMethod
 import { RecentTransactions } from "@/features/dashboard/components/RecentTransactions";
 import { SixMonthChart } from "@/features/dashboard/components/SixMonthChart";
 import { TopOutCategories } from "@/features/dashboard/components/TopOutCategories";
+import { ActiveProjects } from "@/features/dashboard/components/ActiveProjects";
+import { OverdueStrip, WeekDues } from "@/features/dashboard/components/WeekDues";
 import { getOwnerDashboard } from "@/features/dashboard/queries";
+import { getDues } from "@/features/plans/dues";
+import { topActiveProjects } from "@/features/projects/queries";
 import { t } from "@/i18n/ar";
 import { requireOwner } from "@/lib/auth";
 
@@ -18,7 +22,11 @@ export const metadata: Metadata = { title: t.dashboard.ownerTitle };
 export default async function OwnerHomePage() {
   // The layout gates the segment; this call is what scopes the read.
   const { establishmentId } = await requireOwner();
-  const data = await getOwnerDashboard(establishmentId);
+  const [data, dues, projects] = await Promise.all([
+    getOwnerDashboard(establishmentId),
+    getDues(establishmentId),
+    topActiveProjects(establishmentId),
+  ]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -34,6 +42,9 @@ export default async function OwnerHomePage() {
           {t.transaction.addButton}
         </Link>
       </div>
+
+      <OverdueStrip dues={dues} />
+      <WeekDues dues={dues} />
 
       <div className="grid grid-cols-2 gap-3">
         <StatCard
@@ -55,6 +66,8 @@ export default async function OwnerHomePage() {
           value={<MoneyText halalas={data.monthOutHalalas} direction="OUT" />}
         />
       </div>
+
+      <ActiveProjects rows={projects} />
 
       <BalanceByMethod rows={data.balanceByMethod} />
 

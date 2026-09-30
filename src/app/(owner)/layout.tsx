@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 
 import { AppShell } from "@/components/chrome/AppShell";
 import { OWNER_NAV_GROUPS, OWNER_TAB_HREFS } from "@/components/chrome/nav";
+import { getOverdueCount } from "@/features/plans/dues";
 import { requireOwner } from "@/lib/auth";
 
 /**
@@ -10,10 +11,10 @@ import { requireOwner } from "@/lib/auth";
  * per-request CSP nonce reaches it.
  */
 export default async function OwnerLayout({ children }: { children: ReactNode }) {
-  const { user } = await requireOwner();
-  // The المستحقات badge. CP1 has no agreements yet, so it stays 0 (hidden);
-  // CP2 replaces this with getOverdueCount(establishmentId).
-  const badges = { "/owner/dues": 0 };
+  const { user, establishmentId } = await requireOwner();
+  // The المستحقات badge: overdue instalments, from the server's today. Fresh on
+  // every navigation; stale in between (accepted, V12).
+  const badges = { "/owner/dues": await getOverdueCount(establishmentId) };
 
   return (
     <AppShell

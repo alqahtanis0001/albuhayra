@@ -4,7 +4,9 @@ import { createTransaction } from "@/features/transactions/components/actions";
 import { TransactionForm } from "@/features/transactions/components/TransactionForm";
 import { listLocks } from "@/features/locks/queries";
 import { listPartyOptions } from "@/features/parties/queries";
+import { getStaffPaymentPrefill } from "@/features/plans/dues";
 import { listProjectOptions } from "@/features/projects/queries";
+import { PaymentBanner } from "@/features/transactions/components/PaymentBanner";
 import { listCategories } from "@/features/settings/queries";
 import { t } from "@/i18n/ar";
 import { requireStaff } from "@/lib/auth";
@@ -18,7 +20,7 @@ export default async function StaffNewTransactionPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const { establishmentId } = await requireStaff();
+  const { user, establishmentId } = await requireStaff();
   const [categories, locks, parties, projects] = await Promise.all([
     listCategories(establishmentId),
     listLocks(establishmentId),
@@ -28,13 +30,26 @@ export default async function StaffNewTransactionPage({
   const lockedMonths = locks.filter((l) => l.locked).map((l) => l.ym);
   // «تسجيل تكلفة» links here with ?projectId=. Only an ACTIVE إضافة of this
   // establishment is preselected; anything else is ignored, not an error.
-  const wanted = (await searchParams).projectId;
-  const presetProjectId = projects.find((p) => p.id === wanted && p.status === "ACTIVE")?.id;
+  const sp = await searchParams;
+  const presetProjectId = projects.find((p) => p.id === sp.projectId && p.status === "ACTIVE")?.id;
+  // A payment (?instalmentId=, from the home «المستحقات» card) needs canEdit,
+  // so without it nothing about the instalment is read at all (W3c); the
+  // prefill carries the party and this instalment's remaining only (W2).
+  const pay =
+    typeof sp.instalmentId === "string" && user.canEdit
+      ? await getStaffPaymentPrefill(establishmentId, sp.instalmentId)
+      : null;
+  const notice =
+    sp.instalmentId === undefined || pay
+      ? undefined
+      : user.canEdit
+        ? "err.instalmentInvalid"
+        : "err.forbidden";
 
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-xl font-semibold text-gray-900">
-        {t.transaction.newTitle}
+        {pay ? t.payment.title : t.transaction.newTitle}
       </h1>
       <TransactionForm
         mode="new"
@@ -45,7 +60,25 @@ export default async function StaffNewTransactionPage({
         lockedMonths={lockedMonths}
         today={todayISO()}
         presetProjectId={presetProjectId}
-        doneHref="/staff/transactions"
+        doneHref={pay ? "/staff" : "/staff/transactions"}
+        notice={notice}
+        payment={
+          pay
+            ? { direction: pay.direction, amountHalalas: pay.instalmentRemainingHalalas, categoryId: pay.categoryId }
+            : undefined
+        }
+        banner={
+          pay ? (
+            <PaymentBanner
+              mode="new"
+              direction={pay.direction}
+              partyId={pay.partyId}
+              partyName={pay.partyName}
+              instalmentId={pay.instalmentId}
+              instalmentRemainingHalalas={pay.instalmentRemainingHalalas}
+            />
+          ) : undefined
+        }
       />
     </div>
   );

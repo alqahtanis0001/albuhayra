@@ -1514,3 +1514,97 @@ manifest `/_global-error` only.
 - Gates: build 0, tsc 0, vitest 646/646 (one run caught backend's scoping test mid-mutation-verify —
   1 failure in `parties` balances, green on the rerun a minute later, no change of mine involved),
   prerender manifest `/_global-error` only.
+
+## v1.2a — Checkpoint 2
+
+### Q1 — الاتفاقيات list + new/edit + schedule builder (done, awaiting review)
+- `/owner/plans` placeholder replaced: `plans/(list)`, `plans/new`, `plans/[id]/(detail)`, `plans/[id]/edit`,
+  each with a loading.tsx (`PlansSkeleton`, `PlanFormSkeleton`, `PlanDetailSkeleton` in `skeletons/v12a.tsx`).
+- List: GET-form filters (`PlanFilters.tsx`; `parsePlanFilters` drops anything unknown, a `partyId` counts only
+  if it is one of `listPartyOptions`), cards (`PlanList.tsx`): title + status word, party · «سيدفع لنا/سندفع له»,
+  total/paid/remaining (neutral), «سُدّد X من N», next due with date, remaining and countdown.
+- `PlanForm.tsx`: party select grouped by type (+ the plan's own inactive one labelled, W4) → direction preset from
+  `DEFAULT_DIRECTION` (in `PlanBits.tsx`, server-safe so the new page can import it); direction cards
+  (`PlanDirectionCards.tsx`) under the party name; category filtered by direction (+ own inactive, W4); total
+  (`AmountField` id `total` → `totalHalalas`); start date; reminder days; notes. Any fixed row ⇒ party/direction
+  disabled and posted as hidden fields, `t.plans.paidRowsNotice` on top, equal mode off (W4).
+  `/owner/plans/new?partyId=` preselects an active party. A closed plan's edit page says `t.err.planClosed`.
+- `ScheduleBuilder.tsx` + `ScheduleRows.tsx` + `scheduleDraft.ts`: equal mode runs `buildSchedule` from the start
+  date (count > total → capped + `t.schedule.countCapped`; > 120 → `err.scheduleTooLong`; other null →
+  `err.scheduleInvalid`); custom mode = edit the rows directly; add/remove rows; fixed rows read-only with
+  `t.plans.lockedRowHint`; due date shows its Hijri beneath; live sum + «المجموع يطابق الإجمالي» or the signed
+  difference (`aria-live`). `draftToRows` returns the rows to post (existing ids kept, none on new) or null →
+  حفظ disabled. Builder controls carry `form="__none"`, so FormData = contract fields + `instalments` JSON.
+
+### Q2 — plan detail (done, awaiting review)
+- Facts card (party link · direction wording, total, paid + progress, remaining, category, start, reminder days,
+  notes); `PlanActions.tsx` while open: تعديل, أرشفة (ConfirmDialog), إلغاء (ConfirmDialog) only when `canCancel`
+  else `t.plans.cancelBlocked`.
+- `InstalmentList.tsx`: one card per instalment (no., due + Hijri, amount, paid, remaining, status word, countdown
+  via `plural()` from the server's `dayOffset` — W8), payments recorded against it (date, amount, by → the entry's
+  edit page), «تسجيل دفعة» → `/owner/transactions/new?instalmentId=` on rows with remaining > 0 of an open plan.
+- Not shown: `overpaidHalalas` (no string key; zero whenever the rules held) — asked the lead.
+- Gates: build 0 (lock), tsc 0, vitest 689/689.
+
+### Q3 — المستحقات + payment mode (done, awaiting review)
+- `/owner/dues` placeholder replaced in place (no children → no route group): red «متأخرات» section (white on
+  money-out, `plural(t.dues.overdueStrip, n)`), then «مستحقات هذا الأسبوع» with «من اليوم حتى {date}» filled
+  with the server's `weekEnd` (`fillTemplate`, now shared in `src/components/fillTemplate.tsx`). Each split
+  لنا (IN) / علينا (OUT) with its total (`features/dues/components/DueList.tsx`: `DueRows`, `DueGroup`,
+  `DueSplit`); rows: party → plan, plan title · instalment no., countdown, remaining, due date, «تسجيل دفعة».
+  `DuesSkeleton`.
+- Payment mode (`TransactionForm` props `payment`, `banner`, `notice`; 254 lines — W10):
+  no DirectionToggle, no party picker (`LinkFields lockParty`), no «حفظ وإضافة أخرى», no readLastDirection (the S6
+  skip now covers any preset — W3d); amount prefilled with the instalment's remaining, category with the plan's
+  (only if active: an inactive one would be newly assigned and refused); errors on the hidden link fields shown
+  under the banner. Category options moved to `categoryOptions.ts`.
+- `PaymentBanner.tsx` (server component passed as `banner`): heading, party, direction (words), for a new payment
+  this instalment's remaining + `rollsOver`, owner-only: «الدفعة {seq} من «{title}»», plan remaining, link to the
+  plan. Hidden `direction`, `partyId`, and `instalmentId` on new only (absent on edit = keep, V12).
+- Owner new: `?instalmentId=` → `getInstalmentForPayment`; wins over `?projectId=` which still preselects if
+  ACTIVE (W9); حفظ → the plan; unusable id → ordinary form + toast `err.instalmentInvalid`.
+- Staff new: `getStaffPaymentPrefill` only when `user.canEdit` (else nothing is read and the toast is
+  `err.forbidden`); banner without plan fields (W2); حفظ → `/staff`.
+- Both edit pages: `row.instalmentId` → `getPaymentLink` → locked direction/party + `linkedNotice`; the staff page
+  passes neither `planId` nor `planTitle` (W1/W2).
+- Gates: build 0, tsc 0, vitest 731/732 — the one failure is backend's in-progress static sweep in
+  `scoping.test.ts` (plans pairs not yet driven), not a file of mine.
+
+### Q5 — owner home + badge (done, awaiting review)
+- `(owner)/layout.tsx`: `badges["/owner/dues"] = await getOverdueCount(establishmentId)`.
+- `/owner`: `getDues` + `topActiveProjects` alongside `getOwnerDashboard`. Above the stat cards:
+  `OverdueStrip` (only when overdue > 0: white on money-out, `plural(t.dues.overdueStrip)`, لنا/علينا totals,
+  whole strip links to /owner/dues) and `WeekDues` (range line from the server's `weekEnd`, the two week totals,
+  up to 5 `DueRows`, «عرض كل المستحقات»). `ActiveProjects` (top 3, `BudgetMeter`, «عرض كل الإضافات»; hidden
+  when none) after the stat cards. `MoneyText` gained `inheritColor` for neutral amounts on the red strip.
+  Dashboard skeleton gained the week card.
+
+### Q6 — staff home «المستحقات» card (done, awaiting review)
+- `/staff`: `getStaffDues` is called only when `user.canEdit` (W13) and the card renders only then.
+  `features/dues/components/StaffDuesCard.tsx`: title + hint, per row exactly الجهة · المبلغ المستحق (neutral
+  MoneyText, no sign) · تاريخ الاستحقاق (Gregorian + Hijri) and «تسجيل دفعة» →
+  `/staff/transactions/new?instalmentId=`; `t.staffDues.empty` when none. No plan titles, totals or owner links.
+- Gates: build 0, tsc 0, vitest 750/751 — the failure is backend's in-progress `payments.test.ts` (W3b).
+
+### Q2 follow-up — overpaid strip
+Plan page, above الدفعات, only when `overpaidHalalas > 0`: amber strip (amber-900 on amber-50), `role="status"`,
+«{t.plans.overpaidWarning}: <MoneyText inheritColor>» then `t.plans.overpaidHint`. Gates: build 0, tsc 0,
+vitest 751/751. (R-Q1/Q2 and R-Q3 passed; S-Q3a ruled: staff without canEdit keep the form + err.forbidden toast.)
+
+### Q4 — party كشف حساب (done, awaiting review)
+- `/owner/parties/[id]` now reads `getPartyStatement(estId, routeId)` (`features/parties/statement.ts`; null →
+  `notFound()`), which carries the party. `PartyStatementView.tsx`: table التاريخ · البيان · المبلغ · الرصيد —
+  البيان from `t.statement.planCharge/paymentReceived/paymentMade/writeOff` with the plan title (PAYMENT wording
+  by the delta's sign: − = received on an IN plan, + = paid on an OUT one), linking to the entry or the plan;
+  المبلغ `MoneyText signed`; الرصيد and the closing box (`report-net`) as «لنا X» / «علينا X» / «لا رصيد».
+  «حركات أخرى مع الجهة» (+ `otherHint`) as a compact table with directional amounts; when `otherCapped`,
+  `t.statement.otherCapped` + «عرض في السجل» → `/owner/transactions?partyId=` (W11; `filterParams` already keeps
+  `partyId` for paging, and the ledger's clear link appears).
+- Print: `PrintHeader` (`t.print.statementTitle`, subject = party name), heading/contact card/actions are
+  `no-print`, `PrintButton` gained an optional `label` (`t.statement.print`), `PrintFooter`. Cards use
+  `report-card`/`report-net`, so no CSS change. Skeleton gained the statement card.
+- Gates: build 0, tsc 0, vitest 751/751, prerender manifest `/_global-error` only.
+
+### CP2 status
+Q1–Q6 + the Q2 overpaid follow-up all passed review (R-Q1…R-Q6, no open findings). S-Q3a ruled for the code
+(staff without canEdit: ordinary form + err.forbidden toast). Last gates: build 0, tsc 0, vitest 751/751.

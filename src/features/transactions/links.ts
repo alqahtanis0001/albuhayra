@@ -1,10 +1,13 @@
 import "server-only";
 
+import { dateToISO } from "@/lib/dates";
 import { db } from "@/lib/db";
+import type { DirectionValue } from "@/lib/validation";
 
 /**
- * The v1.2a link checks for the ledger mutations, split out of actions.ts so
- * checkpoint 2's payment path has room. Not a "use server" module: nothing here
+ * The per-entry checks and shapes of the ledger mutations — category, v1.2a
+ * links, the audit snapshot — split out of actions.ts so checkpoint 2's
+ * payment path has room. Not a "use server" module: nothing here
  * is callable from a client, and every lookup is scoped by the caller's
  * `establishmentId` (it is in the scoping gate's static sweep).
  */
@@ -60,3 +63,79 @@ export function linkColumns(input: { partyId?: string; projectId?: string; count
     counterparty: input.partyId ? null : (input.counterparty ?? null),
   };
 }
+
+export type CategoryProblem = "err.categoryInvalid" | "err.categoryDirectionMismatch";
+
+/**
+ * The category must exist in this establishment and match the direction.
+ *
+ * It must also be active — **unless** it is the one the entry already carries.
+ * An owner who retires a category does not thereby freeze every old entry that
+ * used it: without this, fixing a typo in the note of a two-year-old expense
+ * would be impossible without also re-categorising it, which rewrites history to
+ * satisfy a validation rule. `keptCategoryId` is the existing row's category,
+ * read from the database, never from the form.
+ */
+export async function checkCategory(
+  establishmentId: string,
+  categoryId: string,
+  direction: DirectionValue,
+  keptCategoryId?: string,
+): Promise<CategoryProblem | null> {
+  const category = await db.category.findFirst({
+    where: { establishmentId, id: categoryId },
+    select: { type: true, active: true },
+  });
+
+  if (!category) return "err.categoryInvalid";
+  if (category.type !== direction) return "err.categoryDirectionMismatch";
+  if (!category.active && categoryId !== keptCategoryId) {
+    return "err.categoryInvalid";
+  }
+  return null;
+}
+
+export type Snapshot = {
+  date: string;
+  direction: DirectionValue;
+  amountHalalas: number;
+  categoryId: string;
+  paymentMethod: string;
+  partyId: string | null;
+  projectId: string | null;
+  instalmentId: string | null;
+};
+
+export function snapshot(row: {
+  date: Date;
+  direction: DirectionValue;
+  amountHalalas: number;
+  categoryId: string;
+  paymentMethod: string;
+  partyId?: string | null;
+  projectId?: string | null;
+  instalmentId?: string | null;
+}): Snapshot {
+  return {
+    date: dateToISO(row.date),
+    direction: row.direction,
+    amountHalalas: row.amountHalalas,
+    categoryId: row.categoryId,
+    paymentMethod: row.paymentMethod,
+    partyId: row.partyId ?? null,
+    projectId: row.projectId ?? null,
+    instalmentId: row.instalmentId ?? null,
+  };
+}
+
+export const EXISTING_SELECT = {
+  id: true,
+  date: true,
+  direction: true,
+  amountHalalas: true,
+  categoryId: true,
+  paymentMethod: true,
+  partyId: true,
+  projectId: true,
+  instalmentId: true,
+} as const;

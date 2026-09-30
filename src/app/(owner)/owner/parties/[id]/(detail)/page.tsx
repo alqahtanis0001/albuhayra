@@ -8,32 +8,46 @@ import {
   PartyTypeBadge,
   partyLabel,
 } from "@/features/parties/components/PartyBits";
-import { getParty } from "@/features/parties/queries";
+import { PartyStatementView } from "@/features/parties/components/PartyStatementView";
+import { getPartyStatement } from "@/features/parties/statement";
+import { PrintButton } from "@/features/reports/components/PrintButton";
+import { PrintFooter } from "@/features/reports/components/PrintFooter";
+import { PrintHeader } from "@/features/reports/components/PrintHeader";
 import { t } from "@/i18n/ar";
 import { requireOwner } from "@/lib/auth";
+import { todayISO } from "@/lib/dates";
 
 export const metadata: Metadata = { title: t.parties.title };
 
 /**
- * A party's page: the contact card and its controls. CP2 adds the كشف حساب
- * below. An unknown id and another establishment's id both reach notFound().
+ * A party's page: the contact card and its controls, then its كشف حساب —
+ * printable on its own (the card and controls stay off the sheet). An unknown
+ * id and another establishment's id both reach notFound().
  */
 export default async function PartyPage({ params }: { params: Promise<{ id: string }> }) {
-  const { establishmentId } = await requireOwner();
+  const { user, establishmentId } = await requireOwner();
   const { id } = await params;
-  const party = await getParty(establishmentId, id);
-  if (!party) notFound();
+  const statement = await getPartyStatement(establishmentId, id);
+  if (!statement) notFound();
+  const { party } = statement;
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-2">
+      <PrintHeader
+        establishmentName={user.establishmentName}
+        title={t.print.statementTitle}
+        subject={party.name}
+        printedAt={todayISO()}
+      />
+
+      <div className="no-print flex flex-wrap items-center gap-2">
         <h1 className="text-xl font-semibold text-gray-900">
           {partyLabel(party.name, party.active)}
         </h1>
         <PartyTypeBadge type={party.type} />
       </div>
 
-      <Card>
+      <Card className="no-print">
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-3 text-sm">
           <dt className="text-gray-600">{t.parties.phone}</dt>
           <dd>
@@ -73,6 +87,12 @@ export default async function PartyPage({ params }: { params: Promise<{ id: stri
       </Card>
 
       <PartyActions partyId={party.id} active={party.active} hasHistory={party.hasHistory} />
+
+      <PartyStatementView statement={statement} />
+      <div className="no-print">
+        <PrintButton label={t.statement.print} />
+      </div>
+      <PrintFooter />
     </div>
   );
 }

@@ -413,3 +413,52 @@ All 20 reviewer findings accepted (2 BLOCKER, 10 SHOULD, 8 NOTE — `progress/re
 
 - **R-N1 ruling (lead):** `/owner/plans` and `/owner/dues` get «قريباً» placeholders in CP1 (`frontend`, with N3–N5) so the المستحقات tab and الاتفاقيات item never 404; CP2 replaces them.
 - **Ownership addenda (lead grants during CP1):** `src/features/transactions/links.ts` → `backend` (link checks split out of `actions.ts`, in the static sweep); `src/lib/testing/pgliteClient.ts` → `backend` (Prisma-7-on-PGlite client, test-only, statically guarded against non-test imports). `actions.ts` at 325 lines accepted for CP1 (308 at HEAD); CP2 puts payments in their own module.
+
+
+---
+
+# v1.2a — Checkpoint 2 (plans, instalments, payments, dues, statements, home cards)
+
+CP1 `792a601` approved by the user. Design: `docs/BACKEND.md` → *v1.2a* (Plans, Payments, Statement, Pure helpers) **as amended by V1–V12 and the CP2 additions** (payments module, `getStaffDues`, staff payment route, the real-client test); `docs/FRONTEND.md` → *v1.2a CP2 screens* + *CP2 additions*; `PROGRESS.md` Decisions 1–13, the staff-payments ruling and its reading. Shared facts and rules from the CP1 section above still hold (one Neon DB — never touch it; build lock — **everyone, the lead included**; no commits; gates on real exit codes; mutation-verify every new gate).
+
+**User defects from the CP1 localhost test** are fixed inside CP2: the lead forwards each one to its owner as a task `D1`, `D2`, … and it goes through the reviewer like any other task.
+
+## Ownership for CP2
+| Path | Owner |
+|---|---|
+| `src/lib/{schedule,instalments,allocation}.ts` (+ tests) — addendum from lead-owned `src/lib`, pure and client-safe, signatures exactly as in the doc | `backend` |
+| `src/features/plans/{queries,actions,allocate}.ts`, `src/features/transactions/{payments,actions,links,queries}.ts`, `src/features/parties/queries.ts` (statement), `src/features/projects/queries.ts` (`topActiveProjects`), every `*.test.ts` | `backend` |
+| `src/app/(owner)/owner/{plans,dues}/**`, `src/app/(owner)/owner/page.tsx`, `src/app/(owner)/layout.tsx` (badge), `src/app/(owner)/owner/parties/[id]/**` (statement), `src/app/(staff)/staff/page.tsx`, both roles' `transactions/new` + `[id]/edit` pages, `src/features/{plans,dues,parties,projects,dashboard,transactions}/components/**`, `src/components/**`, `globals.css`, string values | `frontend` |
+| read-only everything | `reviewer` |
+| schema, `src/lib/validation/**`, `src/lib/plural.ts`, string keys, docs, `CLAUDE.md`, `PROGRESS.md`, `TASKS.md` | lead |
+
+## backend
+| ID | Task | Status |
+|---|---|---|
+| P1 | **Pure helpers + their tests:** `buildSchedule` (equal split, remainder on the last row, anchor-day monthly clamping, **V6** `count > total` → `null`), `dayOffset` / `instalmentStatus` / `planStatus` (precedence exactly as the doc; "today" always passed in), `allocate` (own instalment first, roll forward, wrap to earliest unpaid, residue = `overpaidHalalas`; order `(dueDate, seq)` / `(date, createdAt, id)`). Tests: awkward totals, month-end clamping incl. leap year, day boundaries (due today, yesterday, `reminderDays` edge, 23:59 vs 00:00 Riyadh via `todayISO(instant)`), exact/partial/overpay/rollover/wrap/residue. **Export signatures first and message `frontend`** — the schedule builder needs `buildSchedule` and the status helpers client-side. | done |
+| P2 | **Plans:** `allocate.ts` `reallocatePlan` (changed rows only, one `PLAN_ALLOCATE` audit), the **revision lock (V4: read `revision` in the same `findFirst` as state/total/direction, before any sum; bumped by payment create/update/delete, `updatePlan`, `cancelPlan`, `archivePlan`)**; `createPlan` (V7: any row `id` → `err.scheduleInvalid`), `updatePlan` (fixed rows, V5 kept-not-newly-assigned for party **and** category, V7 duplicate id / omitted fixed row, P2003 on row delete → `err.schedulePaidRowChanged`), `cancelPlan`, `archivePlan`; queries `listPlans`, `getPlan`, `getDues`, `getOverdueCount` (field reference), `getInstalmentForPayment`, `getStaffDues` (exactly four fields), `topActiveProjects`. | done |
+| P3 | **Payments** in `src/features/transactions/payments.ts`, called from the three transaction actions: create with `instalmentId` (canEdit via the DB, `err.forbidden` returned; **V5** party from the plan, no active check), update (link fixed → `err.paymentLinkFixed`; absent `instalmentId` = keep; amount ≤ remaining + own amount), delete (un-pays). Month locks on all three. `actions.ts` must not grow. | done |
+| P4 | **Statement** `getPartyStatement` per the doc (PLAN / PAYMENT / WRITE_OFF rows, signed + لنا / − علينا, order, `other` = unlinked entries) with the invariant test closing = `owedToUs − owedByUs`. | done |
+| P5 | **Gates:** scoping — `plans/*`, `payments.ts`, `allocate.ts` in `FILES`, drivers for every new query/action, `plan`/`instalment` writes checked, foreign plan/instalment id ≡ missing; admin static case already covers `features/plans`; **canEdit matrix for payments** (OWNER ✓ · STAFF canEdit ✓ · STAFF without ✗ `err.forbidden` · plain entry by STAFF without canEdit still ✓); lock enforcement on payment create/update/delete; revision conflict → `err.concurrentChange`; cancel vs archive; fixed rows; **the real-client PGlite money-path test** (CP2 additions). Mutation-verify each. | done |
+
+## frontend
+Q1–Q2 need P1's exports; Q3–Q6 need P2's query signatures (message from `backend`). Build against the real exports, no stubs.
+| ID | Task | Status |
+|---|---|---|
+| Q1 | **الاتفاقيات list + new/edit with the schedule builder:** move the `/owner/plans` placeholder into `(list)/`; filters direction/status/party as URL params; form (party → default direction by type, direction radio cards with `t.planDirection` + party name, title, total, category by direction, start date, reminder days, notes); builder — equal mode (`buildSchedule`; when it returns `null` say why and cap the count) and custom mode; editable preview table with live sum/difference; submit disabled until the sum matches; rows posted as one JSON `instalments` field; fixed rows read-only on edit with the notices. | done |
+| Q2 | **Plan detail:** header, instalment table (no., due + Hijri, amount, paid, remaining, status text, countdown through `plural()`, payments under each), «تسجيل دفعة» on unpaid rows of an OPEN plan, تعديل / أرشفة / إلغاء with `ConfirmDialog` and `canCancel`. | done |
+| Q3 | **المستحقات + payment form:** move the `/owner/dues` placeholder into `(list)/` if children appear, else replace it; overdue first (red strip) then this week, each split لنا / علينا with totals, rows with quick «تسجيل دفعة»; payment mode of `TransactionForm` on both roles (`?instalmentId=`; banner, locked direction and party, amount prefilled, category from the plan, no «حفظ وإضافة أخرى», return target per role); linked-payment notice on edit; unknown/paid instalment → ordinary form + toast. | done |
+| Q4 | **Party كشف حساب** under the contact card on `/owner/parties/[id]` (signed amounts with `signed`, running balance with لنا/علينا words, closing box, «حركات أخرى مع الجهة»), printable with `t.print.statementTitle`. | done |
+| Q5 | **Owner home:** «مستحقات هذا الأسبوع» (range line, لنا / علينا totals, up to 5 rows, red متأخرات strip via `plural()`) and «الإضافات الجارية» (top 3, «{spent} من {budget}» + bar); **badge** from `getOverdueCount` in the owner layout. | done |
+| Q6 | **Staff home «المستحقات» card**, only when `canEdit`: exactly party · amount due (no sign) · due date + «تسجيل دفعة» per row; empty state. Nothing else. | done |
+
+## reviewer (read-only)
+| ID | Reviews | Status |
+|---|---|---|
+| R-brief-2 | **Before any code:** these briefs against the v1.2a design + V1–V12 + CP2 additions + the staff ruling — money correctness first (allocation, rollover, re-allocation on edit/delete, revision lock order, archive write-off, statement invariant, `paidHalalas` never written outside `reallocatePlan`), then day boundaries, tenancy (rule 11) and rule 10, canEdit on every payment path incl. the staff route, and the staff card's "nothing more". | done |
+| R-P*, R-Q*, R-D* | Each task as it lands, as in CP1. | done |
+
+## v1.2a CP2 — Resolutions after R-brief-2 (lead, binding)
+All 13 findings accepted (6 SHOULD, 7 NOTE — `progress/reviewer.md`); written as **W1–W13** at the end of `docs/BACKEND.md`, overriding the CP2 text. `backend`'s four readings are ratified in *Confirmed readings*. Task deltas:
+- **P2 grows:** `getPaymentLink` (W1), `getStaffPaymentPrefill` (W2), stable orders (W7), `PLAN_CREATE` audit without ids (W12). **P3:** W3 order and refusals. **P4:** `other` capped at 50 (W11). **P5:** W5 static cache gate + exact-keys tests, W6 real-client scope (no concurrency claim), the archived-plan delete case.
+- **Q1 grows:** W4 (kept inactive party/category, equal mode disabled once a row is fixed). **Q3:** W1 edit pages, W2 staff-shaped banner, W3(d) locked fields + the S6 skip covering the payment preset, W9, W10 `PaymentBanner.tsx`. **Q4:** W11 cap line + link (new keys `t.statement.otherCapped`, `otherViewAll`). **Q5/Q6:** W8 server "today"; Q6 does not call `getStaffDues` at all without canEdit.

@@ -117,6 +117,8 @@ export const v12aSections = {
     empty: "لا توجد اتفاقيات مع هذه الجهة.",
     otherTransactions: "حركات أخرى مع الجهة",
     otherHint: "حركات غير مرتبطة باتفاقية، لا تدخل في الرصيد.",
+    otherCapped: "تُعرض أحدث الحركات فقط، والقائمة الكاملة في السجل.",
+    otherViewAll: "عرض في السجل",
     print: "طباعة الكشف",
   },
 
@@ -246,6 +248,9 @@ export const v12aSections = {
     emptyFiltered: "لا توجد اتفاقيات مطابقة للتصفية.",
     lockedRowHint: "دفعة عليها سداد، لا تتغير",
     paidRowsNotice: "على هذه الاتفاقية سدادات: تتغير الدفعات غير المسددة فقط.",
+    /** Shown with the amount (<MoneyText>) when allocate() leaves a residue — should never happen under the rules. */
+    overpaidWarning: "مبلغ زائد عن إجمالي الاتفاقية",
+    overpaidHint: "المسدد أكبر من إجمالي الاتفاقية. راجع السدادات أو عدّل الاتفاقية.",
   },
 
   schedule: {
@@ -267,6 +272,8 @@ export const v12aSections = {
     sum: "مجموع الدفعات",
     difference: "الفرق عن الإجمالي",
     matches: "المجموع يطابق الإجمالي",
+    /** buildSchedule returned null because count > total halalas (V6). `{n}` = min(120, total). */
+    countCapped: "عدد الدفعات لا يتجاوز {n} لهذا المبلغ",
   },
 
   dues: {
@@ -286,6 +293,16 @@ export const v12aSections = {
       other: "{n} دفعة متأخرة",
     },
     viewAll: "عرض كل المستحقات",
+  },
+
+  /** Staff home card (user's ruling: party, amount due, due date — nothing more). */
+  staffDues: {
+    title: "المستحقات",
+    hint: "دفعات متأخرة أو مستحقة خلال 7 أيام",
+    party: "الجهة",
+    amountDue: "المبلغ المستحق",
+    dueDate: "تاريخ الاستحقاق",
+    empty: "لا توجد مستحقات متأخرة ولا خلال 7 أيام.",
   },
 
   payment: {

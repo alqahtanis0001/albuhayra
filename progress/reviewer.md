@@ -2020,3 +2020,88 @@ Verified OK: no key collisions in the ar.v12a spread; all referenced err keys ex
   - isReferenceProbe requires at least one link key, and every link key must name ids (string or `{ in: [strings] }`); pins at scoping.test.ts:598-606 cover no link, null and `{ not: null }`.
   - vitest 654/654, tsc 0.
   - **CP1 clear from reviewer.** Carried to CP2: the payment module is separate and actions.ts must not grow.
+  - S-K5a tightened version verified (empty string / empty `in` refused as well; callers guard empty lists); scoping 92/92. Build-lock collision reported by backend; flagged to the lead.
+  - CP1 committed as 792a601 (the lead confirmed the unlocked build was theirs). Standing by for the CP2 briefs.
+
+## 2026-09-30 — v1.2a R-brief-2 (CP2 briefs P1–P5, Q1–Q6, CP2 additions, staff ruling)
+No BLOCKER; 6 SHOULD, 7 NOTE.
+- **S2-1:** editing a payment has no data source — `getInstalmentForPayment` returns null for paid instalments and non-OPEN plans, the usual state of an existing payment. Proposed `getPaymentLink(estId, instalmentId)` with no state filter.
+- **S2-2:** the staff payment banner shows the plan title and the plan remaining, beyond the ruling; must be stripped before the RSC boundary on the staff route. No `viewPlan` link for staff.
+- **S2-3:**
+  - payment path runs before `checkLinks`;
+  - refuse-vs-force for a mismatched direction/party — decide one;
+  - canEdit check before any instalment lookup;
+  - the S6 preset skip must cover payment mode.
+- **S2-4:** plan edit must keep an inactive party/category; equal-mode generation disabled once any row is fixed.
+- **S2-5:** static gate: `paidHalalas` written only in allocate.ts; exact-keys test for getStaffDues.
+- **S2-6:** the real-client test needs auth/cache/db mocks; revision race stays in the mocked gate; add the statement = balance check on real SQL.
+- **Notes:** N2-1 staff cap 20 and tie-break; N2-2 today from the server only; N2-3 instalmentId beats projectId; N2-4 TransactionForm at 249 lines — split; N2-5 statement `other` unbounded; N2-6 PLAN_CREATE audit ids; N2-7 the staff route redirect is page-level, check it manually.
+- **Addendum: the four confirmed readings (BACKEND:427) are consistent.** Precision notes:
+  - (1) the remaining sum is an amount read — it must carry `deletedAt: null`; keep the real-SQL statement = balance check.
+  - (2) depends on S2-1 (`getPaymentLink`).
+  - (3) the sentinel catch uses `instanceof` and rethrows anything else (same for P2003); assert no write after a zero-count bump.
+  - (4) canEdit check before the instalment lookup.
+  - Harness: `fields` must not be recorded as a call.
+- **R-brief-2 resolved as W1–W14 (BACKEND:431-444)** — read and consistent with my findings.
+- Lead rulings:
+  - W2: "nothing more" covers the staff form and edit notice (`getStaffPaymentPrefill`, stripped on the server).
+  - W3: refuse on mismatch, never force.
+- My review checklist for CP2:
+  - W13 page checks by reading: staff route `requireCanEdit()` when `instalmentId` is present; `getStaffDues` never called without canEdit.
+  - W1/W2: the staff edit page strips planId/planTitle in the server component, before any client prop.
+  - W5: static `paidHalalas` gate + exact-key tests.
+  - W14: sentinel `instanceof`; no phantom `fields` pair; amount read carries `deletedAt: null`.
+  - W10: TransactionForm ≤ ~250 lines; actions.ts not above 325.
+
+## 2026-09-30 — v1.2a R-P1 (schedule / instalments / allocation helpers) — PASS
+- 35/35 on my run.
+- Allocation order-independence independently brute-forced (3000 random cases, all permutations, overpay included): paid and overpaid are both order-independent, so the sort only fixes iteration order.
+- Status precedence, UTC dayOffset, planStatus, V6 null, strict ISO, anchored monthly clamp — correct. Pure and client-safe.
+- **R-P1 re-check (lead asked about pin soundness):** the argument is sound (unit-halala circular parking with capacities is abelian). **SHOULD S-P1a:** the pin at allocation.test.ts:56-67 is vacuous — it permutes input, but allocate() sorts by (date, createdAt, id) and the dates are distinct, so the processing order never changes. Fix: re-key date/createdAt per permutation; mutation-check with an order-dependent variant. Clocks clean.
+
+## 2026-09-30 — v1.2a R-Q1 (plans list / form / schedule builder) + R-Q2 (plan detail) — PASS
+- tsc 0; RTL, i18n and loading.tsx clean.
+- W4 kept options, fixed-row lock + hidden fields + equal mode off.
+- Fixed-row amounts round-trip exactly (string-based parseSAR).
+- W8 countdown from server dayOffset via plural.
+- V6 cap; submit gated by draftToRows; `form="__none"`.
+- Tenancy via route id / known party ids; confirm dialogs, canCancel, closed plan.
+
+## 2026-09-30 — v1.2a R-Q3 (المستحقات + payment mode) — PASS (one SHOULD)
+- W2 stripping verified on staff new and edit (only direction/party cross; prefill only when DB-read canEdit).
+- W3d (no toggle/picker; lockParty removes the duplicate hidden partyId), V12, W9 — verified.
+- Owner edit uses getPaymentLink; dues page uses server weekEnd/dayOffset, plural strip, لنا/علينا totals.
+- **SHOULD S-Q3a (W13 page check):** the staff page without canEdit on `?instalmentId=` shows the ordinary form + `err.forbidden` toast; the doc says redirect home. Secure either way; lead to rule (my preference: amend the doc).
+- NOTE: TransactionForm is 254 lines.
+  - S-Q3a ruled: doc amended to match the code (ordinary form + err.forbidden toast for any id). TransactionForm frozen at 254 lines. Q3 closed.
+
+## 2026-09-30 — v1.2a R-Q5 (owner home cards, badge) + R-Q6 (staff dues card) — PASS
+- **W13 by reading:** getStaffDues is not run without the DB-read canEdit; the row has exactly 4 fields; card = party, neutral amount, due date + Hijri, and the button only.
+- Badge and strip share the overdue predicate; plural strip, white on money-out.
+- `inheritColor` applies to neutral amounts only; weekEnd from the server; max 5 rows.
+- Open: S-P1a; P2–P5 and Q4 not yet received.
+- R-Q2 follow-up (overpaid strip on plan detail): pass — only when > 0, words + amount, amber contrast OK, TransactionForm still 254.
+
+## 2026-09-30 — v1.2a R-P2..P5 (plans, payments, statement, gates) — PASS bar one SHOULD
+- vitest 751/751, tsc 0; actions.ts now 240 lines.
+- Verified:
+  - W5 (only reallocatePlan writes paidHalalas; scan non-vacuous);
+  - bump-first in all six mutations; W14 class-only catches;
+  - W3 order; V5/V7;
+  - statement per the doc;
+  - shared overdue predicate; exact keys; real-SQL money path.
+- **SHOULD S-P3a:** on payment edit, `existing.amountHalalas` is read before the revision and added back to remaining → a concurrent lowering edit allows over-allocation of X0 − X1. Fix: aggregate the others with `id: { not: existing.id }` after the revision; pin it.
+- NOTE N-P3b: create's instalmentPaid check reads paid before the revision — harmless (rollover).
+- NOTE: an overpaid residue makes statement ≠ list balance — expected, surfaced by the overpaid strip.
+- **S-P1a verified:** the pin now re-keys processing order (one date, createdAt permuted), amounts below capacity; OD2 fails only it.
+- **R-Q4 (party statement UI) — PASS:** route id → notFound; signed amounts (الصافي convention); لنا/علينا balance words; received/made by delta sign; W11 cap + no-print link; PrintHeader with title + party.
+- CP2 final verdict waits on S-P3a (not in the tree at this check).
+- **S-P3a verified:** payments.ts:84-98 computes others with `id: { not: existing.id }` after the revision; pin at payments.test.ts:177-189 (6000 ok / 6001 refused). vitest 752/752, tsc 0.
+- **CP2 FINAL: clear from reviewer, nothing open.** Sizes: actions.ts 240, TransactionForm 254 (frozen).
+- Live-test items suggested to the lead:
+  1. staff without canEdit — no card, forbidden toast on `?instalmentId=`;
+  2. staff card and banner show nothing more;
+  3. badge / strip / المستحقات agree; archived plan drops out;
+  4. edit a payment down, then up to exactly the remaining;
+  5. archive a partly paid plan → write-off row and party balance 0;
+  6. midnight Riyadh rollover of a due-today instalment.

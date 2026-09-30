@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/Button";
@@ -9,12 +9,11 @@ import { Input } from "@/components/Input";
 import { Select } from "@/components/Select";
 import { Textarea } from "@/components/Textarea";
 import { Toast } from "@/components/Toast";
-import { t } from "@/i18n/ar";
+import { errorMessage, t } from "@/i18n/ar";
 import type { DirectionValue } from "@/lib/validation";
 
-import { validateEntry } from "./validateEntry";
-
 import { AmountField } from "./AmountField";
+import { categoryOptions } from "./categoryOptions";
 import { DirectionToggle, readLastDirection, rememberDirection } from "./DirectionToggle";
 import { LinkFields } from "./LinkFields";
 import { LockedNotice } from "./LockedNotice";
@@ -23,6 +22,7 @@ import type { CategoryRow } from "@/features/settings/queries";
 import type { PartyOption } from "@/features/parties/queries";
 import type { ProjectOption } from "@/features/projects/queries";
 import type { TransactionFormAction, TransactionState } from "./actions";
+import { validateEntry } from "./validateEntry";
 
 const METHODS = ["CASH", "BANK_TRANSFER", "MADA", "STC_PAY", "OTHER"] as const;
 
@@ -39,6 +39,9 @@ export function TransactionForm({
   doneHref,
   initial,
   presetProjectId,
+  payment,
+  banner,
+  notice,
 }: {
   mode: "new" | "edit";
   action: TransactionFormAction;
@@ -56,32 +59,43 @@ export function TransactionForm({
    * against the options by the page): preselects it and صادر.
    */
   presetProjectId?: string;
+  /**
+   * Payment mode (v1.2a CP2): a new payment on an instalment or an edit of a
+   * linked one. Direction and party are the plan's — no toggle, no party
+   * select; `banner` (PaymentBanner, server-rendered) shows them and posts
+   * them as hidden fields. New payments prefill amount and category.
+   */
+  payment?: { direction: DirectionValue; amountHalalas?: number; categoryId?: string };
+  banner?: ReactNode;
+  /** An err.* key to toast on arrival (an unusable ?instalmentId=). */
+  notice?: string;
 }) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
 
-  const [direction, setDirection] = useState<DirectionValue>(
-    initial?.direction ?? "OUT",
-  );
+  const [direction, setDirection] = useState<DirectionValue>(payment?.direction ?? initial?.direction ?? "OUT");
   // Remounts LinkFields after «حفظ وإضافة أخرى», clearing the party.
   const [linkKey, setLinkKey] = useState(0);
   const [date, setDate] = useState(initial?.date ?? today);
+  const startAmount = initial?.amountHalalas ?? payment?.amountHalalas;
   const [amount, setAmount] = useState(
-    initial ? (initial.amountHalalas / 100).toFixed(2) : "",
+    startAmount === undefined ? "" : (startAmount / 100).toFixed(2),
   );
   // Controlled, not defaultValue: when the direction flips, the option list is
   // replaced and an uncontrolled select can keep a stale DOM value — including a
   // retired category, which the server would then reject as a direction
   // mismatch. Clearing it on every switch makes that unreachable.
-  const [categoryId, setCategoryId] = useState(initial?.categoryId ?? "");
+  const [categoryId, setCategoryId] = useState(initial?.categoryId ?? payment?.categoryId ?? "");
   const [saved, setSaved] = useState(false);
+  const [noticeShown, setNoticeShown] = useState(Boolean(notice));
 
   // localStorage is read after mount only: it does not exist during the server
   // render, and seeding state from it would be a hydration mismatch.
-  // Never over a preset: «تسجيل تكلفة» means صادر (v1.2a S6).
+  // Never over a preset: «تسجيل تكلفة» means صادر (S6), a payment is the plan's (W3d).
+  const preset = Boolean(presetProjectId || payment);
   useEffect(() => {
-    if (mode === "new" && !presetProjectId) setDirection(readLastDirection());
-  }, [mode, presetProjectId]);
+    if (mode === "new" && !preset) setDirection(readLastDirection());
+  }, [mode, preset]);
 
   const [state, formAction, pending] = useActionState(
     async (prev: TransactionState, formData: FormData): Promise<TransactionState> => {
@@ -116,6 +130,7 @@ export function TransactionForm({
   );
 
   const fieldErrors = state && !state.ok ? state.fieldErrors : undefined;
+  const linkError = payment && (fieldErrors?.instalmentId ?? fieldErrors?.partyId ?? fieldErrors?.direction);
 
   const dateLocked = lockedMonths.includes(monthOf(date));
   // On edit both months must be open: moving an entry *out* of a closed month is
@@ -123,35 +138,27 @@ export function TransactionForm({
   const originalLocked = initial ? lockedMonths.includes(monthOf(initial.date)) : false;
   const blocked = dateLocked || originalLocked;
 
-  // Active categories of the chosen direction — plus the entry's own category
-  // even if it has since been deactivated. Without that exception, editing an
-  // old entry would drop its category from the select and silently reassign it.
-  const options = categories
-    .filter(
-      (c) =>
-        c.type === direction && (c.active || c.id === initial?.categoryId),
-    )
-    // A retired category is labelled as such, so the owner understands why it is
-    // offered here and nowhere else. It is kept, never newly assigned.
-    .map((c) => ({
-      value: c.id,
-      label: c.active ? c.nameAr : `${c.nameAr} (${t.status.DISABLED})`,
-    }));
+  const options = categoryOptions(categories, direction, initial?.categoryId);
 
   return (
     <form ref={formRef} action={formAction} className="flex flex-col gap-4" noValidate>
       {blocked ? <LockedNotice /> : null}
+      {banner}
+      {/* The banner's hidden fields have no input to show their error under. */}
+      {linkError ? <p role="alert" className="text-sm font-medium text-money-out">{errorMessage(linkError)}</p> : null}
 
-      <DirectionToggle
-        value={direction}
-        disabled={originalLocked}
-        onChange={(next) => {
-          setDirection(next);
-          rememberDirection(next);
-          // Categories are per-direction, so the old choice cannot survive.
-          setCategoryId("");
-        }}
-      />
+      {payment ? null : (
+        <DirectionToggle
+          value={direction}
+          disabled={originalLocked}
+          onChange={(next) => {
+            setDirection(next);
+            rememberDirection(next);
+            // Categories are per-direction, so the old choice cannot survive.
+            setCategoryId("");
+          }}
+        />
+      )}
 
       <AmountField
         value={amount}
@@ -194,6 +201,7 @@ export function TransactionForm({
           projectId: initial?.projectId ?? presetProjectId ?? null,
         }}
         disabled={originalLocked}
+        lockParty={Boolean(payment)}
         fieldErrors={fieldErrors}
       />
 
@@ -220,7 +228,7 @@ export function TransactionForm({
         <Button type="submit" pending={pending} disabled={blocked}>
           {t.common.save}
         </Button>
-        {mode === "new" ? (
+        {mode === "new" && !payment ? (
           <Button
             type="submit"
             name="intent"
@@ -235,13 +243,10 @@ export function TransactionForm({
       </div>
 
       <FormToast state={state} />
-      {saved ? (
-        <Toast
-          message={t.common.saved}
-          tone="success"
-          onDismiss={() => setSaved(false)}
-        />
+      {noticeShown && notice ? (
+        <Toast message={errorMessage(notice)} onDismiss={() => setNoticeShown(false)} />
       ) : null}
+      {saved ? <Toast message={t.common.saved} tone="success" onDismiss={() => setSaved(false)} /> : null}
     </form>
   );
 }

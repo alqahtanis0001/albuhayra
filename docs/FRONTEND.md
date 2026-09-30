@@ -184,3 +184,10 @@ Full list in `docs/BACKEND.md` → *v1.2a amendments* (V1–V12). Screen-side:
 - **Project delete (S7):** shown only when `hasHistory` is false.
 - **Notes:** party/project pages take the id from the route, never from `?partyId=`/`?projectId=`; the ledger's project chip links only when `basePath` is the owner's (staff get plain text); the printed project summary labels its entries «صفحة X من N» (from `t.common.page` + `t.common.of`); clearing an optional field submits `""` (the schema turns it into "not given" and the action writes `null`).
 - **CP1 placeholders:** until CP2, `/owner/plans` and `/owner/dues` are «قريباً» pages (like الموظفون/الحضور) so no nav item 404s.
+
+### v1.2a CP2 additions (lead, 2026-09-30)
+- **Staff home «المستحقات» card (user's ruling, option a):** on `/staff`, **only when `canEdit`**, below the stat cards: `t.staffDues.title` + `hint`; one row per instalment with exactly الجهة · المبلغ المستحق · تاريخ الاستحقاق (Gregorian with Hijri beneath) and a «تسجيل دفعة» button → `/staff/transactions/new?instalmentId=…`. Amount via `<MoneyText>` **without** a direction sign (user's "nothing more"; the form states the direction). Empty → `t.staffDues.empty`. No plan titles, no totals, no link to owner pages. The staff nav stays three items.
+- **Payment form on both roles:** `?instalmentId=` on `/owner/transactions/new` and `/staff/transactions/new`; after «حفظ» the owner returns to the plan, staff return to `/staff`.
+- **Route groups for the placeholders:** `/owner/plans` and `/owner/dues` become real pages; move each list page and its `loading.tsx` into a `(list)` group (as `parties/` and `projects/` already are) so the list skeleton does not wrap `/owner/plans/new` or `/owner/plans/[id]`.
+- **Badge:** the owner layout calls `getOverdueCount(establishmentId)` and passes it as `badges["/owner/dues"]`.
+

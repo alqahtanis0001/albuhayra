@@ -24,3 +24,4 @@ Thumbs.db
 # quality-gate hook logs
 .claude/build.log
 .claude/test.log
+.claude/*.log

@@ -131,11 +131,11 @@ describe("إضافة (project)", () => {
   });
 });
 
-describe("instalment (checkpoint 1)", () => {
-  it("any instalmentId is refused, on create and on edit", async () => {
-    const key = refused("instalmentId", "err.instalmentInvalid");
-    expect(await createTransaction(null, form({ instalmentId: "inst_1" }))).toEqual(key);
-    expect(await updateTransaction("tx_1", null, form({ instalmentId: "inst_1" }))).toEqual(key);
+describe("instalment link on edit (the payment path itself is payments.test.ts)", () => {
+  it("an edit cannot add a payment link to an unlinked entry", async () => {
+    expect(await updateTransaction("tx_1", null, form({ instalmentId: "inst_1" }))).toEqual(
+      refused("instalmentId", "err.paymentLinkFixed"),
+    );
     expect(h.writes).toEqual([]);
   });
 

@@ -41,7 +41,7 @@ export function EntityFormSkeleton({ fields }: { fields: number }) {
   );
 }
 
-/** /owner/parties/[id]: heading, the contact card, the controls. */
+/** /owner/parties/[id]: heading, the contact card, the controls, the statement. */
 export function PartyDetailSkeleton() {
   return (
     <SkeletonPage>
@@ -55,6 +55,9 @@ export function PartyDetailSkeleton() {
         ))}
       </SkeletonCard>
       <SkeletonButtons onBody count={3} />
+      <SkeletonCard title>
+        <SkeletonRows count={4} />
+      </SkeletonCard>
     </SkeletonPage>
   );
 }
@@ -98,6 +101,77 @@ export function ProjectDetailSkeleton() {
       </SkeletonCard>
       <SkeletonCard title>
         <SkeletonRows count={5} />
+      </SkeletonCard>
+    </SkeletonPage>
+  );
+}
+
+/** /owner/plans: heading + add, the filter card, agreement cards. */
+export function PlansSkeleton() {
+  return (
+    <SkeletonPage>
+      <SkeletonHeader action />
+      <SkeletonCard className="grid gap-3 p-4 sm:grid-cols-3">
+        {Array.from({ length: 3 }, (_, i) => (
+          <SkeletonField key={i} />
+        ))}
+      </SkeletonCard>
+      {Array.from({ length: 3 }, (_, i) => (
+        <ProjectCardBones key={i} />
+      ))}
+    </SkeletonPage>
+  );
+}
+
+/** /owner/plans/new and edit: the fields, then the schedule card. */
+export function PlanFormSkeleton() {
+  return (
+    <SkeletonPage>
+      <SkeletonHeader />
+      <div className="flex flex-col gap-4">
+        {Array.from({ length: 7 }, (_, i) => (
+          <SkeletonField key={i} onBody />
+        ))}
+        <SkeletonCard className="p-4">
+          <SkeletonRows count={3} />
+        </SkeletonCard>
+        <SkeletonButtons onBody />
+      </div>
+    </SkeletonPage>
+  );
+}
+
+/** /owner/plans/[id]: heading, the facts card, controls, instalments. */
+export function PlanDetailSkeleton() {
+  return (
+    <SkeletonPage>
+      <SkeletonHeader />
+      <SkeletonCard className="flex flex-col gap-3 p-4">
+        {Array.from({ length: 5 }, (_, i) => (
+          <div key={i} className="flex gap-4">
+            <Bone className="h-4 w-20" />
+            <Bone className="h-4 w-40 max-w-full" />
+          </div>
+        ))}
+      </SkeletonCard>
+      <SkeletonButtons onBody count={3} />
+      <SkeletonCard title>
+        <SkeletonRows count={4} />
+      </SkeletonCard>
+    </SkeletonPage>
+  );
+}
+
+/** /owner/dues: the red overdue section, then this week's. */
+export function DuesSkeleton() {
+  return (
+    <SkeletonPage>
+      <SkeletonHeader />
+      <SkeletonCard title>
+        <SkeletonRows count={3} />
+      </SkeletonCard>
+      <SkeletonCard title>
+        <SkeletonRows count={4} />
       </SkeletonCard>
     </SkeletonPage>
   );

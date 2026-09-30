@@ -944,3 +944,75 @@ Rules: 19 mutations over parties/projects/links/admin/phone — each failed its 
 - Gates: tsc 0 · vitest 654/654 in 30 files · build 0 (under the lock).
 - S-K5a tightened per reviewer: ids must be non-empty (`""` and `{ in: [] }` / `{ in: [""] }`
   refused). Four clauses mutation-checked, each fails exactly one S-K5a pin.
+
+## v1.2a — checkpoint 2 (P1–P5) — plan, before the go (2026-09-30)
+Waiting on R-brief-2 + the lead's go. Order when it comes: P1 (export signatures → frontend
+first) → P2 → P3 → P4 → P5, gates after each.
+- **P1** `src/lib/schedule.ts` `buildSchedule(...) → Row[] | null` (UTC date math, anchor-day
+  monthly clamp, remainder on the last row, `count > total` → null); `src/lib/instalments.ts`
+  `dayOffset`, `instalmentStatus`, `planStatus` (no clock read — `todayISO` passed in);
+  `src/lib/allocation.ts` `allocate`. All pure, no `server-only`, no db import.
+- **P2** `plans/allocate.ts` `reallocatePlan(tx, est, planId, userId)`; revision lock as a
+  helper `bumpRevision(tx, est, planId, seen)` that throws a sentinel inside `$transaction`
+  (rollback) mapped to `err.concurrentChange` outside. `revision` read in the same `findFirst` as
+  state/total/direction/partyId (V4), before any payment sum.
+- **P3** `transactions/payments.ts` (server-only): `preparePayment` / `paymentUpdate` /
+  `paymentDelete` hooks the three actions call, keeping actions.ts ≤ 325 lines.
+- **P5 harness needs:** `db.instalment.fields.amountDueHalalas` (field reference) — the model
+  proxy must expose `fields`; the real-client test mocks `@/lib/db` with `pgliteClient(lite)`
+  built in an async `vi.mock` factory.
+- Lead ratified readings 1–4 (binding in docs/BACKEND.md → CP2 additions → Confirmed readings);
+  harness `fields` approved. Extra test owed: deleting a payment on an ARCHIVED plan
+  re-allocates, and the statement's WRITE_OFF row grows to match.
+
+### P1 — pure helpers (done)
+- `src/lib/schedule.ts` `buildSchedule → ScheduleRow[] | null` (+ `MAX_EVERY_DAYS`),
+  `src/lib/instalments.ts` `dayOffset`/`instalmentStatus`/`planStatus` (+ status types),
+  `src/lib/allocation.ts` `allocate`. Signatures sent to frontend before the tests.
+- Tests: schedule (13), instalments (12, incl. 23:59 vs 00:00 Riyadh via `todayISO(instant)`),
+  allocation (10). 15 mutations, each fails its named case(s).
+- **Finding — allocation is order-independent in its totals.** Each payment fills a circular run
+  from its own instalment; like parking on a one-way ring, the final per-instalment totals are
+  the same in every payment order (brute-forced: 2 payments × equal rows, 3 payments × unequal
+  rows — no counter-example). So the doc's payment order `(date, createdAt, id)` cannot change
+  any result; it is kept for deterministic iteration and pinned as a property ("same in every
+  order"), not as an order-sensitive case that cannot exist. The **instalment** order does
+  matter (roll forward = later) and is pinned incl. `seq` over `id` on a shared due date.
+- Gates: tsc 0 · vitest 689/689 in 33 files · build 0 (lock).
+
+### P2–P5 (done, 2026-10-01)
+- **Files:** `plans/{allocate,queries,dues,actions,scheduleEdit}.ts`, `transactions/payments.ts`,
+  `parties/statement.ts` (dues.ts / scheduleEdit.ts / statement.ts split for size — reported);
+  `transactions/links.ts` now also holds `checkCategory`, `snapshot`, `EXISTING_SELECT`, so
+  `actions.ts` went **325 → 240** despite the payment path; `topActiveProjects` in projects.
+- **Revision lock:** `bumpRevision` (first statement) throws `ConcurrentChangeError`; callers catch
+  by `instanceof` only (`inEntryTransaction` for ledger actions, `updatePlan`/`closePlan`).
+  `updatePlan`'s P2003 catch is `instanceof Prisma.PrismaClientKnownRequestError` + code.
+- **Payment path order (W3):** link fixed on edit → canEdit (before any lookup) → instalment →
+  plan (revision in the same read, V4) → state/paid → direction/party refused → remaining
+  (`aggregate` with `deletedAt: null` over `instalment: { planId }`) → `checkLinks` (project only).
+- `ledger` mutations now revalidate `("/owner","layout")` + `("/staff","layout")`.
+- **Statement:** `getPartyStatement → { party, rows, closingBalanceHalalas, other, otherCapped }`
+  (`other` newest 50 via `recentTransactions(..., { partyId, instalmentId: null })`).
+- **Tests:** `plans/plans.test.ts` (21), `plans/allocate.test.ts` (6),
+  `transactions/payments.test.ts` (14), `plans/moneyPath.test.ts` (8, real client on PGlite:
+  create → partial → overpay rollover → edit → delete → archive → archived delete; invariant
+  statement closing = party balance after every step; `getOverdueCount`/`getDues` on real SQL),
+  scoping CP2 drivers (11) + W5 static cache gate with self-test + `fields` not recorded.
+  CP1 cases updated: an edit adding `instalmentId` is now `err.paymentLinkFixed`.
+- **Mutations:** 26 (R1–R4, C1–C2, U1–U5, K1, Y1–Y6, D1–D4, S1–S2, W5, F1) — each fails its
+  named case(s); D1 (overdue count without the plan-state filter) caught only by the real-SQL test.
+- Gates: tsc 0 · vitest 751/751 in 37 files · build 0 (lock).
+- **S-P1a fixed:** the order-independence pin now re-keys the *processing* order (one date,
+  `createdAt` assigned in the permuted order) and uses amounts below capacity (a full ring
+  hides any rule). Order-dependent variant OD2 ("a same-day later payment starts at the
+  earliest row") fails **only** this pin; OD1 fails it plus the wrap case.
+- dues.ts / scheduleEdit.ts sweep proofs: a stray `db.party.count` in either fails the
+  observed-pairs check; unscoping scheduleEdit's read fails the updatePlan driver + sweep.
+  scheduleEdit **does** call the db (instalment.findMany + the V1 probe) → in FILES, driven by
+  the updatePlan scoping driver; its rules are unit-pinned through updatePlan in plans.test.ts.
+- **S-P3a fixed (R-P2..P5 otherwise pass):** a payment edit's limit is `total − Σ others`, the
+  others read after the revision with `id: { not: existing.id }`, `deletedAt: null`, scoped — the
+  pre-revision `existing.amountHalalas` is never added back. Pin in payments.test.ts (entry
+  changed 5000 → 1000 between reads; 6001 refused, 6000 accepted); reverting to the add-back
+  fails exactly that case. N-P3b commented at the `err.instalmentPaid` check.
