@@ -146,9 +146,14 @@ export function ThisMonthCard({ employeeId, m }: { employeeId: string; m: Salary
     <Card
       title={`${t.employees.thisMonth} — ${periodLabel(m.periodYm)}`}
       action={
-        <Link href={payslipHref(employeeId, m.periodYm)} className="text-sm text-accent-dark underline-offset-2 hover:underline">
-          {t.employees.payslip}
-        </Link>
+        <span className="flex flex-wrap gap-3">
+          <Link href={`/owner/staff/${employeeId}/month/${m.periodYm}`} className="text-sm text-accent-dark underline-offset-2 hover:underline">
+            {t.employees.monthSheet}
+          </Link>
+          <Link href={payslipHref(employeeId, m.periodYm)} className="text-sm text-accent-dark underline-offset-2 hover:underline">
+            {t.employees.payslip}
+          </Link>
+        </span>
       }
     >
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">

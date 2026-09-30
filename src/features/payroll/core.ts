@@ -152,6 +152,21 @@ export async function deleteUnfixedMonthsAfter(
 }
 
 /**
+ * Z4 + D9: a month's salary may still change (deductions) only while its plan
+ * is OPEN and the month is unpaid by the D5 predicate — `paidHalalas = 0` and
+ * no non-deleted payment names it. Works on `db` or inside a transaction.
+ */
+export async function isMonthOpen(tx: Tx, establishmentId: string, instalmentId: string): Promise<boolean> {
+  const row = await tx.instalment.findFirst({
+    where: { establishmentId, id: instalmentId },
+    select: { paidHalalas: true, plan: { select: { state: true } } },
+  });
+  if (!row || row.plan.state !== "OPEN" || row.paidHalalas !== 0) return false;
+  const payments = await tx.transaction.count({ where: { establishmentId, deletedAt: null, instalmentId } });
+  return payments === 0;
+}
+
+/**
  * v1.2a archive (write-off of the unpaid remainder), for a SALARY plan whose
  * employment ended (D6) or whose salary was removed with nothing unpaid (S4).
  */

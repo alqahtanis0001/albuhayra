@@ -228,6 +228,16 @@ const {
 } = await import("@/features/employees/queries");
 const { getPayslip } = await import("@/features/employees/payslip");
 const { ensureSalaryInstalments } = await import("@/features/payroll/generate");
+// v1.2b CP2
+const { getDaySheet, getMonthGrid, getLastRecordedDate } = await import("@/features/attendance/queries");
+const { getEmployeeMonth } = await import("@/features/attendance/month");
+const { saveAttendanceDay } = await import("@/features/attendance/actions");
+const { checkIn, checkOut } = await import("@/features/attendance/self");
+const { getMySelf, getMyMonth, getMyPayslips, getMyPayslip, getMySalaryInstalments } = await import(
+  "@/features/attendance/mine"
+);
+const { hasEmployeeLink } = await import("@/features/attendance/own");
+const { addDeduction, deleteDeduction } = await import("@/features/payroll/deductions");
 
 /* ------------------------------------------------------------ the scope rule */
 
@@ -1918,6 +1928,144 @@ describe("v1.2b: rule 11 — another establishment's employee reads as missing",
   });
 });
 
+/* ------------------------- v1.2b CP2: attendance, self-service, deductions */
+
+const ATT_EMPLOYEES = [
+  { ...EMP_ROW, id: "emp_1" },
+  { ...EMP_ROW, id: "emp_2", partyId: "party_2", userId: null },
+];
+const ATT_RECORD = {
+  id: "att_1", employeeId: "emp_1", date: day("2026-09-15"), status: "PRESENT", statusOverridden: false,
+  checkIn: "00:00", checkOut: null, note: null, updatedAt: new Date("2026-09-15T05:00:00.000Z"),
+};
+
+function populateAttendance(): void {
+  populateEmployees();
+  harness.responses.set("employee.findMany", ATT_EMPLOYEES);
+  // Self-service looks its employee up by the session user: always this one here.
+  harness.responses.set("employee.findFirst", EMP_ROW);
+  harness.responses.set("attendanceRecord.findMany", [ATT_RECORD]);
+  harness.responses.set("attendanceRecord.findFirst", null);
+  harness.responses.set("salaryDeduction.findFirst", { id: "ded_1", salaryPeriodId: "sp_1", amountHalalas: 1, reason: "غياب" });
+  harness.responses.set("salaryDeduction.findMany", [{ id: "ded_1", amountHalalas: 1, reason: "غياب" }]);
+}
+
+function attendanceForm(): FormData {
+  const form = new FormData();
+  form.append("date", "2026-09-15");
+  form.append("rows", JSON.stringify([
+    { employeeId: "emp_1", status: "ABSENT", updatedAt: ATT_RECORD.updatedAt.toISOString() },
+    { employeeId: "emp_2", status: "LEAVE" },
+  ]));
+  return form;
+}
+
+describe("v1.2b CP2: attendance reads and the day save scope every call", () => {
+  it("getDaySheet, getMonthGrid, getEmployeeMonth — empty, then populated", async () => {
+    expect((await getDaySheet(EST, "2026-09-15")).rows).toEqual([]);
+    populateAttendance();
+    expect((await getDaySheet(EST, "2026-09-15")).rows).toHaveLength(2);
+    expect((await getMonthGrid(EST, "2026-09")).rows).toHaveLength(2);
+    expect((await getEmployeeMonth(EST, "emp_1", "2026-09"))?.salary).toMatchObject({ editable: true });
+    harness.responses.set("attendanceRecord.findFirst", { date: day("2026-09-14") });
+    expect(await getLastRecordedDate(EST, "2026-09-15")).toBe("2026-09-14");
+    expect(failures()).toEqual([]);
+    record();
+  });
+
+  it("saveAttendanceDay: createMany for new rows, compare-and-set updateMany for changed ones (Z3)", async () => {
+    populateAttendance();
+    expect(await saveAttendanceDay(null, attendanceForm())).toEqual({ ok: true, data: { saved: 2 } });
+    const created = harness.calls.find((c) => c.model === "attendanceRecord" && c.method === "createMany")!;
+    expect((created.args.data as unknown[]).length).toBe(1);
+    const update = harness.calls.find((c) => c.model === "attendanceRecord" && c.method === "updateMany")!;
+    expect(update.args.where).toMatchObject({ establishmentId: EST, employeeId: "emp_1", updatedAt: ATT_RECORD.updatedAt });
+    expect(failures()).toEqual([]);
+    record();
+  });
+
+  it("rule 11: another establishment's employee in the rows is err.employeeInvalid", async () => {
+    populateAttendance();
+    harness.responses.set("employee.findMany", (args: Record<string, unknown>) =>
+      (args.where as Record<string, unknown>).establishmentId === EST ? [ATT_EMPLOYEES[0]] : []);
+    expect(await saveAttendanceDay(null, attendanceForm())).toMatchObject({ fieldErrors: { rows: "err.employeeInvalid" } });
+    expect(observedPairs()).not.toContain("attendanceRecord.createMany");
+    expect(failures()).toEqual([]);
+  });
+});
+
+describe("v1.2b CP2: self-service scopes every call to the session's own employee", () => {
+  it("checkIn creates, checkIn updates the owner's row, checkOut", async () => {
+    populateAttendance();
+    expect(await checkIn()).toMatchObject({ ok: true });
+    harness.responses.set("attendanceRecord.findFirst", { ...ATT_RECORD, checkIn: null });
+    expect(await checkIn()).toMatchObject({ ok: true });
+    // R-L9 note 1: the update is compare-and-set on the override flag it read.
+    const cas = harness.calls.filter((c) => c.model === "attendanceRecord" && c.method === "updateMany").at(-1)!;
+    expect(cas.args.where).toMatchObject({ establishmentId: EST, checkIn: null, statusOverridden: false });
+    harness.responses.set("attendanceRecord.findFirst", ATT_RECORD);
+    expect(await checkOut()).toMatchObject({ ok: true });
+    const own = harness.calls.filter((c) => c.model === "employee" && c.method === "findFirst");
+    for (const call of own) expect(call.args.where).toEqual({ establishmentId: EST, userId: USER });
+    expect(failures()).toEqual([]);
+    record();
+  });
+
+  it("a check-in that loses its compare-and-set: the owner changed the row → err.concurrentChange; someone checked in → alreadyCheckedIn", async () => {
+    populateAttendance();
+    harness.responses.set("attendanceRecord.updateMany", { count: 0 });
+    let reads = 0;
+    const after = (checkedIn: string | null) => () =>
+      ++reads === 1 ? { ...ATT_RECORD, checkIn: null } : { ...ATT_RECORD, checkIn: checkedIn };
+    harness.responses.set("attendanceRecord.findFirst", after(null));
+    expect(await checkIn()).toEqual({ ok: false, error: "err.concurrentChange" });
+    reads = 0;
+    harness.responses.set("attendanceRecord.findFirst", after("08:01"));
+    expect(await checkIn()).toEqual({ ok: false, error: "err.alreadyCheckedIn" });
+    expect(failures()).toEqual([]);
+    record();
+  });
+
+  it("the «حضوري» reads and the layout link", async () => {
+    populateAttendance();
+    expect(await getMySelf()).not.toBeNull();
+    expect(await getMyMonth("2026-09")).not.toBeNull();
+    expect(await getMyPayslips()).toHaveLength(1);
+    expect(await getMyPayslip("2026-09")).not.toBeNull();
+    expect(await getMySalaryInstalments()).toHaveLength(1);
+    expect(await hasEmployeeLink(EST, USER)).toBe(true);
+    expect(failures()).toEqual([]);
+    record();
+  });
+});
+
+describe("v1.2b CP2: deductions scope every call", () => {
+  it("addDeduction and deleteDeduction: bump, write, amount, total, re-allocation, audit", async () => {
+    populateAttendance();
+    harness.responses.set("instalment.findFirst", { ...SAL_INST, planId: "plan_sal", paidHalalas: 0, plan: { state: "OPEN" } });
+    const add = new FormData();
+    for (const [k, v] of Object.entries({ periodYm: "2026-09", amountHalalas: "1", reason: "غياب يوم" })) add.append(k, v);
+    expect(await addDeduction("emp_1", null, add)).toEqual({ ok: true, data: null });
+    expect(await deleteDeduction("ded_1")).toEqual({ ok: true, data: null });
+    for (const pair of ["salaryDeduction.create", "salaryDeduction.aggregate", "salaryDeduction.deleteMany", "transaction.count"]) {
+      expect(observedPairs()).toContain(pair);
+    }
+    expect(failures()).toEqual([]);
+    record();
+  });
+
+  it("rule 11: a foreign deduction or month reads as missing", async () => {
+    populateAttendance();
+    harness.responses.set("salaryDeduction.findFirst", null);
+    harness.responses.set("salaryPeriod.findFirst", null);
+    expect(await deleteDeduction("ded_foreign")).toEqual({ ok: false, error: "err.notFound" });
+    const add = new FormData();
+    for (const [k, v] of Object.entries({ periodYm: "2026-09", amountHalalas: "1", reason: "غياب يوم" })) add.append(k, v);
+    expect(await addDeduction("emp_foreign", null, add)).toMatchObject({ fieldErrors: { periodYm: "err.notFound" } });
+    expect(failures()).toEqual([]);
+  });
+});
+
 /* --------------------------------------------------------- the static sweep */
 
 describe("static sweep: no call site escapes the runtime net", () => {
@@ -1973,6 +2121,14 @@ describe("static sweep: no call site escapes the runtime net", () => {
     "src/features/payroll/privacy.ts",
     "src/features/payroll/resnapshot.ts",
     "src/features/parties/rules.ts",
+    // v1.2b CP2
+    "src/features/attendance/queries.ts",
+    "src/features/attendance/month.ts",
+    "src/features/attendance/actions.ts",
+    "src/features/attendance/own.ts",
+    "src/features/attendance/self.ts",
+    "src/features/attendance/mine.ts",
+    "src/features/payroll/deductions.ts",
   ];
 
   it("every (model, method) pair in the source was exercised above", () => {
@@ -2025,7 +2181,7 @@ describe("static sweep: no call site escapes the runtime net", () => {
     const dirs = [
       "src/features/parties", "src/features/projects", "src/features/plans",
       // v1.2b
-      "src/features/employees", "src/features/payroll",
+      "src/features/employees", "src/features/payroll", "src/features/attendance",
     ];
     let scanned = 0;
     for (const dir of dirs) {
@@ -2098,6 +2254,8 @@ describe("static sweep: no call site escapes the runtime net", () => {
     const serverOnly = [
       "src/features/payroll/core.ts", "src/features/payroll/generate.ts", "src/features/payroll/privacy.ts",
       "src/features/payroll/resnapshot.ts",
+      "src/features/attendance/queries.ts", "src/features/attendance/month.ts",
+      "src/features/attendance/own.ts", "src/features/attendance/mine.ts",
       "src/features/employees/form.ts", "src/features/employees/salaryPlan.ts",
       "src/features/employees/queries.ts", "src/features/employees/payslip.ts",
     ];

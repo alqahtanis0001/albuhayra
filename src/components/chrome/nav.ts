@@ -91,15 +91,22 @@ export const OWNER_TAB_HREFS = [
 ];
 
 /**
- * Spec §1: الرئيسية | حركة جديدة | السجل | حضوري | حسابي. «حضوري» (only for a
- * login linked to an employee) arrives in v1.2b CP2, before حسابي.
+ * Spec §1: الرئيسية | حركة جديدة | السجل | حضوري | حسابي, where «حضوري» is
+ * only for a staff login linked to an employee (the staff layout looks the link
+ * up; the /staff/me pages re-check it — hiding the item is not the control).
  */
-export const STAFF_NAV: NavItem[] = [
-  { href: "/staff", label: t.nav.home, icon: "home" },
-  { href: "/staff/transactions/new", label: t.navItem.newEntry, icon: "add" },
-  { href: "/staff/transactions", label: t.nav.ledger, icon: "ledger" },
-  { href: "/staff/account", label: t.nav.account, icon: "account" },
-];
+export function staffNav(linked: boolean): NavItem[] {
+  return [
+    { href: "/staff", label: t.nav.home, icon: "home" },
+    { href: "/staff/transactions/new", label: t.navItem.newEntry, icon: "add" },
+    { href: "/staff/transactions", label: t.nav.ledger, icon: "ledger" },
+    ...(linked ? [{ href: "/staff/me", label: t.myAttendance.title, icon: "attendance" as const }] : []),
+    { href: "/staff/account", label: t.nav.account, icon: "account" },
+  ];
+}
+
+/** An unlinked staff login's nav. */
+export const STAFF_NAV: NavItem[] = staffNav(false);
 
 export const ADMIN_NAV: NavItem[] = [
   { href: "/admin", label: t.nav.requests, icon: "requests" },

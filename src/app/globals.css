@@ -370,4 +370,13 @@ dialog::backdrop {
     display: table-row-group;
     break-before: avoid;
   }
+
+  /* v1.2b attendance grid: up to 31 day columns plus totals must fit A4
+     portrait, so its cells are tighter and smaller than a report's. The
+     letter codes and the legend beside the grid carry the meaning. */
+  .attendance-grid th,
+  .attendance-grid td {
+    padding: 1px 2px;
+    font-size: 7pt;
+  }
 }

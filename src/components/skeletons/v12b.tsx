@@ -88,3 +88,47 @@ export function PayslipSkeleton() {
     </SkeletonPage>
   );
 }
+
+/** /owner/staff/attendance: heading, يومي/شهري tabs, the picker, one card per employee. */
+export function AttendanceSkeleton() {
+  return (
+    <SkeletonPage>
+      <SkeletonHeader />
+      <SkeletonTabs count={2} />
+      <div className="flex max-w-xs items-end gap-3">
+        <SkeletonField onBody />
+        <Bone onBody className="h-11 w-20 shrink-0" />
+      </div>
+      <SkeletonCard>
+        <SkeletonRows count={4} />
+      </SkeletonCard>
+    </SkeletonPage>
+  );
+}
+
+/** /owner/staff/[id]/month/[ym] and «حضوري» months: heading, month links, totals, salary, days. */
+export function EmployeeMonthSkeleton() {
+  return (
+    <SkeletonPage>
+      <SkeletonHeader />
+      <SkeletonButtons onBody count={2} />
+      <FactBones count={4} />
+      <FactBones count={5} />
+      <SkeletonCard>
+        <SkeletonRows count={7} />
+      </SkeletonCard>
+    </SkeletonPage>
+  );
+}
+
+/** «حضوري» lists (payslips, salary months): heading and rows. */
+export function ListSkeleton() {
+  return (
+    <SkeletonPage>
+      <SkeletonHeader />
+      <SkeletonCard>
+        <SkeletonRows count={4} />
+      </SkeletonCard>
+    </SkeletonPage>
+  );
+}

@@ -1717,3 +1717,98 @@ Q1–Q6 + the Q2 overpaid follow-up all passed review (R-Q1…R-Q6, no open find
   categories ∪ named «رواتب») from the staff new/edit pages instead of matching the name — the renamed-category
   gap is closed. Backend's `staffViews.test.ts` pins `{ hideSalary: true }` on every staff read. Gates: build 0,
   tsc 0, vitest 867/867.
+
+## v1.2b — Checkpoint 2 (attendance and self-service)
+
+### M8 — «تسجيل حضور» quick action (done, awaiting review)
+- `QuickActions` now three tiles in `grid-cols-3`: icon (20px) **above** the label, `px-2`, `min-h-16`,
+  `text-sm leading-tight`, own `Link` with LinkButton's colours/press (LinkButton's `px-4` cannot be
+  overridden reliably by a second px utility). At 320px each tile is ≈90px, label box ≈72px: «تسجيل حضور»
+  fits or wraps between its two words, never mid-word. حركة جديدة (primary) · تسجيل دفعة → /owner/dues ·
+  تسجيل حضور → /owner/staff/attendance (today's daily sheet is that page's default; M5). Skeleton: three h-16.
+
+### M7 shell — staff nav «حضوري»
+- `staffNav(linked)` in `chrome/nav.ts` (spec §1 order; «حضوري» → `/staff/me`, icon `attendance`, label
+  `t.myAttendance.title`, only when linked); `STAFF_NAV = staffNav(false)`. nav.test: 14 cases. The staff
+  layout wiring waits on backend's link lookup (Z6: one scoped findFirst).
+- Gates: build 0, tsc 0, vitest 881/881.
+
+### M5 — الحضور (done, awaiting review)
+- `/owner/staff/attendance` placeholder replaced (no child routes, so its `loading.tsx` wraps nothing else;
+  `AttendanceSkeleton`). Tabs يومي / شهري (`?view=monthly`). `?date=` / `?ym=` validated on the server: a
+  malformed or future value falls back to today / this month.
+- يومي: `DayPicker` (GET, `max` = server today) → `getDaySheet` → `sheetRowOf` (record, else the prefill:
+  عطلة on non-work days) → `DaySheetForm` (keyed by date). `SheetRowEditor` per employee: six status chips
+  (radio, words), check-in/out `type="time"` `dir="ltr"`, note, hours (`hoursValue`), badge «محسوب» /
+  «معدّل يدويًا» previewed with backend's `settleStatus` (the server decides, Z1) or «غير مسجل». A typed
+  check-in re-derives the status (`expectedStatus`) unless the owner picked one by hand. Controls carry
+  `form="__none"`; the form posts `date` + `rows` = **changed rows only** with the loaded `updatedAt` (Z3/Y6),
+  never `statusOverridden`. A changed row with no status → `err.required` under it (no clearing, Z6). Server
+  field errors (the sheet has one wire field) are shown under حفظ; `concurrentChange` via FormToast; success
+  toast `t.attendance.saved` + `router.refresh()`; drafts re-seed when the loaded rows' `updatedAt`s change.
+- «نسخ من آخر يوم عمل»: the page looks back up to 7 days for the latest day with any record
+  (`getDaySheet` per day; backend has no dedicated query) and passes its statuses; `copyStatuses` fills only
+  rows with no record and no status (a prefilled عطلة stays), still one save. Button hidden when none found.
+- شهري: `MonthPicker` (Select of the last 24 months, `monthOptions`) → `getMonthGrid` → `MonthGrid` (plain
+  `<table>` cells — the shared Th/Td's px-3 is too wide for 31 columns; sticky name column; letter codes,
+  «—» for an employed day without a record, blank outside employment, non-work days `bg-gray-50` but the
+  letter is the signal; totals per status + hours; each name → `/owner/staff/{id}/month/{ym}` (M6)) +
+  `AttendanceLegend` (code = word) + `PrintButton`; `PrintHeader` «كشف الحضور — {month}», `PrintFooter`.
+  globals.css print block: `.attendance-grid` cells 1px 2px / 7pt so 38 columns fit A4 portrait.
+- Gates: build 0, tsc 0, vitest 881/881; no Arabic outside comments, no physical utilities.
+
+### M6 — monthly sheet per employee (done, awaiting review)
+- `/owner/staff/[id]/month/[ym]` + `loading.tsx` (`EmployeeMonthSkeleton`): `ensureSalaryInstalments` first;
+  `PeriodYmSchema` and ≤ next month (its salary already exists, D2) else `notFound()`; `getEmployeeMonth`
+  null → `notFound()`. Heading «كشف الشهر — {month}», employee link, previous / next month links (next
+  capped at next month), `MonthTotals` (six statuses in words + total hours), `SalaryMonthCard` or
+  «لا يوجد راتب مسجل», link to the payslip, `MonthDays` (date + Hijri, status word / «غير مسجل» /
+  «ليس يوم عمل», blank outside employment, in/out ltr, hours, note).
+- `SalaryMonthCard` (client): gross, each deduction «الخصومات: {reason}» + amount, net, paid, remaining.
+  `salary.editable` (Z4: plan OPEN + month unpaid) → add form (hidden `periodYm`, `AmountField`
+  `amountHalalas`, reason with `reasonHelp`; typed-but-unparseable amount refused client-side) and a
+  delete button per deduction (ConfirmDialog `deleteConfirm`); else `t.deductions.lockedHint`. Success →
+  `router.refresh()`.
+- Links in: employee page «كشف الشهر» button (server today's month) and the this-month card header; the
+  monthly grid's names (M5). The payslip already lists deductions with reasons (M3).
+- `MonthSheet.tsx` (`MonthTotals`, `MonthDays` with `withNotes`) is shared with «حضوري» (notes off, Z6).
+- Gates: build 0, tsc 0, vitest 899/899.
+
+### M7 — «حضوري» (done, awaiting review)
+- Staff layout: `hasEmployeeLink(estId, user.id)` (backend `attendance/own.ts`, one scoped findFirst) →
+  `staffNav(linked)`. Showing the item is not the control.
+- `/staff/me` (`(home)` group so its skeleton wraps nothing else): `getMySelf()` null → `notFound()`;
+  `ClockCard` (client): date + Hijri, «اليوم ليس من أيام عملك» on a non-work day, the status in words
+  (record, else the derived, else «غير مسجل»), «سُجّل حضورك/انصرافك الساعة HH:MM» (`bdi dir=ltr`), one
+  full-width button — تسجيل الحضور → تسجيل الانصراف → none — calling backend's `checkIn()`/`checkOut()`
+  (nothing posted; server clock), `serverTimeNote`; a login that may not clock (ENDED / outside hire–end)
+  sees `err.employeeEnded` and no button; errors via Toast; success → `router.refresh()`. Then this
+  month's `MonthTotals` titled «حضوري هذا الشهر» and links: own month, قسائم الراتب, رواتبي.
+- `/staff/me/month/[ym]`: `PeriodYmSchema` and ≤ this month else `notFound()`; `getMyMonth` null →
+  `notFound()`; previous/next; `MonthTotals` + `MonthDays withNotes={false}` (Z6).
+- `/staff/me/payslips`, `/staff/me/payslip/[ym]` (printable, same `PayslipView` as the owner),
+  `/staff/me/salary` (`MySalaryList`: month, due date, net, paid, remaining, status badge + countdown; an
+  archived plan's unpaid month reads «مؤرشفة» with no countdown). Each: `requireStaff()`, `ownEmployee()`
+  null → `notFound()`, `ensureSalaryInstalments(estId, ownEmployeeId)` (Y11), then the `getMy*` read — no
+  id from the URL except the month.
+- Loading: EmployeeMonthSkeleton (home, month), PayslipSkeleton, ListSkeleton (new).
+- Gates: build 0, tsc 0, vitest 936/936 (incl. backend's staffViews/selfService tests); no Arabic outside
+  comments, no physical utilities.
+
+### M5 delta after R-M5 (lead's rulings)
+- (b) Note 1: `refusal()` in the attendance page — a present `?date=` / `?ym=` that is malformed (incl. a
+  non-calendar day like 2026-02-31, checked by round trip) → `err.dateInvalid`, future → `err.dateFuture`;
+  `FallbackNotice` (amber, role=status) states it above the picker, then today / this month is shown.
+- (c) Note 2: `withCheckIn` on a non-manual row now sets the status to `expectedStatus` outright — clearing
+  the check-in clears a derived status (back to the prefill: عطلة on a non-work day, else none), so the
+  changed row needs a chosen status before حفظ (Z6).
+- (d) Note 3: grid `GridCellText` — an unrecorded non-work day shows «ع» muted (gray-600), display only; the
+  totals come from records (backend), so it is not counted.
+- (a) S-M5a: waiting on backend's `getLastRecordedDate(estId, beforeISO)`; the 7-day loop stays until then.
+- R-M6 passed (lockedHint reworded by the lead; no lower bound on month navigation accepted).
+- Gates: build 0, tsc 0, vitest 939/939.
+- (a) S-M5a done: `lastRecordedStatuses` = backend's `getLastRecordedDate(estId, date)` (any distance back)
+  + one `getDaySheet(last)`; the 7-day loop and its constants are gone.
+- R-M7 passed; its note: ClockCard's can't-clock line is now `t.myAttendance.cannotClock` (right before hire
+  and after the end), not `err.employeeEnded`.
+- Gates: build 0, tsc 0, vitest 940/940.

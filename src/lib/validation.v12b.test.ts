@@ -105,11 +105,12 @@ describe("DeductionInputSchema", () => {
 });
 
 describe("AttendanceDaySchema / AttendanceRowSchema", () => {
-  const row = (extra: Record<string, unknown> = {}) => ({ employeeId: "emp_1", status: "PRESENT", statusOverridden: "false", ...extra });
+  const row = (extra: Record<string, unknown> = {}) => ({ employeeId: "emp_1", status: "PRESENT", ...extra });
 
-  it("a row: override flag from the form, optional times and updatedAt (Y6)", () => {
-    expect(AttendanceRowSchema.parse(row({ statusOverridden: "true", checkIn: "08:05", updatedAt: "2026-10-01T05:00:00.000Z" })))
-      .toMatchObject({ statusOverridden: true, checkIn: "08:05", updatedAt: "2026-10-01T05:00:00.000Z" });
+  it("a row: optional times and updatedAt (Y6); an override flag from the client is stripped (Z1)", () => {
+    const parsed = AttendanceRowSchema.parse(row({ statusOverridden: "true", checkIn: "08:05", updatedAt: "2026-10-01T05:00:00.000Z" }));
+    expect(parsed).toMatchObject({ checkIn: "08:05", updatedAt: "2026-10-01T05:00:00.000Z" });
+    expect(parsed).not.toHaveProperty("statusOverridden");
     expect(errorsOf(AttendanceRowSchema.safeParse(row({ status: "SICK" }))).status).toBe("err.invalidInput");
   });
 

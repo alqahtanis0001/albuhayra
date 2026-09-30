@@ -17,10 +17,10 @@ npm run typecheck        # tsc --noEmit, not part of build
 `DATABASE_URL` is read by `prisma.config.ts` (which loads `.env` via dotenv) for migrate/seed, and by `src/lib/db.ts` at runtime. `prisma generate` and `npm run build` work without it.
 
 ## Current phase
-**Phase:** v1.2b checkpoint 1 committed (employees and salaries); checkpoint 2 (attendance and self-service) next, then v1.2c — per `docs/V12-SPEC.md` §5 the lead continues without stopping unless a §5 condition arises.
-**Status:** commits since v1.1e: `792a601` v1.2a CP1 · `1a9aae4` v1.2a CP2 · `e394d0a` handover · `99d526e` v1.2 spec · v1.2b CP1 (this). **Nothing pushed.** Two migrations await the user's push: `20261001000000_v1_2a_parties_projects_plans` and `20261002000000_v1_2b_employees_salaries` (both expand-only). Gates on the v1.2b CP1 tree (lead's own run, under the lock): `npx tsc --noEmit` 0, `npx vitest run` 867/867 in 44 files (twice), `npm run build` 0; prerender only `/_global-error`; routes only health/export.
-**Exactly where we stopped:** v1.2b CP1 committed; CP2 briefs L7–L11 / M5–M8 already reviewed (R-brief-c2 → Z1–Z6).
-**Next concrete action:** the lead removes `statusOverridden` from `AttendanceRowSchema` (Z1), then `backend` L7–L11 and `frontend` M5–M8, commit "v1.2b: checkpoint 2 — attendance and self-service"; then v1.2c.
+**Phase:** v1.2b complete (CP1 employees and salaries + CP2 attendance and self-service committed); v1.2c (reminders and reports, spec §4) next — the lead continues per spec §5.
+**Status:** commits since v1.1e: `792a601` v1.2a CP1 · `1a9aae4` v1.2a CP2 · `e394d0a` handover · `99d526e` v1.2 spec · `aa5f4f1` v1.2b CP1 · v1.2b CP2 (this). **Nothing pushed.** Migrations awaiting the user's push: `20261001000000_v1_2a_parties_projects_plans`, `20261002000000_v1_2b_employees_salaries` (expand-only; CP2 added none). Gates on the v1.2b CP2 tree (lead's own run, under the lock): `npx tsc --noEmit` 0, `npx vitest run` 941/941 in 49 files (twice), `npm run build` 0 (first attempt hit the known npm exit-139 crash before compiling; the immediate retry passed); prerender only `/_global-error`; routes only health/export.
+**Exactly where we stopped:** v1.2b CP2 committed; v1.2c not started.
+**Next concrete action:** v1.2c design + contract (spec §4: owner digest via `GET /api/reminders/run` with `CRON_SECRET`, Settings › التذكيرات, client reminders by explicit owner action, aging report, statement to Excel/PDF, «بحسب الجهة» filter) → R-brief → build → commit(s).
 **Teammates:** fresh v1.2b team `backend`, `frontend`, `reviewer` (the v1.2a team was shut down at the handover).
 
 
@@ -118,6 +118,9 @@ Closed the two gaps no test in this repo can reach: server actions submitted end
 | v1.2b CP1 | L1 expand-only migration + PGlite test (enum labels in the drift check) · L2 payroll helpers · L3 employees (party-linked, adoption, «رواتب» resolution preferring ids in use, lifecycle end/reactivate) · L4 idempotent generation from today, fail-safe, total by aggregate · L5 SALARY plans in v1.2a (refused edits, `periodYm`/`kind`), spec §3.5 privacy predicate on ledger/search/totals/recent/dues/prefill/payments, payslip failing loud · L6 gates (scoping drivers only — rules untouched, S8 server-only pin, admin widened, staff-views static pin, validators) — ~35 mutations verified | backend | 2026-09-30 |
 | v1.2b CP1 | M1 الموظفون list + four-section profile form · M2 employee page («صرف راتب», end/reactivate/cancel-end with the write-off list) · M3 printable payslip · M4 home reorder + quick actions (spec §1), staff nav «حسابي», salary rows by month, SALARY plans managed from the profile, staff ledger hides salary, staff-form note by category id | frontend | 2026-09-30 |
 | v1.2b CP1 | R-brief-b ×2 (5 BLOCKER + 10 SHOULD + 12 NOTE, then 1 + 6), R-L1..L6, R-M1..M4, R-brief-c2 for CP2 — nothing open | reviewer | 2026-09-30 |
+| v1.2b CP2 | L7 attendance helpers (Y5 grace, Z1 settle rule) · L8 owner day sheet (Z2 employment window, Z3 compare-and-set on changed rows, P2002) + month grid + employee month + `getLastRecordedDate` · L9 self-service (`own.ts` session-keyed, server-clock check-in/out with an override-safe compare-and-set, `err.outsideEmployment`, reads open to ENDED, owner notes stripped, forced own-employee generation) · L10 deductions (Z4: OPEN plan + unpaid month on add and delete, total by aggregate, re-allocation) · L11 gates (self-service isolation on PGlite, cache-lag pin, STAFF-with-canEdit refused) — ~30 mutations, none surviving | backend | 2026-09-30 |
+| v1.2b CP2 | M5 الحضور daily sheet (changed rows only, «نسخ من آخر يوم عمل», fallback notice) + printable monthly grid with codes and legend · M6 monthly sheet per employee with deductions · M7 «حضوري» (linked-only nav, today card, own month/payslips/salaries, every page self-checks the link) · M8 «تسجيل حضور» quick action | frontend | 2026-09-30 |
+| v1.2b CP2 | R-brief-c2 (5 SHOULD + 8 NOTE → Z1–Z6), R-L7..L11, R-M5..M8 (S-M5a, S-L10a closed) — nothing open | reviewer | 2026-09-30 |
 
 ## v1.1 plan
 (a) done; (b) not started. In this order.
@@ -261,12 +264,16 @@ Format: date — decision — reason. Anything that changed from the docs or cho
 
 - 2026-09-30 — **v1.2b CP1 rulings during the build (lead):** the staff dues card / prefill / payment refusal use the plan-level spec §3.5 predicate (a STANDARD plan with a موظف party in «رواتب» is salary too) — the spec names that card, so this follows it, not beyond it; a pay-day change that makes a month due now is correct; an ACTIVE employee with a future end date gets «إلغاء تاريخ انتهاء الخدمة», an ENDED one «إعادة تفعيل»; the salary category is resolved preferring ids already in use so a renamed «رواتب» never spawns a second one; the migration drift check compares enum labels (a missing «عن بُعد» value used to pass).
 
+- 2026-09-30 — **v1.2b CP2 rulings (lead):** the override rule for «حاضر»/«متأخر» posted without a check-in (not an override on a work day, so a later late check-in still derives LATE; an override on a non-work day, so a Friday «حاضر» is kept); staff self-service reads omit the owner's attendance notes; a dedicated `getLastRecordedDate` replaces a 7-day look-back (Eid breaks); the monthly grid shows a muted «ع» on unrecorded non-work days, display only; one neutral line («خارج فترة خدمتك») for both not-yet-started and ended employees on self check-in; a mutation that "survives by design" is not accepted under spec §5 — the cache-lag deduction branch was pinned by staging the lag on PGlite.
+
 ## Waiting on user
 - **Browser test + push of v1.2a** (test plan in the CP2 report; a Neon branch first is the zero-risk option). Push applies the v1.2a migration on Render.
 - Carried over: the contract migration dropping `User.name`, Google sign-in, and the placeholder `support@example.com` in the footer.
 
 ## Known issues
 Failing builds, bugs, must-not-forget TODOs. Remove when fixed.
+- **v1.2b: a saved attendance day cannot be cleared back to «غير مسجل»** (accepted, Z6 — the owner corrects it to the right status).
+- **v1.2b: an owner's «متأخر» saved without a time becomes «حاضر» if the employee then checks in on time** (follows from the ratified Z1 rule; accepted).
 - **v1.2b: an end-of-service month kept only by a soft-deleted payment is written off but not listed in the end dialog** (accepted; needs a query flag to list).
 - **v1.2b: moving a hire date later leaves earlier generated unpaid months owed; a pay-day change can push a month past a future end date, and it is written off when that date passes** (accepted; the end form warns).
 - **v1.2b: `plans/actions.ts` (261) and `plans/queries.ts` (258) are a little over ~250 lines** (v1.2a files, +~10 each for SALARY).

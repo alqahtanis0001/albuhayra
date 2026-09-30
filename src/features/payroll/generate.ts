@@ -185,6 +185,16 @@ export const ensureSalaryInstalments = cache(
   async (establishmentId: string, employeeId?: string): Promise<void> => {
     const session = await requireMember();
     if (session.establishmentId !== establishmentId) return;
+    // Y11 + reviewer CP2 note: a STAFF session only ever generates for its own
+    // linked employee, whatever id was passed; an unlinked login generates nothing.
+    if (session.user.role === "STAFF") {
+      const own = await db.employee.findFirst({
+        where: { establishmentId, userId: session.user.id },
+        select: { id: true },
+      });
+      if (!own) return;
+      employeeId = own.id;
+    }
     await runSalaryGeneration(establishmentId, session.user.id, todayISO(), employeeId);
   },
 );

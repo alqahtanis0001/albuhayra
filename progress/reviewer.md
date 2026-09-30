@@ -2518,3 +2518,167 @@ My run: tsc 0; vitest **867/867 in 44 files**.
     - API routes are only health + export.
     - No temp markers in src (only in the generated Prisma client).
   - **CP1 verdict: CLEAR.**
+
+# v1.2b CP2
+- 2026-09-30 — CP1 committed as `aa5f4f1` (includes this file). Z1 contract verified: `AttendanceRowSchema` has no `statusOverridden`, and `updatedAt` stays (Y6). CP2 reviews: spec §1 and §3.3–§3.5 first, then Y1–Y12 and Z1–Z6.
+
+## 2026-09-30 — R-M8 + M7 nav shell — PASS
+- **M8 (spec §1).** Three quick-action tiles, in order: حركة جديدة (primary) · تسجيل دفعة → /owner/dues · تسجيل حضور → /owner/staff/attendance (today's sheet).
+  - Layout: `grid-cols-3`, icon above the label, `px-2`, `min-h-16`. At 320px each tile is ≈90px, so «تسجيل حضور» fits or wraps between its two words, which closes my CP1 note.
+  - They are real Links. The icons are aria-hidden (Svg base), and the section has an aria-label.
+  - The skeleton matches: three h-16 bones.
+- **M7 shell.** `staffNav(linked)` gives spec §1's order, with حضوري (/staff/me) between السجل and حسابي and only when the login is linked. `STAFF_NAV = staffNav(false)`.
+  - nav.test pins the linked order, that /staff/me is absent when unlinked, and activeHref for /staff/me/month/…. nav.test passes.
+  - The comment says it plainly: hiding the item is not the control, so the /staff/me pages must re-check the link. That is Z5/L9, to be verified at R-M7/R-L9.
+
+## 2026-09-30 — R-L7 (src/lib/attendance.ts) — PASS
+**Checks:** attendance + validation.v12b: 27/27. The file is pure and client-safe: a type-only import, no clock.
+
+**Y5.**
+- `derivedStatus` goes LATE only when check-in > start + grace, with both start and grace set.
+- Pinned: 08:10 with grace 10 = PRESENT; 08:11 = LATE; grace 0 → 08:00 PRESENT, 08:01 LATE; null grace → PRESENT at 11:00; no start → PRESENT; non-work day → PRESENT; no check-in → null.
+
+**Hours / weekdays.**
+- N1: `minutesBetween` is null for the same minute or earlier.
+- UTC weekday bits match the schema's Sun=1…Sat=64.
+
+**Z1 as ratified by the lead.** `settleStatus`:
+- ABSENT, LEAVE and REMOTE always override.
+- HOLIDAY overrides unless it equals `expected`.
+- PRESENT and LATE override only when `expected ≠ null` and they differ from it.
+- The stored status is the expected one unless overridden.
+- This settles S-C2a: an owner's «حاضر» on a work day with no check-in is not an override, so a later self check-in can derive LATE.
+- Note that an owner's LATE posted without a time is likewise not an override. A later on-time check-in then derives PRESENT, which is consistent with the ratified rule.
+- One test is tautological: "stores the expected, never the post". By the rule, a non-overridden PRESENT/LATE always equals `expected`. The test is harmless.
+
+**Z2.** `employedOn` is inclusive at both ends.
+
+**Mutations.** Backend's 5 mutations each map to one case.
+
+## 2026-09-30 — R-M5 (الحضور: daily sheet + monthly grid) — PASS, 1 SHOULD, 4 NOTE
+**Spec §3.3 / Z1 / Z3 / Z6.**
+- Six statuses as word chips (radios, `form="__none"`); the codes appear only in the grid.
+- Times `type="time"` `dir="ltr"`.
+- The «محسوب / معدّل يدويًا» badge is only a preview through the server's own `settleStatus`, and `statusOverridden` is never posted (Z1).
+- Only changed rows are posted, with `updatedAt` only when a record was loaded (Z3).
+- The عطلة prefill counts as unchanged.
+- A changed row with no status → `err.required` (Z6, no clearing).
+- Copy fills statuses only into unrecorded rows with no status.
+- The grid shows codes plus a legend, «—» for employed-but-unrecorded, blank outside employment; tint is decoration only.
+- The print rule is inside the existing print block. PrintHeader appears on the monthly view.
+
+**Frontend's question, answered from the code.** Clearing a loaded time works: actions.ts:70 writes `checkIn: row.checkIn ?? null` for every posted row, so "" → undefined → null (cleared). The server CAS (`updatedAt` in the `updateMany` where, :94) and P2002 → `err.concurrentChange` match Z3.
+
+**SHOULD S-M5a — the copy lookback costs up to 7 sequential `getDaySheet` calls on every load of the daily tab** (page.tsx:31-41), whether or not the owner copies. Each call reads employees and records, so that is up to ~14 round-trips to Neon on a page opened daily.
+- Fix: backend adds `lastRecordedStatuses(estId, before)` as one scoped `findFirst` for the latest date < `date`, then one `findMany`.
+- Or load it only when «نسخ» is pressed.
+- This also removes the arbitrary 7-day limit (after a long holiday the button silently disappears).
+
+**NOTEs**
+1. A malformed or future `?date=` (or `?ym=`) silently shows today or this month — the "fallback without its reason" gotcha. The pickers can't produce one, so only a hand-edited URL reaches it. Low priority: a one-line notice, or accept it.
+2. Clearing the check-in on a non-manual row keeps the derived LATE (`expected ?? draft.status`). A work-day LATE with no time then saves as posted. Consider resetting a derived status when its check-in is cleared.
+3. The grid shows «—» on unrecorded non-work days, the same as an unrecorded work day. Showing the prefill «ع» (or blank) there would match "non-work days never absent" more visibly. Optional.
+4. The sticky name column uses `start-0` (logical) — good. The grid scrolls horizontally inside its card only.
+
+## 2026-09-30 — R-M6 (monthly sheet + deductions UI) — PASS, 2 NOTE
+- **Page.** `ensureSalaryInstalments` runs first. `PeriodYmSchema` is used, and any month later than next month → notFound (next month's salary exists by D2). A foreign or unknown id → notFound. The owner view shows notes (`withNotes`); «حضوري» will reuse it without them (Z6).
+- **Z4.**
+  - Add and delete appear only when `salary.editable`, computed by `isMonthOpen` — the same predicate the deduction actions use, so there is one source.
+  - Otherwise `lockedHint` shows.
+  - Delete goes through a ConfirmDialog. The unparsable amount is refused client-side.
+  - `periodYm` is a hidden field taken from the loaded month.
+  - AmountField posts halalas in its hidden field, and the server re-checks.
+- **NOTEs**
+  1. `lockedHint` says "after this month's salary is paid". Z4 also locks an ARCHIVED plan's month (after an end or a write-off), where that wording is wrong. Change it to a neutral line, or add a second key.
+  2. The ‹ previous-month link has no lower bound: months before the hire date show an empty sheet. Harmless.
+
+## 2026-09-30 — R-M7 («حضوري») — PASS, 2 NOTE
+**Isolation (spec §3.1/§3.5, L9, Z5).**
+- Every /staff/me page refuses an unlinked login **on its own**:
+  - (home) and month use `getMySelf` / `getMyMonth`, which return null → notFound.
+  - payslips, payslip/[ym] and salary check `ownEmployee()` → null → notFound **before** generation and reads.
+- The employee key is only ever `Employee.userId = session user`, scoped by the session's establishment (own.ts). The URL carries only `ym` (PeriodYmSchema; the month page refuses a future month).
+- `ensureSalaryInstalments` now forces the own employee for any STAFF session and generates nothing when unlinked (generate.ts). The pages' Y11 argument is therefore belt-and-braces.
+- The layout's `hasEmployeeLink` is one scoped findFirst returning a boolean, and the nav is presentation only.
+
+**Z6.** Notes are stripped **server-side** (`note: null` in getMySelf; `withNotes: false` in `employeeMonth`), so they never reach the RSC payload.
+
+**Z5.** `canClock` = ACTIVE and hire ≤ today ≤ end. Reads are open to a linked ENDED employee.
+
+**X7.** ClockCard's actions take no argument; one button at a time; times in `<bdi dir="ltr">`; the server-time note.
+
+**X3.** MySalaryList: an archived plan's unpaid month shows «مؤرشفة» with no countdown.
+
+**NOTEs**
+1. With `canClock` false, ClockCard shows `err.employeeEnded`. That is wrong for a linked employee whose hire date is still in the future (not yet started). Use a neutral line, or pick the key by the reason.
+2. The staff payslip lists the employee's own payments (date, method, amount), which is allowed as "own payslips" (§3.5). It shares the owner's fail-loud path, so a bad snapshot shows the staff error boundary. Acceptable.
+
+## 2026-09-30 — R-L8..L11 (attendance, self-service, deductions, gates) — PASS, 1 SHOULD, 3 NOTE
+**Checks:** tsc 0; vitest **939/939 in 49 files**.
+
+**L8 — owner attendance.**
+- `getDaySheet` / `getMonthGrid` use Z2 `employedWhere` (hire ≤ to, end ≥ from or null, any status) plus `employedOn` per cell. Totals come from recorded statuses only, so non-work days are never absent (§3.3).
+- `getLastRecordedDate` is one scoped findFirst; this is the backend half of S-M5a.
+- `saveAttendanceDay`:
+  - Y6 echo check, then a CAS on the loaded `updatedAt` in the `updateMany` where.
+  - createMany for new rows; P2002 → `err.concurrentChange`.
+  - Unchanged rows are skipped.
+  - `settleStatus` on the server (Z1); a cleared time → null.
+  - One `ATTENDANCE_SET` audit per changed row. requireOwner (a STAFF with canEdit is refused — tested).
+
+**L9 — self-service.**
+- `own.ts` keys only on `Employee.userId = session user` plus the establishment.
+- `clockContext` uses one `now` for `todayISO` and `nowRiyadhHHMM`.
+- `canClock` (Z5).
+- checkIn: update-then-create, with `checkIn: null` as the CAS; P2002/Already → `alreadyCheckedIn`; the override is kept.
+- checkOut: `time <= checkIn` → `err.timeOrder`; CAS on checkIn + `checkOut: null`.
+- Nothing posted is read.
+- `mine.ts` strips notes on the server (Z6). ENDED employees can read.
+- `ensureSalaryInstalments` forces the own employee for STAFF.
+- selfService.test covers: unlinked, times only, a posted id ignored, same minute, non-work day, the Z1 ruling, override kept, ENDED reads, cross-employee isolation, and Y11.
+
+**L10 — deductions.**
+- The revision is read before the checks (`planOf`). Checked: `isMonthOpen` (plan OPEN, paid 0, no non-deleted payment) and Σ ≤ gross.
+- Inside one tx: bump → write → `amountDue = gross − Σ` → total by aggregate (D8) → reallocate → audit.
+- Delete uses the same checks with a count-0 CAS.
+- Net 0 → PAID with remaining 0; archived plan refused; STAFF refused (tested).
+
+**L11 — gates.** Guard pins for owner and staff actions and both P2002 races. Scoping drivers/FILES/S8 extended with the rule region untouched (Y12). staffViews bans the owner attendance reads in staff files.
+
+**SHOULD S-L10a — the surviving `isMonthOpen` mutation.** Its "no non-deleted payment" branch (core.ts:165) has no test, which breaks spec §5 ("every silent-failure rule gets a mutation-proven test").
+- Without that branch, a deduction lands on a month a payment already paid, whenever the `paidHalalas` cache reads 0.
+- Fix: add the same shape of PGlite case CP1 used for S4 — a linked non-deleted payment with the cache at 0 → add/delete refused — and mutation-verify it.
+
+**NOTEs**
+1. checkIn's update keys on `checkIn: null` but not on the `statusOverridden` it read. If the owner sets an override between the read and the update, the self check-in overwrites it with the derived status. Add `statusOverridden: record.statusOverridden` to the where (count 0 → retry or `alreadyCheckedIn`). This is a narrow race.
+2. A created row's CHECK_IN audit uses `entityId = employee.id` (self.ts:69), not the record id. Select the created id.
+3. ClockCard's `err.employeeEnded` for a not-yet-hired employee (R-M7 note) comes from `clockContext` too (self.ts:33). The same wording fix applies server-side.
+- **L7/L8 delta — verified.**
+  - `settleStatus` now stores `posted`. Under the ratified Z1 this is equivalent: a non-overridden row has `posted === expected`, or nothing is expected. The dead `expected ??` branch and its vacuous test are gone, replaced by the two ruling cases (lib + PGlite), which fail under both PRESENT/LATE mutations.
+  - `getLastRecordedDate` was already reviewed above.
+  - ClockCard uses the lead's new `t.myAttendance.cannotClock`. The server's `clockContext` still answers `err.employeeEnded` for a not-yet-hired employee (NOTE 3), which is reachable only without the button.
+  - Still open: S-L10a (the isMonthOpen payments pin), and frontend wiring the copy button to `getLastRecordedDate` (S-M5a).
+- The lead routed S-L10a and the 3 L9 notes to backend. NOTE 3 → a new `err.outsideEmployment` for self check-in. frontend is swapping the copy lookback for `getLastRecordedDate` (S-M5a) and will send the M5 delta plus cannotClock. Waiting on both.
+- **S-L10a — closed.** deductions.test.ts:137: a live payment on October written directly, with the cache at 0 → add and delete both give `err.salaryPeriodPaid`; soft-deleting it reopens the month. The mutations 'drop the count' and 'count soft-deleted too' each fail it. The deductions suite passes 8/8.
+- **R-M5 / R-M7 delta — verified. S-M5a closed.**
+  - The copy source is `getLastRecordedDate` (one scoped findFirst) plus one `getDaySheet`. The 7-day loop is gone, so there is no limit on the gap.
+  - Note 1: a present-but-unusable ?date/?ym gets FallbackNotice (amber, role=status, no-print) with `err.dateInvalid` or `err.dateFuture`. `isDay` round-trips, so 2026-02-31 is refused.
+  - Note 2: on a non-manual row, `withCheckIn` sets the status to `expectedStatus(checkIn || null)`. Clearing the check-in drops a derived status back to the prefill or none, and Z6 then requires a choice.
+  - Note 3: an unrecorded non-work day shows a muted «ع» on display only; totals still come from records.
+  - R-M7: ClockCard uses `t.myAttendance.cannotClock`.
+  - **Frontend CP2: nothing open.**
+
+## 2026-09-30 — v1.2b CP2 final pass — CLEAR
+- **Gates on my run:** tsc 0; vitest **941/941 in 49 files**.
+- **L9 notes 1–3 — verified in self.ts.**
+  - The checkIn CAS is on `checkIn: null` plus the `statusOverridden` it read. On count 0 it re-reads: checkIn set → `alreadyCheckedIn`, else `concurrentChange`. The owner's override can no longer be overwritten.
+  - The CHECK_IN `entityId` is the created or updated record's id.
+  - Outside hire…end → `err.outsideEmployment` (the new neutral key), for both an ENDED and a not-yet-started employee.
+- **S-L10a** closed (deductions.test.ts:137). **S-M5a** closed.
+- **Tree hygiene.**
+  - Every untracked file sits under the CP2 paths (attendance, payroll, staff/me, owner/staff, skeletons, lib/attendance).
+  - API routes are health + export only.
+  - No TODO/FIXME/zzsmoke in src outside the generated client.
+- **Open:** only R-M6 NOTE 1 (lockedHint wording when the plan is archived), and that is non-blocking.
+- **CP2 verdict: CLEAR.**
+- **Final confirmation:** lockedHint now covers both reasons ('its salary is paid, or the salary agreement was closed'), so R-M6 NOTE 1 is closed. The gates were already run on the final tree (941/941, tsc 0). **CP2: nothing open. CLEAR.**

@@ -18,9 +18,10 @@ export function OwnerDashboardSkeleton() {
   return (
     <SkeletonPage>
       <SkeletonHeader />
-      <div className="grid auto-cols-fr grid-flow-col gap-2">
-        <Bone onBody className="h-11" />
-        <Bone onBody className="h-11" />
+      <div className="grid grid-cols-3 gap-2">
+        <Bone onBody className="h-16" />
+        <Bone onBody className="h-16" />
+        <Bone onBody className="h-16" />
       </div>
       <SkeletonStatCards count={4} />
       <SkeletonCard title>

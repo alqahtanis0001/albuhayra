@@ -46,6 +46,7 @@ export default async function EmployeePage({ params }: { params: Promise<{ id: s
         payInstalmentId={pay}
         startDate={employee.startDate}
         today={today}
+        thisYm={today.slice(0, 7)}
         unpaid={unpaid}
       />
 

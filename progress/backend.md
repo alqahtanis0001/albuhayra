@@ -1136,3 +1136,46 @@ first) → P2 → P3 → P4 → P5, gates after each.
 - R-final (reviewer): CP1 delta verified, all backend findings closed. Residual note recorded in
   `payroll/staffViews.test.ts`: calls are matched by name, so an aliased import escapes the scan.
 - Final gates: tsc 0 · vitest 867/867 in 44 files · build 0 (lock).
+
+## v1.2b — checkpoint 2 (L7–L11), after the CP1 commit aa5f4f1
+
+- **Z1 contract:** `validation.v12b.test.ts` now asserts a posted `statusOverridden` is stripped.
+- **L7** `src/lib/attendance.ts` (pure): weekdayBit/isWorkDay, toMinutes, minutesBetween (strictly
+  later), derivedStatus (Y5 + D11 non-work day PRESENT), prefillStatus, expectedStatus + settleStatus
+  (Z1), daysOfMonth, employedOn (Z2). Reading sent to lead: PRESENT/LATE posted without a check-in
+  stand un-overridden on a work day, override on a non-work day. 13 tests; 5 mutations.
+- **L8** `attendance/{queries,month,actions}.ts`: getDaySheet / getMonthGrid (Z2 employment window,
+  whatever the status), getEmployeeMonth (via `employeeMonth(…, { withNotes })`, salary block with
+  Z4 `editable` from `payroll/core.isMonthOpen`), saveAttendanceDay (Z1 settle on the server, Y6
+  echo check, only changed rows written, createMany + compare-and-set updateMany on the loaded
+  `updatedAt`, P2002 → concurrentChange, one ATTENDANCE_SET per changed row).
+- **L9** `attendance/own.ts` (the single own-employee lookup, canClock, hasEmployeeLink),
+  `attendance/self.ts` ("use server" checkIn/checkOut: one `now`, times only, override kept,
+  update-then-create, same-minute → timeOrder), `attendance/mine.ts` (getMy* reads, notes nulled).
+  `ensureSalaryInstalments` now forces a STAFF session's own employee (reviewer CP2 note / Y11).
+- **L10** `payroll/deductions.ts`: add/delete under the revision lock, Z4 (OPEN + unpaid) both ways,
+  Σ ≤ gross, amountDue = gross − Σ, total by aggregate, reallocate, audits.
+- **L11 tests:** `attendance/attendance.test.ts` (10, PGlite, role-aware auth mock),
+  `attendance/selfService.test.ts` (8, PGlite — the isolation test + forced generation scope),
+  `payroll/deductions.test.ts` (7, PGlite), `attendance/guards.test.ts` (23: guard pins + the two
+  P2002 races), scoping drivers + FILES + S8 list + nested scan for attendance/*, deductions.ts;
+  staffViews owner-read ban extended to getEmployeeMonth/getDaySheet/getMonthGrid.
+- **Mutations** (byte-copy restore): A1–A4 (save), B1–B6 (self; B4 needed a direct canClock pin),
+  C1/C3/C4/C5 (deductions), G7–G10 (gate), guard aliases, P2002 mapping. Survived by design: the
+  payments-count branch of isMonthOpen (cache-lag only; the same predicate is pinned in CP1's S4 case).
+- Gotcha: a raw PGlite `SELECT "updatedAt"` parses the timestamp in local time (TZ=Asia/Riyadh);
+  echo the app's own ISO string (from getDaySheet), never a raw read.
+- Gates: tsc 0 · vitest 936/936 in 49 files · build 0 (lock).
+- Lead confirmed the Z1 reading (binding). Pinned in unit + PGlite: early «حاضر» → later late check-in = LATE;
+  Friday «حاضر» kept as override. R-L7 vacuous test removed with the dead `expected ?? posted` branch
+  (equivalent under the ruling). `getLastRecordedDate(estId, beforeISO)` added (lead) for the copy button.
+- Gates: tsc 0 · vitest 939/939 in 49 files.
+- isMonthOpen cache-lag branch pinned (lead, spec §5): PGlite case in `payroll/deductions.test.ts` writes a live
+  payment on October directly (paid cache stays 0) → add and delete both `err.salaryPeriodPaid`, `editable` false;
+  soft-deleting it reopens the month. C2 (drop the payments count) and C2b (count soft-deleted too) each fail it.
+  No surviving mutation left in CP2.
+- R-L8..L11 notes closed: (1) checkIn's compare-and-set includes the `statusOverridden` it read; a lost
+  race re-reads → alreadyCheckedIn if checked in, else concurrentChange (scoping driver pins the where and
+  both outcomes); (2) a created row's CHECK_IN audit names the record id (PGlite); (3) self check-in outside
+  hire…end → `err.outsideEmployment` (ended and not-yet-started, PGlite); `err.employeeEnded` stays owner-side.
+  N1, N1b, N2, N3 each fail their case. checkOut writes no status, so its CAS (checkIn + checkOut null) is unchanged.

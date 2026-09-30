@@ -137,8 +137,8 @@ export const AttendanceRowSchema = z
   .object({
     employeeId: cuid,
     status: AttendanceStatusEnum,
-    /** true when the owner chose the status by hand (D10). */
-    statusOverridden: z.preprocess((v) => v === true || v === "true", z.boolean()),
+    // Whether the owner overrode the derived status is decided on the server
+    // only (Z1, R-brief-c2) — the client never sends it.
     checkIn: optionalHhmm,
     checkOut: optionalHhmm,
     note: optionalText(200),

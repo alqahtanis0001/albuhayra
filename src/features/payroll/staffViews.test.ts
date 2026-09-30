@@ -38,7 +38,7 @@ function callsOf(source: string, name: string): string[] {
 const LEDGER_READS = ["listTransactions", "getTransaction", "recentTransactions"];
 const HIDES = /\bhideSalary:\s*true\b/;
 /** Reads whose shape is the owner's: plan titles, totals, salary rows, profiles. */
-const OWNER_READS = /\b(?:getDues|getInstalmentForPayment|listPlans|getPlan|getPartyStatement|listParties|getParty|getEmployee|listEmployees|getPayslip|getOwnerDashboard)\(/;
+const OWNER_READS = /\b(?:getDues|getInstalmentForPayment|listPlans|getPlan|getPartyStatement|listParties|getParty|getEmployee|listEmployees|getPayslip|getOwnerDashboard|getEmployeeMonth|getDaySheet|getMonthGrid|employeeMonth)\(/;
 
 const STAFF_FILES = walk("src/app/(staff)");
 
@@ -78,5 +78,10 @@ describe("S-L5a: every staff ledger read hides salary rows", () => {
     expect("await getDues(establishmentId)").toMatch(OWNER_READS);
     expect("await getStaffDues(establishmentId)").not.toMatch(OWNER_READS);
     expect("getStaffPaymentPrefill(e, i)").not.toMatch(OWNER_READS);
+    // CP2: «حضوري» uses the getMy* reads, never the owner's (notes, other employees).
+    expect("await getEmployeeMonth(est, id, ym)").toMatch(OWNER_READS);
+    expect("await getDaySheet(est, date)").toMatch(OWNER_READS);
+    expect("await getMyMonth(ym)").not.toMatch(OWNER_READS);
+    expect("await getMyPayslip(ym)").not.toMatch(OWNER_READS);
   });
 });

@@ -7,6 +7,7 @@ import {
   OWNER_TAB_HREFS,
   STAFF_NAV,
   activeHref,
+  staffNav,
   groupOf,
   navItems,
 } from "./nav";
@@ -123,6 +124,20 @@ describe("owner navigation groups (v1.2a)", () => {
     expect(STAFF_NAV[1].label).toBe(OWNER[1].label);
     expect(STAFF_NAV[3].label).toBe(OWNER.find((i) => i.href === "/owner/settings/account")!.label);
     expect(activeHref("/staff/account", STAFF_NAV)).toBe("/staff/account");
+    expect(STAFF_NAV.some((i) => i.href === "/staff/me")).toBe(false);
+  });
+
+  it("adds حضوري before حسابي only for a linked login (spec §1 order)", () => {
+    const linked = staffNav(true);
+    expect(linked.map((i) => i.href)).toEqual([
+      "/staff",
+      "/staff/transactions/new",
+      "/staff/transactions",
+      "/staff/me",
+      "/staff/account",
+    ]);
+    expect(activeHref("/staff/me/month/2026-09", linked)).toBe("/staff/me");
+    expect(staffNav(false)).toEqual(STAFF_NAV);
   });
 });
 

@@ -31,6 +31,7 @@ export function EmployeeActions({
   payInstalmentId,
   startDate,
   today,
+  thisYm,
   unpaid,
 }: {
   employeeId: string;
@@ -44,6 +45,8 @@ export function EmployeeActions({
   payInstalmentId: string | null;
   startDate: string;
   today: string;
+  /** "YYYY-MM" of the server's today: كشف الشهر opens on it. */
+  thisYm: string;
   unpaid: UnpaidMonth[];
 }) {
   const router = useRouter();
@@ -74,6 +77,9 @@ export function EmployeeActions({
         <LinkButton href={`/owner/staff/${employeeId}/edit`} variant="secondary">
           <PencilIcon size={18} />
           {t.common.edit}
+        </LinkButton>
+        <LinkButton href={`/owner/staff/${employeeId}/month/${thisYm}`} variant="secondary">
+          {t.employees.monthSheet}
         </LinkButton>
         <LinkButton href={`/owner/parties/${partyId}`} variant="secondary">
           {t.employees.statement}

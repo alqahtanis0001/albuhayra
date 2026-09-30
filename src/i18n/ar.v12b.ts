@@ -149,6 +149,8 @@ export const v12bSections = {
     checkedOutAt: "سُجّل انصرافك الساعة",
     serverTimeNote: "يُسجَّل الوقت من ساعة النظام بتوقيت الرياض",
     notWorkDay: "اليوم ليس من أيام عملك",
+    /** Not yet started, or employment has ended: reads stay open, clocking does not. */
+    cannotClock: "لا يمكن تسجيل الحضور اليوم لأنه خارج فترة خدمتك",
     myMonth: "حضوري هذا الشهر",
     myPayslips: "قسائم الراتب",
     noPayslips: "لا توجد قسائم راتب بعد.",
@@ -173,7 +175,7 @@ export const v12bSections = {
     delete: "حذف الخصم",
     deleteConfirm: "سيُحذف الخصم ويعود مبلغ الراتب كما كان. هل تريد المتابعة؟",
     none: "لا توجد خصومات",
-    lockedHint: "لا يمكن تعديل الخصومات بعد سداد راتب هذا الشهر",
+    lockedHint: "لا يمكن تعديل خصومات هذا الشهر: راتبه مسدد أو أُغلقت اتفاقية الراتب",
   },
 
   payslip: {
@@ -208,6 +210,8 @@ export const v12bSections = {
     allowancesNeedBasic: "أدخل الراتب الأساسي قبل البدلات",
     employeeInvalid: "الموظف غير صحيح",
     employeeEnded: "انتهت خدمة هذا الموظف",
+    /** Self check-in outside hire…end (not yet started, or ended) — neutral for both. */
+    outsideEmployment: "لا يمكن تسجيل الحضور اليوم لأنه خارج فترة خدمتك",
     loginAlreadyLinked: "حساب الدخول هذا مرتبط بموظف آخر",
     loginInvalid: "حساب الدخول غير صحيح",
     notLinkedEmployee: "حسابك غير مرتبط بملف موظف",
