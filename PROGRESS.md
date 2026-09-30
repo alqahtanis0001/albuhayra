@@ -17,11 +17,12 @@ npm run typecheck        # tsc --noEmit, not part of build
 `DATABASE_URL` is read by `prisma.config.ts` (which loads `.env` via dotenv) for migrate/seed, and by `src/lib/db.ts` at runtime. `prisma generate` and `npm run build` work without it.
 
 ## Current phase
-**Phase:** v1.2a — checkpoint 2 committed (plans, instalments, payments, dues, statements, home cards, staff dues card); waiting for the user's approval. v1.2a is then complete; next is v1.2b.
-**Status:** CP2 commit "v1.2a: checkpoint 2 — plans, instalments, dues, statements" on top of CP1 `792a601`, not pushed. Gates on the committed tree (lead's own run, under the build lock): `npx tsc --noEmit` 0, `npx vitest run` 752/752 in 37 files (run twice), `npm run build` 0; prerender manifest lists only `/_global-error`; API routes only health/export. The v1.2a migration is still **not applied to Neon** (no CP2 schema change; CP1's migration covers both checkpoints).
-**Exactly where we stopped:** CP2 committed and reported with a live test plan; teammates idle.
-**Next concrete action:** the user's approval and live test of CP1+CP2 (a Neon branch first, per the CP1 report); any defect is fixed as a follow-up commit; then the v1.2b design (الموظفون / الحضور).
-**Teammates:** `backend`, `frontend`, `reviewer` (v1.2a).
+**Phase:** v1.2a committed, awaiting user browser test and push; v1.2b design in progress.
+**Status:** v1.2a is two commits — CP1 `792a601` and CP2 `1a9aae4` — both approved by the user on 2026-09-30, **neither pushed**. Gates on `1a9aae4` (lead's own run, under the build lock): `npx tsc --noEmit` 0, `npx vitest run` 752/752 in 37 files (twice), `npm run build` 0; prerender only `/_global-error`. The v1.2a migration `20261001000000_v1_2a_parties_projects_plans` is **not applied to Neon**; Render applies it on the user's push. v1.2a has never run in a browser.
+**Exactly where we stopped:** handover committed ("docs: v1.2a handover"); the v1.2a team is shut down; the v1.2b design is being drafted as docs only — **no code, no schema or `ar.ts` edits, until the user approves the design** (user's instruction).
+**Next concrete action:** (1) the user browser-tests v1.2a (a Neon branch or live, with the test plan in the CP2 report) and pushes; any defect → a follow-up commit by a fresh agent. (2) The user reviews the v1.2b design; on approval, spawn a fresh team (`backend`, `frontend`, `reviewer`), reviewer reviews the briefs before code.
+**Teammates:** none running — `backend`, `frontend`, `reviewer` shut down at the v1.2a handover (user's instruction: v1.2b gets a fresh team). Their notes are merged here; `PROGRESS.md` wins where they disagree.
+
 
 ## v1.2 release plan (user's instruction, 2026-09-30)
 Three releases, each committed and approved before the next. ADMIN (the user) never sees establishment data in any of them.
@@ -242,8 +243,12 @@ Format: date — decision — reason. Anything that changed from the docs or cho
 
 - 2026-09-30 — **`allocate()` is order-independent in the payments (found by `backend`, P1).** Each payment fills a circular run starting at its own instalment — parking on a one-way ring with capacities, whose final occupancy does not depend on arrival order (unit-halala argument: circular parking with capacities is abelian; brute-forced by `backend` over 2–3 payments and independently by the reviewer over 3000 random cases × every permutation, overpay included — no counterexample. The first pin permuted an input that `allocate()` re-sorts, so it could not fail; reviewer S-P1a has it re-keyed per permutation and mutation-checked with an order-dependent variant). The payment order `(date, createdAt, id)` is kept only so iteration is deterministic; **no test may expect payment order to change an outcome.** Instalment order *does* matter (`(dueDate, seq)`, seq over id on a shared date) and is pinned.
 
+- 2026-09-30 — **User confirmed the v1.2a lead choices as made:** the staff dues card's «تسجيل دفعة» button, window (overdue + next 7 days, max 20) and unsigned amount; "nothing more" extended to the staff payment form and edit notice (W2); a staff member without `canEdit` on a payment link gets the ordinary form + `err.forbidden` toast (S-Q3a); the staff nav label حركة جديدة; the 20M SAR amount ceiling; «هذا الأسبوع» = today…today+6, «الإضافات الجارية» = top 3 active by spend, archive writes off the remainder, balances/statements count agreements only; and the accepted limits (badge refreshes on navigation, overpaid only via a bypassed rule, flagged by the amber strip). Checkpoint 2 approved. v1.2b design approved to begin — design only, no code until the user approves it.
+
 ## Waiting on user
-- Nothing open. (CP1 approved 2026-09-30; any defect from the user's localhost test is fixed inside CP2.)
+- **Browser test + push of v1.2a** (test plan in the CP2 report; a Neon branch first is the zero-risk option). Push applies the v1.2a migration on Render.
+- **Approval of the v1.2b design** before any v1.2b code.
+- Carried over: the contract migration dropping `User.name`, Google sign-in, and the placeholder `support@example.com` in the footer.
 
 ## Known issues
 Failing builds, bugs, must-not-forget TODOs. Remove when fixed.
