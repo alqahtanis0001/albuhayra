@@ -4,6 +4,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { LinkButton } from "@/components/LinkButton";
 import { PlusIcon } from "@/components/icons";
 import { listPartyOptions } from "@/features/parties/queries";
+import { ensureSalaryInstalments } from "@/features/payroll/generate";
 import { PlanFilters, parsePlanFilters } from "@/features/plans/components/PlanFilters";
 import { PlanList } from "@/features/plans/components/PlanList";
 import { listPlans } from "@/features/plans/queries";
@@ -18,6 +19,8 @@ export default async function PlansPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { establishmentId } = await requireOwner();
+  // D2: this month's salary rows exist before anything reads them (cached per request).
+  await ensureSalaryInstalments(establishmentId);
   const parties = await listPartyOptions(establishmentId);
   const filter = parsePlanFilters(await searchParams, parties);
   const rows = await listPlans(establishmentId, filter);

@@ -55,6 +55,12 @@ const harness = vi.hoisted(() => {
     "project",
     "plan",
     "instalment",
+    // v1.2b (Y12: models join the list; the rules below are unchanged)
+    "employee",
+    "employeeAllowance",
+    "salaryPeriod",
+    "salaryDeduction",
+    "attendanceRecord",
   ];
 
   function defaultResult(method: string): unknown {
@@ -209,6 +215,19 @@ const {
 const { createPlan, updatePlan, cancelPlan, archivePlan } = await import("@/features/plans/actions");
 const { reallocatePlan } = await import("@/features/plans/allocate");
 const { getPartyStatement } = await import("@/features/parties/statement");
+// v1.2b
+const { createEmployee, updateEmployee } = await import("@/features/employees/actions");
+const { endEmployment, reactivateEmployee } = await import("@/features/employees/lifecycle");
+const {
+  listEmployees,
+  getEmployee,
+  listLinkableStaff,
+  listAdoptableParties,
+  getUnpaidSalaryMonths,
+  employeeIdOfParty,
+} = await import("@/features/employees/queries");
+const { getPayslip } = await import("@/features/employees/payslip");
+const { ensureSalaryInstalments } = await import("@/features/payroll/generate");
 
 /* ------------------------------------------------------------ the scope rule */
 
@@ -1686,6 +1705,219 @@ describe("v1.2a CP2: plan and payment writes scope every call", () => {
   });
 });
 
+/* ---------------------------- v1.2b CP1: employees, salaries, staff privacy */
+
+/**
+ * Y12: v1.2b adds models to the harness, files to FILES and these drivers —
+ * `scopeFailure`, `isReferenceProbe` and their constants are untouched. Every
+ * canned row carries every field any caller reads, so each path runs through
+ * to its writes.
+ */
+const EMP_ROW = {
+  id: "emp_1", partyId: "party_1", status: "ACTIVE", startDate: day("2026-09-01"), endDate: null as Date | null,
+  userId: "user_staff", jobTitle: null, notes: null, workDays: 31, workStart: null, workEnd: null, graceMinutes: null,
+  basicSalaryHalalas: 500000 as number | null, payDay: 27 as number | null, salaryCategoryId: "cat_sal",
+  party: { name: "أحمد", phone: null, email: null, active: true },
+  allowances: [{ type: "HOUSING", label: null, amountHalalas: 100000 }],
+  user: { firstName: "فهد", middleName: null, lastName: "", legacyName: null },
+};
+const SAL_PLAN = { id: "plan_sal", revision: 1, startDate: day("2026-09-01"), employeeId: "emp_1", state: "OPEN" };
+const SAL_INST = {
+  id: "inst_sal", planId: "plan_sal", seq: 24320, periodYm: "2026-09", dueDate: day("2099-12-27"),
+  amountDueHalalas: 600000, paidHalalas: 0, plan: { state: "OPEN" },
+};
+const SAL_PERIOD = {
+  id: "sp_1", employeeId: "emp_1", periodYm: "2026-09", instalmentId: "inst_sal",
+  basicHalalas: 1, allowances: [], grossHalalas: 1,
+};
+
+/** Lookups that answer only for this establishment's own ids (rule 11 by construction). */
+function populateEmployees(employee: Record<string, unknown> = EMP_ROW): void {
+  harness.responses.set("employee.findFirst", (args: Record<string, unknown>) => {
+    const where = args.where as Record<string, unknown>;
+    if (where.establishmentId !== EST) return null;
+    if (where.userId !== undefined || where.partyId !== undefined) return null; // no other holder
+    return where.id === undefined || where.id === employee.id ? employee : null;
+  });
+  harness.responses.set("employee.findMany", [employee]);
+  harness.responses.set("party.findFirst", (args: Record<string, unknown>) => {
+    const where = args.where as Record<string, unknown>;
+    return where.name !== undefined ? null : { id: "party_1", active: true };
+  });
+  harness.responses.set("party.findMany", [{ id: "party_2", name: "عامل", phone: null, email: null }]);
+  harness.responses.set("user.findFirst", { id: "user_staff", canEdit: true });
+  harness.responses.set("user.findMany", [
+    { id: "user_staff", email: "s@example.com", firstName: "فهد", middleName: null, lastName: "", legacyName: null },
+  ]);
+  harness.responses.set("plan.findFirst", SAL_PLAN);
+  harness.responses.set("plan.findMany", [SAL_PLAN]);
+  harness.responses.set("instalment.findMany", [SAL_INST]);
+  harness.responses.set("instalment.findFirst", SAL_INST);
+  harness.responses.set("salaryPeriod.findMany", [SAL_PERIOD]);
+  harness.responses.set("salaryPeriod.findFirst", SAL_PERIOD);
+  harness.responses.set("establishment.findFirst", { name: "منشأة" });
+  harness.responses.set("employeeAllowance.findMany", EMP_ROW.allowances);
+  harness.responses.set("category.findFirst", (args: Record<string, unknown>) =>
+    (args.where as Record<string, unknown>).nameAr !== undefined ? null : { sortOrder: 3, type: "OUT", active: true });
+}
+
+function employeeForm(extra: Record<string, string> = {}): FormData {
+  const form = new FormData();
+  for (const [k, v] of Object.entries({
+    name: "أحمد", startDate: "2026-09-01", basicSalaryHalalas: "700000", payDay: "25", userId: "user_staff",
+    allowances: JSON.stringify([{ type: "HOUSING", amountHalalas: 100000 }]), ...extra,
+  })) form.append(k, v);
+  return form;
+}
+
+function endForm(endDate = "2026-09-15"): FormData {
+  const form = new FormData();
+  form.append("endDate", endDate);
+  return form;
+}
+
+describe("v1.2b: employee reads scope every call", () => {
+  it("empty, then populated: list, detail, linkable staff, adoptable parties, unpaid months, payslip", async () => {
+    expect(await listEmployees(EST)).toEqual([]);
+    populateEmployees();
+    expect(await listEmployees(EST, { status: "ACTIVE" })).toHaveLength(1);
+    const detail = await getEmployee(EST, "emp_1", "2026-09-10");
+    expect(detail?.thisMonth).toMatchObject({ instalmentId: "inst_sal", payable: true });
+    await listLinkableStaff(EST);
+    await listLinkableStaff(EST, "user_staff");
+    await listAdoptableParties(EST);
+    expect(await getUnpaidSalaryMonths(EST, "emp_1")).toHaveLength(1);
+    expect(await employeeIdOfParty(EST, "party_1")).toBeNull();
+    expect(await getPayslip(EST, "emp_1", "2026-09")).toMatchObject({ establishmentName: "منشأة", netHalalas: 600000 });
+    expect(observedPairs()).not.toContain("instalment.fields");
+    expect(failures()).toEqual([]);
+    record();
+  });
+});
+
+describe("v1.2b: employee and salary writes scope every call", () => {
+  it("createEmployee: party, employee, allowances, «رواتب» created, plan, months, periods — each row scoped", async () => {
+    populateEmployees();
+    harness.responses.set("category.findFirst", (args: Record<string, unknown>) =>
+      (args.where as Record<string, unknown>).id !== undefined || (args.where as Record<string, unknown>).nameAr !== undefined
+        ? null
+        : { sortOrder: 3 });
+    expect(await createEmployee(null, employeeForm())).toMatchObject({ ok: true });
+    for (const pair of ["party.create", "employee.create", "employeeAllowance.createMany", "category.create",
+      "plan.create", "instalment.createMany", "salaryPeriod.createMany", "instalment.aggregate"]) {
+      expect(observedPairs()).toContain(pair);
+    }
+    expect(failures()).toEqual([]);
+    record();
+  });
+
+  it("createEmployee adopting a party (D14), no salary", async () => {
+    populateEmployees();
+    const form = employeeForm({ partyId: "party_2", basicSalaryHalalas: "", payDay: "", allowances: "" });
+    expect(await createEmployee(null, form)).toMatchObject({ ok: true });
+    expect(observedPairs()).toContain("party.updateMany");
+    expect(failures()).toEqual([]);
+    record();
+  });
+
+  it("updateEmployee: a salary change re-snapshots future months (D5) and generates", async () => {
+    populateEmployees();
+    expect(await updateEmployee("emp_1", null, employeeForm())).toEqual({ ok: true, data: null });
+    for (const pair of ["employee.updateMany", "employeeAllowance.deleteMany", "salaryDeduction.groupBy",
+      "salaryPeriod.updateMany", "instalment.updateMany", "plan.updateMany"]) {
+      expect(observedPairs()).toContain(pair);
+    }
+    expect(failures()).toEqual([]);
+    record();
+  });
+
+  it("updateEmployee: removing the salary deletes unfixed months (N5 order) and archives", async () => {
+    populateEmployees();
+    const form = employeeForm({ basicSalaryHalalas: "", payDay: "", allowances: "" });
+    expect(await updateEmployee("emp_1", null, form)).toEqual({ ok: true, data: null });
+    expect(observedPairs()).toContain("instalment.count");
+    const deletes = harness.calls
+      .map((c) => `${c.model}.${c.method}`)
+      .filter((p) => p.endsWith(".deleteMany") && !p.startsWith("employeeAllowance"));
+    expect(deletes).toEqual(["salaryDeduction.deleteMany", "salaryPeriod.deleteMany", "instalment.deleteMany"]);
+    expect(failures()).toEqual([]);
+    record();
+  });
+
+  it("updateEmployee: a salary added with no open plan starts one; a retired «رواتب» is reactivated", async () => {
+    populateEmployees({ ...EMP_ROW, basicSalaryHalalas: null, payDay: null });
+    harness.responses.set("plan.findFirst", null);
+    harness.responses.set("category.findFirst", { id: "cat_sal", active: false });
+    expect(await updateEmployee("emp_1", null, employeeForm())).toEqual({ ok: true, data: null });
+    expect(observedPairs()).toContain("category.updateMany");
+    expect(failures()).toEqual([]);
+    record();
+  });
+
+  it("endEmployment (past date) and reactivateEmployee", async () => {
+    populateEmployees();
+    expect(await endEmployment("emp_1", null, endForm())).toEqual({ ok: true, data: null });
+    populateEmployees({ ...EMP_ROW, status: "ENDED", endDate: day("2026-09-15") });
+    harness.responses.set("plan.findFirst", null);
+    expect(await reactivateEmployee("emp_1")).toEqual({ ok: true, data: null });
+    expect(failures()).toEqual([]);
+    record();
+  });
+
+  it("ensureSalaryInstalments: the generating pass and the ended pass", async () => {
+    populateEmployees();
+    await ensureSalaryInstalments(EST);
+    expect(observedPairs()).toContain("salaryPeriod.createMany");
+    expect(failures()).toEqual([]);
+    record();
+    harness.calls.length = 0;
+    populateEmployees({ ...EMP_ROW, endDate: day("2026-01-31") });
+    await ensureSalaryInstalments(EST, "emp_1");
+    expect(observedPairs()).toContain("instalment.deleteMany");
+    // S3/S-L4a: the automatic ENDED flip is compare-and-set on the state it read.
+    const flip = harness.calls.find((c) => c.model === "employee" && c.method === "updateMany")!;
+    expect(flip.args.where).toMatchObject({ establishmentId: EST, id: "emp_1", status: "ACTIVE", endDate: day("2026-01-31") });
+    expect(failures()).toEqual([]);
+    record();
+  });
+
+  it("staff privacy reads: ledger, edit read and recent carry the salary filter, still scoped", async () => {
+    populateEmployees();
+    await listTransactions(EST, FULL_FILTERS, { hideSalary: true });
+    await getTransaction(EST, "tx_existing", { hideSalary: true });
+    await getStaffDashboard(EST, USER);
+    const reads = harness.calls.filter((c) => c.model === "transaction" && ["findMany", "findFirst"].includes(c.method));
+    expect(reads.length).toBeGreaterThanOrEqual(3);
+    for (const read of reads) expect(JSON.stringify(read.args.where)).toContain('"NOT"');
+    expect(failures()).toEqual([]);
+    record();
+  });
+});
+
+describe("v1.2b: rule 11 — another establishment's employee reads as missing", () => {
+  it("reads null, writes err.notFound, a foreign login or party is the field error", async () => {
+    populateEmployees();
+    expect(await getEmployee(EST, "emp_foreign")).toBeNull();
+    expect(await getPayslip(EST, "emp_foreign", "2026-09")).toBeNull();
+    expect(await updateEmployee("emp_foreign", null, employeeForm())).toEqual({ ok: false, error: "err.notFound" });
+    expect(await endEmployment("emp_foreign", null, endForm())).toEqual({ ok: false, error: "err.notFound" });
+    expect(await reactivateEmployee("emp_foreign")).toEqual({ ok: false, error: "err.notFound" });
+    harness.responses.set("user.findFirst", (args: Record<string, unknown>) =>
+      (args.where as Record<string, unknown>).id === "user_staff" ? { id: "user_staff" } : null);
+    expect(await createEmployee(null, employeeForm({ userId: "user_foreign" }))).toMatchObject({
+      fieldErrors: { userId: "err.loginInvalid" },
+    });
+    harness.responses.set("party.findFirst", (args: Record<string, unknown>) => {
+      const where = args.where as Record<string, unknown>;
+      return where.name === undefined && where.id === "party_own" ? { id: "party_own" } : null;
+    });
+    expect(await createEmployee(null, employeeForm({ partyId: "party_foreign" }))).toMatchObject({
+      fieldErrors: { partyId: "err.partyInvalid" },
+    });
+    expect(failures()).toEqual([]);
+  });
+});
+
 /* --------------------------------------------------------- the static sweep */
 
 describe("static sweep: no call site escapes the runtime net", () => {
@@ -1729,6 +1961,18 @@ describe("static sweep: no call site escapes the runtime net", () => {
     "src/features/plans/allocate.ts",
     "src/features/plans/scheduleEdit.ts",
     "src/features/transactions/payments.ts",
+    // v1.2b CP1
+    "src/features/employees/actions.ts",
+    "src/features/employees/lifecycle.ts",
+    "src/features/employees/form.ts",
+    "src/features/employees/salaryPlan.ts",
+    "src/features/employees/queries.ts",
+    "src/features/employees/payslip.ts",
+    "src/features/payroll/core.ts",
+    "src/features/payroll/generate.ts",
+    "src/features/payroll/privacy.ts",
+    "src/features/payroll/resnapshot.ts",
+    "src/features/parties/rules.ts",
   ];
 
   it("every (model, method) pair in the source was exercised above", () => {
@@ -1778,7 +2022,11 @@ describe("static sweep: no call site escapes the runtime net", () => {
    * naming transactions cannot trip it.
    */
   it("v1.2a: no nested transactions read in parties, projects or plans", () => {
-    const dirs = ["src/features/parties", "src/features/projects", "src/features/plans"];
+    const dirs = [
+      "src/features/parties", "src/features/projects", "src/features/plans",
+      // v1.2b
+      "src/features/employees", "src/features/payroll",
+    ];
     let scanned = 0;
     for (const dir of dirs) {
       if (!existsSync(dir)) continue;
@@ -1838,6 +2086,27 @@ describe("static sweep: no call site escapes the runtime net", () => {
     const writers = walk("src").filter((file) => writesPaid(readFileSync(file, "utf8")));
     // Non-vacuous: the one legitimate writer is found by the same scan.
     expect(writers).toEqual(["src/features/plans/allocate.ts"]);
+  });
+
+  /**
+   * S8: the salary core and generator are server-only modules, never
+   * `"use server"` — a `"use server"` file exports endpoints callable by id,
+   * and `ensureSalaryInstalments` and the tx helpers must not be. Anchored on
+   * the statements at line start, so prose naming them cannot match.
+   */
+  it("v1.2b S8: the salary modules are server-only and never use-server", () => {
+    const serverOnly = [
+      "src/features/payroll/core.ts", "src/features/payroll/generate.ts", "src/features/payroll/privacy.ts",
+      "src/features/payroll/resnapshot.ts",
+      "src/features/employees/form.ts", "src/features/employees/salaryPlan.ts",
+      "src/features/employees/queries.ts", "src/features/employees/payslip.ts",
+    ];
+    for (const file of serverOnly) {
+      const source = readFileSync(file, "utf8");
+      expect(source, file).toMatch(/^import "server-only";$/m);
+      expect(source, file).not.toMatch(/^["']use server["'];?$/m);
+    }
+    expect('x;\n"use server";\n').toMatch(/^["']use server["'];?$/m);
   });
 
   it("no unique-where write in any of those files", () => {

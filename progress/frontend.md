@@ -1608,3 +1608,112 @@ vitest 751/751. (R-Q1/Q2 and R-Q3 passed; S-Q3a ruled: staff without canEdit kee
 ### CP2 status
 Q1–Q6 + the Q2 overpaid follow-up all passed review (R-Q1…R-Q6, no open findings). S-Q3a ruled for the code
 (staff without canEdit: ordinary form + err.forbidden toast). Last gates: build 0, tsc 0, vitest 751/751.
+
+## v1.2b — Checkpoint 1 (employees and salaries)
+
+### M4a — spec §1 fixes that need no backend (done, awaiting review)
+- **Owner home order** (`src/app/(owner)/owner/page.tsx`), top to bottom: h1; `QuickActions`
+  (`features/dashboard/components/QuickActions.tsx`: `<section aria-label=t.quickActions.title>`, equal
+  columns via `grid-flow-col auto-cols-fr` so CP2's «تسجيل حضور» slots in; حركة جديدة primary →
+  `/owner/transactions/new`, تسجيل دفعة secondary → `/owner/dues`; `LinkButton`s, i.e. real links); the four
+  stat cards; `OverdueStrip` + `WeekDues`; `ActiveProjects`; balance by method, chart, top OUT, recent. The old
+  header «+ إضافة حركة» button is gone (the quick action replaces it). No employee widget.
+  `OwnerDashboardSkeleton` follows the new order (plain header, two h-11 action bones, stat cards, week card…).
+- **Staff nav «حسابي»** (`STAFF_NAV` 4th item → `/staff/account`, `t.nav.account`, icon `account`); «حضوري»
+  goes before it in CP2 (only for a linked login). `nav.test.ts` pins the four hrefs, the label and the
+  active match.
+- Gates: tsc 0, build 0 (lock), vitest 760 pass / 1 fail + 1 file fail — both are the expected L1 gap (the
+  v1.2a drift case, and `moneyPath.test.ts` on PGlite: "column `kind` of relation Plan does not exist" — the
+  schema has `Plan.kind`, no migration yet). Nothing of mine.
+- R-M4a follow-ups: `OwnerDashboardSkeleton` gained the الإضافات الجارية block (comment lists every section).
+  S-L2a prep: `periodLabel(ym)` + `<InstalmentName seq periodYm>` in `plans/components/PlanBits.tsx` (month
+  name from `dates.ts` + year; else «الدفعة {seq}» with its bdi). Call sites switch when L5's `periodYm` lands.
+
+### M1 — الموظفون list + profile form (done, awaiting review)
+- Routes under `owner/staff/`: `(home)` (replaces the «قريباً» card; `?status=ENDED` → سابقون, anything else
+  نشطون), `new`, `[id]/(detail)`, `[id]/edit`, `[id]/payslip/[ym]` — each with `loading.tsx`
+  (`skeletons/v12b.tsx`: Employees / EmployeeForm / EmployeeDetail / Payslip). Every salary-reading page
+  awaits `ensureSalaryInstalments(estId)` right after `requireOwner()`.
+- `EmployeeForm` (state + reducer) + `EmployeeFormSections` (البيانات · الدوام · الراتب · حساب الدخول) +
+  `AllowanceRows` + `WorkDaysField` + `employeeDraft.ts` (mask bits Sun=1…Sat=64, allowances JSON, per-row
+  errors from `AllowanceRowSchema`, live gross) + `formValues.ts` (empty / from `EmployeeDetail`; allowance
+  keys `s{i}` so SSR and hydration agree). Client-side: basic typed-but-unparseable → `err.amountInvalid`
+  (AmountField would otherwise post "" = no salary); `allowances` JSON parsed as the action does, then
+  `EmployeeInputSchema`. No category field (X4); `salaryCategoryNote` always under الراتب; `privacyNote`
+  under the form. Times are `type="time"` `dir="ltr"`; grace / pay day normalise Arabic-Indic digits.
+  Adoption select (new only, `listAdoptableParties`) prefills name/phone/email (Y9). Login select from
+  `listLinkableStaff(estId, currentUserId)`, label «name (email)» so two same-named staff differ.
+- String values changed (lead approved): `salaryHelp`, `reactivateConfirm` → «من أول موعد صرف قادم» (Y1).
+
+### M2 — employee detail (done, awaiting review)
+- `EmployeeActions`: «صرف راتب» only when `thisMonth.payable` (Y7) → `/owner/transactions/new?instalmentId=`,
+  else `noSalaryDue` in words (only when a salary exists); تعديل; كشف الحساب → the party page; إنهاء الخدمة
+  while ACTIVE with no end date → `EndEmploymentDialog`; إعادة تفعيل (ConfirmDialog, accent) otherwise
+  (ENDED, or a future end date — backend treats that as "cancel the end").
+- `EndEmploymentDialog`: native modal `<dialog>` + form (`endEmployment` from `lifecycle.ts`), date
+  `min` = hire date, default today; past date → amber `endUnpaidWarning` + the unpaid months (month, due
+  date, remaining) from `getUnpaidSalaryMonths`; today/future → `endFutureWarning`. Past vs future is
+  decided against the server's `todayISO()` passed in.
+- `EmployeeProfile.tsx`: ProfileCard (job, hire/end dates with Hijri, tel/mailto ltr, work days as words,
+  hours `bdi dir=ltr`, grace, linked login), SalaryCard (basic, each allowance, gross, pay day or
+  `noSalary`), ThisMonthCard (gross/deductions/net/paid/remaining + due date + payslip link), MonthsCard
+  (latest 12 → payslips; «مدفوعة» in words when settled).
+
+### M3 — payslip (done, awaiting review)
+- `/owner/staff/[id]/payslip/[ym]`: `PeriodYmSchema` on the route param, `getPayslip` null → `notFound()`.
+  `PrintHeader` (title «قسيمة راتب — {month}», subject = employee), `PayslipView` (establishment, employee,
+  job, month; basic, allowances, gross; deductions with reasons or «لا توجد خصومات»; `report-net` net;
+  payments table date/method/amount or «لم يُسدَّد بعد», paid/remaining; `t.payslip.notLegal` on screen and
+  sheet), `PrintButton`, back link, `PrintFooter`. Existing print block only.
+
+### M4 (part) — wiring that needed only L3
+- Owner layout awaits `ensureSalaryInstalments` before `getOverdueCount`; so do home, dues, plans list +
+  detail, parties list + detail, owner transactions/new (all cached per request).
+- D14: party detail with an employee → «فتح ملف الموظف» + `err.partyIsEmployee` instead of PartyActions;
+  party edit page → the same message + link to the profile's edit page instead of the form.
+- Still waiting on L5: `periodYm` call sites (S-L2a), SALARY plan title/status/actions (Y8), staff ledger
+  `hideSalary`, the staff form's `staffHiddenNote` (Y4).
+- Gates: tsc 0, build 0 (lock), vitest 815/815; no Arabic outside comments, no physical utilities.
+- Lead's ruling: an ACTIVE employee with a future end date gets `t.employees.cancelEnd` / `cancelEndConfirm`
+  (same `reactivateEmployee` action); `reactivate` / `reactivateConfirm` only for ENDED. `EmployeeActions`
+  prop `endPending`, set by the detail page. tsc 0.
+- R-M1/M2/M3 passed. S-M2a fixed: a past end date lists only `writtenOff(unpaid, endDate)` = due by the end
+  date or part-paid (unfixed later months are deleted by `endSalaryPlan`, not written off); `UnpaidMonth`
+  gained `paidHalalas`. NOTE 1: no salary → no warning in the dialog (`hasSalary`). NOTE 3: wholly blank
+  allowance rows are dropped from the JSON. NOTE 2 (clearing basic on edit) needs a key — asked the lead.
+  NOTEs 4–5 left as they are (not in the spec / value fits).
+- Lead's R-M list: S-M2a keeps `|| paidHalalas > 0` (reviewer's rule: a part-paid month after the end
+  stays and is written off, so it must be listed); NOTE 1 done; NOTE 2 `salaryRemovedNote` (amber, role=status)
+  when the profile had a basic and the field is now empty (`hadSalary` from `initial`); NOTE 3 done by
+  dropping wholly blank rows (nothing left to block the save; half-filled rows are still marked per field);
+  NOTE 5 MonthsCard title → `t.employees.payslip`; NOTE 4 «حساب الدخول» neutral badge on list rows with a
+  login. Gates: vitest 829/829; tsc/build fail only on backend's in-progress `payroll/privacy.test.ts`
+  (listTransactions filters without `page`) — told backend.
+- Reviewer residual (a): the end dialog warns when `hasSalary || unpaid.length > 0` (a D5-removed salary can
+  leave an OPEN plan with unpaid months that a past end date writes off). (b) accepted: a later month kept
+  only by a soft-deleted payment's FK has paidHalalas 0 and is not listed — no `referenced` flag exposed.
+
+### M4 (rest) — after L5 (done, awaiting review)
+- S-L2a call sites: `DueList` (dues page + home week card) and `InstalmentList` render `<InstalmentName seq
+  periodYm>`; `PaymentBanner` new-mode takes `plan.periodYm` and, on a salary month, reads
+  «{planTitle} · {month year}» instead of «الدفعة {seq} من «…»» (owner new page passes `pay.periodYm`).
+- SALARY plans (D1/Y8): the title and status come derived from `plans/queries` (not re-derived). Plan
+  detail shows `SalaryPlanNotice` (`t.employees.managedFromProfile` + «فتح ملف الموظف» →
+  `/owner/staff/{employeeId}`) instead of `PlanActions`; the plan edit page shows the same instead of the
+  form. «تسجيل دفعة» on its instalments is unchanged (salary is paid like any instalment).
+- Staff privacy (spec §3.5): staff ledger `listTransactions(…, { hideSalary: true })` (rows, search,
+  totals); staff edit page `getTransaction(…, { hideSalary: true })` → null → `notFound()`. Staff home and
+  staff dues/prefill are hidden server-side.
+- D14 party pages now read `party.employeeId` (PartyRow) instead of `employeeIdOfParty`.
+- Y4: `transactions/components/StaffSalaryNote.tsx` in the staff forms' `banner` slot when not in payment
+  mode (TransactionForm untouched, 254 lines): watches its own form's `change`/`reset` events, reads
+  `categoryId` + hidden `partyId` on the next tick (React updates the hidden input after the select's
+  event), shows `t.employees.staffHiddenNote` (amber, role=status) when the category is named «رواتب»
+  (`SALARY_CATEGORY_NAME`) and the party is a موظف. Name match only — a renamed salary category is still
+  hidden server-side (Y3), the note just does not appear.
+- Gates: build 0 (lock), tsc 0, vitest 843/843; no Arabic outside comments, no physical utilities in 44
+  touched files.
+- Y4 note now takes `salaryCategoryIds(estId)` (backend, `payroll/privacy.ts`: profile categories ∪ SALARY-plan
+  categories ∪ named «رواتب») from the staff new/edit pages instead of matching the name — the renamed-category
+  gap is closed. Backend's `staffViews.test.ts` pins `{ hideSalary: true }` on every staff read. Gates: build 0,
+  tsc 0, vitest 867/867.

@@ -16,6 +16,22 @@ export function todayISO(now: Date = new Date()): string {
 }
 
 /**
+ * v1.2b: "HH:MM" (24-hour, Western digits) for the Riyadh wall clock at `now` —
+ * the server clock that self check-in/out records (D11). Pass the same `now`
+ * to `todayISO()` so the date and the time come from one instant.
+ */
+export function nowRiyadhHHMM(now: Date = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: TIMEZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(now);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "00";
+  return `${get("hour")}:${get("minute")}`;
+}
+
+/**
  * `YYYY-MM-DD` → a UTC-midnight Date, which is what Postgres `@db.Date` stores.
  * Building it this way keeps the calendar day stable regardless of server TZ.
  */

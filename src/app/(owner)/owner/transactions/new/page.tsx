@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { ensureSalaryInstalments } from "@/features/payroll/generate";
 import { createTransaction } from "@/features/transactions/components/actions";
 import { listCategories } from "@/features/settings/queries";
 import { listLocks } from "@/features/locks/queries";
@@ -20,6 +21,8 @@ export default async function OwnerNewTransactionPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { establishmentId } = await requireOwner();
+  // D2: this month's salary rows exist before anything reads them (cached per request).
+  await ensureSalaryInstalments(establishmentId);
   const [categories, locks, parties, projects] = await Promise.all([
     listCategories(establishmentId),
     listLocks(establishmentId),
@@ -81,6 +84,7 @@ export default async function OwnerNewTransactionPage({
                 planId: pay.planId,
                 planTitle: pay.planTitle,
                 seq: pay.seq,
+                periodYm: pay.periodYm,
                 planRemainingHalalas: pay.planRemainingHalalas,
               }}
             />

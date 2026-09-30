@@ -7,6 +7,8 @@ import { listPartyOptions } from "@/features/parties/queries";
 import { getStaffPaymentPrefill } from "@/features/plans/dues";
 import { listProjectOptions } from "@/features/projects/queries";
 import { PaymentBanner } from "@/features/transactions/components/PaymentBanner";
+import { salaryCategoryIds } from "@/features/payroll/privacy";
+import { StaffSalaryNote } from "@/features/transactions/components/StaffSalaryNote";
 import { listCategories } from "@/features/settings/queries";
 import { t } from "@/i18n/ar";
 import { requireStaff } from "@/lib/auth";
@@ -21,11 +23,12 @@ export default async function StaffNewTransactionPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { user, establishmentId } = await requireStaff();
-  const [categories, locks, parties, projects] = await Promise.all([
+  const [categories, locks, parties, projects, salaryIds] = await Promise.all([
     listCategories(establishmentId),
     listLocks(establishmentId),
     listPartyOptions(establishmentId),
     listProjectOptions(establishmentId),
+    salaryCategoryIds(establishmentId),
   ]);
   const lockedMonths = locks.filter((l) => l.locked).map((l) => l.ym);
   // «تسجيل تكلفة» links here with ?projectId=. Only an ACTIVE إضافة of this
@@ -77,7 +80,9 @@ export default async function StaffNewTransactionPage({
               instalmentId={pay.instalmentId}
               instalmentRemainingHalalas={pay.instalmentRemainingHalalas}
             />
-          ) : undefined
+          ) : (
+            <StaffSalaryNote salaryCategoryIds={salaryIds} parties={parties} />
+          )
         }
       />
     </div>

@@ -191,3 +191,5 @@ Full list in `docs/BACKEND.md` → *v1.2a amendments* (V1–V12). Screen-side:
 - **Route groups for the placeholders:** `/owner/plans` and `/owner/dues` become real pages; move each list page and its `loading.tsx` into a `(list)` group (as `parties/` and `projects/` already are) so the list skeleton does not wrap `/owner/plans/new` or `/owner/plans/[id]`.
 - **Badge:** the owner layout calls `getOverdueCount(establishmentId)` and passes it as `badges["/owner/dues"]`.
 
+## v1.2b — الموظفون / الحضور / الرواتب
+**The binding spec is `docs/V12B-DESIGN.md`** §4 (screens) with R1–R8 and D1–D12. All earlier FRONTEND rules hold (RTL logical utilities, Western digits, `+`/`−` on directional amounts, `plural()` for counts, server-decided "today", a `loading.tsx` per page with route groups so list skeletons never wrap children, print through the one `@media print` block, colour never the only signal — the attendance grid prints letter codes **with** the legend). The `/owner/staff` and `/owner/staff/attendance` «قريباً» pages are replaced; the staff home gains the «حضوري» card for linked staff only.

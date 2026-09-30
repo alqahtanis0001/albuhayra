@@ -65,6 +65,8 @@ export {
 // v1.2a
 export * from "./parties";
 export * from "./plans";
+// v1.2b
+export * from "./employees";
 
 /* -------------------------------------------------------------------- schemas */
 

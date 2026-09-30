@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { Card } from "@/components/Card";
+import { LinkButton } from "@/components/LinkButton";
 import { PartyActions } from "@/features/parties/components/PartyActions";
 import {
   PartyBalance,
@@ -10,6 +11,7 @@ import {
 } from "@/features/parties/components/PartyBits";
 import { PartyStatementView } from "@/features/parties/components/PartyStatementView";
 import { getPartyStatement } from "@/features/parties/statement";
+import { ensureSalaryInstalments } from "@/features/payroll/generate";
 import { PrintButton } from "@/features/reports/components/PrintButton";
 import { PrintFooter } from "@/features/reports/components/PrintFooter";
 import { PrintHeader } from "@/features/reports/components/PrintHeader";
@@ -26,10 +28,13 @@ export const metadata: Metadata = { title: t.parties.title };
  */
 export default async function PartyPage({ params }: { params: Promise<{ id: string }> }) {
   const { user, establishmentId } = await requireOwner();
+  // D2: this month's salary rows exist before anything reads them (cached per request).
+  await ensureSalaryInstalments(establishmentId);
   const { id } = await params;
   const statement = await getPartyStatement(establishmentId, id);
   if (!statement) notFound();
   const { party } = statement;
+  const { employeeId } = party;
 
   return (
     <div className="flex flex-col gap-4">
@@ -86,7 +91,17 @@ export default async function PartyPage({ params }: { params: Promise<{ id: stri
         </dl>
       </Card>
 
-      <PartyActions partyId={party.id} active={party.active} hasHistory={party.hasHistory} />
+      {employeeId ? (
+        // D14: an employee's party is managed from the profile.
+        <div className="no-print flex flex-col items-start gap-2">
+          <LinkButton href={`/owner/staff/${employeeId}`} variant="secondary">
+            {t.employees.openProfile}
+          </LinkButton>
+          <p className="text-xs text-gray-600">{t.err.partyIsEmployee}</p>
+        </div>
+      ) : (
+        <PartyActions partyId={party.id} active={party.active} hasHistory={party.hasHistory} />
+      )}
 
       <PartyStatementView statement={statement} />
       <div className="no-print">

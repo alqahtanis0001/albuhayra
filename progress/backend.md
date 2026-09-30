@@ -1016,3 +1016,123 @@ first) → P2 → P3 → P4 → P5, gates after each.
   pre-revision `existing.amountHalalas` is never added back. Pin in payments.test.ts (entry
   changed 5000 → 1000 between reads; 6001 refused, 6000 accepted); reverting to the add-back
   fails exactly that case. N-P3b commented at the `err.instalmentPaid` check.
+
+## v1.2b — checkpoint 1 (L1–L6), 2026-09-30
+
+### L2 — pure helpers (done)
+- `src/lib/payroll.ts`: `SALARY_CATEGORY_NAME`, `ymOf`, `addMonthsYm`, `payDateFor` (D3 clamp),
+  `salarySeq` (N10: `year*12 + month-1`, derived from the month so a pay-day change or a gap never
+  renumbers; screens show the month), `grossOf`, `salaryMonthsToGenerate` (D2 through end of next
+  month, pay date ∈ [start, end], skip existing periods — Y1 lower bound comes from the plan's
+  `startDate`), `salaryLinkedWhere(ids)` (Y3; each branch requires its FK `not: null` so the
+  `NOT` can never evaluate to SQL NULL and hide an unlinked row). `nowRiyadhHHMM` in `dates.ts`
+  (`hourCycle: "h23"` — midnight is `00:xx`, never `24:xx`).
+- `src/lib/payroll.test.ts` (16).
+
+### L1 — migration (done)
+- `prisma/migrations/20261002000000_v1_2b_employees_salaries/` from `migrate diff --from-schema
+  <HEAD schema in scratch> --to-schema`, LF, only CREATE/ADD (4 enums, 5 tables, `Plan.kind` NOT
+  NULL DEFAULT 'STANDARD', `Plan.employeeId`, `Instalment.periodYm`, indexes, FKs).
+- `src/lib/migration.v12b.test.ts` (15): old-release Plan/Instalment inserts, pre-existing rows
+  read STANDARD/null, many null months per plan, both month uniques, one login per employee,
+  Restrict on Employee.party / SalaryPeriod.instalment / Plan.employee (each case isolated to a
+  row held by exactly one FK), the N5 delete order, attendance per day, no sensitive columns.
+- Drift check in `migration.v12a.test.ts` now applies **every** migration dir in name order to a
+  fresh PGlite. `plans/moneyPath.test.ts` likewise applies every dir (it broke on `Plan.kind`).
+- Mutations: unique index → plain index fails the idempotence case + drift; Plan.employee FK →
+  SET NULL fails the Employee Restrict case + drift. Restored by byte copy (`cmp`).
+- Gotcha: the generated client must be regenerated (`npx prisma generate`, no DB) before tsc
+  sees the v1.2b models.
+- Gates: tsc 0 · vitest 782/782 in 39 files · build 0 (lock).
+
+### L3 + L4 — employees and generation (done)
+- `employees/actions.ts` (create/update), `employees/lifecycle.ts` (endEmployment, reactivateEmployee —
+  split for size), `employees/form.ts` (parse, scoped reference checks, `refusal()` mapping),
+  `employees/salaryPlan.ts` (X4/Y10 «رواتب» resolve, `startSalaryPlan`, D5/S4 `applySalaryChange`,
+  D6 `endSalaryPlan`), `employees/queries.ts`, `employees/payslip.ts`.
+- `payroll/core.ts` (tx helpers: `generateMonths`, `recomputePlanTotal` by aggregate (D8),
+  `deleteUnfixedMonthsAfter` (v1.2a delete predicate + V1 probe, N5 order), `resnapshotFutureMonths`
+  (D5/S4 predicate: paid 0 AND no non-deleted payment; `DeductionExceedsGrossError` sentinel),
+  `archiveSalaryPlan`), `payroll/generate.ts` (`syncSalaryPlan`, `runSalaryGeneration`,
+  `ensureSalaryInstalments = cache(...)`; per-plan transaction, lost race (ConcurrentChangeError /
+  P2002) swallowed per plan; plans processed oldest first so S3 is deterministic).
+- Readings: reactivation of an OPEN plan (future end not yet passed) reuses it; otherwise a new
+  plan from max(hire, today) (Y1 — the reactivateConfirm string still says "next month", flagged).
+  An ENDED employee's salary fields may be edited (stored for reactivation, no plan effect).
+  Page-load generation audits under the session user.
+- Tests: `payroll/salaryPath.test.ts` (12, PGlite, Date-only fake clock), `employees/employees.test.ts`
+  (16), `parties.test.ts` +5 (D14).
+- Gotcha: `vi.useFakeTimers({ toFake: ["Date"] })` is enough for `todayISO()`; PGlite is unaffected.
+
+### L5 — v1.2a integration (done)
+- `payroll/privacy.ts`: `staffSalaryFilter`, `withSalaryHidden(estId, where, hide)` (AND, never
+  spread). `listTransactions`/`getTransaction`/`recentTransactions` take `{ hideSalary }`;
+  staff dashboard recent hides (Y4); STAFF edit reads through it (err.notFound); STAFF payment on a
+  SALARY plan → err.instalmentInvalid (after canEdit, same key as missing — N2).
+- Dues: `kind`/`periodYm` on rows; staff dues + prefill exclude SALARY. Plans: `kind`,
+  `employeeId`, `periodYm`, derived title (`planTitleOf`, X13), Y8 status, `canCancel` false,
+  update/cancel/archive refuse SALARY (`err.salaryPlanManaged`). Parties: `employeeId`; statement
+  title derived. Y2: balance/statement semantics unchanged.
+- `payroll/privacy.test.ts` (14, PGlite): each Y3 branch isolated by one fixture row.
+- Found: removing the `fk: { not: null }` guards does NOT break the unlinked-row case — Prisma 7
+  already renders the negated relation filter NULL-safely. Guards kept, comment corrected.
+- Mutations (restored by byte copy each): P1–P3 (each Y3 branch), P6 staff dues kind, P7 prefill,
+  P8 STAFF salary payment, P9 STAFF edit filter, P10 staff recent, P11 Y8, P12 title, P13/P14 plan
+  refusals — each fails its named case. P4/P5 (NULL guards) survive — see above.
+- Gates: tsc 0 · vitest 829/829 in 42 files · build 0 (lock).
+
+### L6 — gates (done)
+- `scoping.test.ts`: the five v1.2b models joined `MODELS` (L3); v1.2b drivers appended before the
+  sweep (reads empty + populated; create with «رواتب» created; adopt; D5 change; S4 removal with
+  the N5 delete order asserted; salary added + retired «رواتب» reactivated; end + reactivate;
+  both `ensureSalaryInstalments` passes; the staff privacy reads carry `NOT`; rule 11 foreign ids).
+  `FILES` += employees/{actions,lifecycle,form,salaryPlan,queries,payslip}, payroll/{core,generate,
+  privacy}; nested-transactions scan covers employees/ and payroll/; new S8 static case (server-only,
+  never "use server"). `scopeFailure`/`isReferenceProbe`/constants untouched (Y12).
+- `admin.test.ts`: the rule-10 static case's three patterns widened to the v1.2b features, models
+  and relation keys (+9 pattern self-checks). Only widened (Y12).
+- `src/lib/validation.v12b.test.ts` (14): every `EmployeeInputSchema` refinement incl. S7 edge,
+  stripped sensitive keys, times/grace/work days/pay day, allowances; deduction; attendance row/day.
+- Mutations (byte-copy restore via scratch `mutate.py`): G1 unscoped read in core, G2 unscoped
+  createMany element, G3 stray unexercised call site, G4 privacy filter dropped, G5 "use server" on
+  generate.ts, G6 unscoped employee.updateMany — each fails its case(s) (G1/G2 also the sweep, as in
+  v1.2a, since the failing driver records nothing). Admin: a salaryPeriod call + relation read and
+  an employees import each fail. Validators: S7, allowancesNeedBasic, same-minute timeOrder each fail.
+- W5 `paidHalalas` gate unchanged and green (writers = plans/allocate.ts only).
+- Gates: tsc 0 · vitest 854/854 in 43 files · build 0 (lock).
+
+### After R-L1..R-L5 and the lead's rulings (done)
+- **N-L1a:** drift `shape()` gains a fourth list, enum labels per type in sort order (pg_enum).
+  E1 (drop REMOTE) and E2 (reorder AllowanceType) on the migration each fail the drift case.
+- **Ruling 2 (widen):** `salaryLinkedPlanWhere(ids)` in `lib/payroll.ts` = SALARY, or EMPLOYEE
+  party + salary category. Staff dues (`AND: [staffPlanFilter]`), staff prefill (a scoped visibility
+  probe first) and the STAFF payment refusal (`isStaffHiddenPlan`) use it; `salaryLinkedWhere`'s
+  branch 1 is now "instalment of such a plan". PGlite case: a STANDARD plan with a موظف party in
+  «رواتب» (R1 fails 3 cases). Mocked payments.test.ts case for the refusal.
+- **S-L3a:** `salaryCategoryIds(estId)` (payroll/privacy.ts) = Employee.salaryCategoryId ∪ SALARY
+  plan categories ∪ categories named «رواتب»; `resolveSalaryCategory` prefers the employee's own,
+  then the newest SALARY plan's, then any employee's, then the name, then creates. PGlite rename case
+  (R2 resolve-by-name-only fails it; R3 set-without-ids fails it + the ledger cases).
+- **S-L5a:** `payroll/staffViews.test.ts` — every listTransactions/getTransaction/recentTransactions
+  call under src/app/(staff) and getStaffDashboard's passes `hideSalary: true`; no staff file calls
+  an owner-shaped read; scanner self-tests. Verified by removing the flag from each staff page and the
+  dashboard, and by swapping getStaffDues → getDues (frontend files restored byte-exact).
+- **S-L4a:** the automatic ACTIVE→ENDED flip reads ids, compare-and-sets each (status ACTIVE + the
+  endDate read) and writes `EMPLOYEE_END { auto: true }`; `archiveSalaryPlan` audits only when it
+  changed a row. PGlite: exactly one auto audit across two runs (S3 fails it); scoping driver pins
+  the compare-and-set where (S4 fails it).
+- **Payslip fails loud (R-note 6):** `AllowanceSnapshotSchema.parse` (throws ZodError) plus a
+  sum check (basic + allowances must equal the stored gross). PGlite: ZodError on a bad row, the sum
+  error on `[]`; S1 (fallback to []) and S2 (no sum check) each fail.
+- Reviewer R-L2 items: empty salary-category set on real SQL; catch-up generation pin.
+- Splits: `parties/rules.ts` (lookups + D14 `employeeIdOfParty`; actions.ts 274 → 215),
+  `payroll/resnapshot.ts` (core.ts 254 → 180). Still over 250: plans/actions.ts 261,
+  plans/queries.ts 258 (v1.2a files, +~10 each for SALARY). Nested employee read in PARTY_SELECT
+  commented (note 5).
+- Reviewer notes 2 (hire date later / pay day past a future end date): accepted, not cleaned —
+  earlier unpaid months stay owed; a month pushed past a future end date is written off with the
+  plan when the end passes (the end form already warns).
+- Gates: tsc 0 · vitest 867/867 in 44 files · build 0 (lock).
+- R-final (reviewer): CP1 delta verified, all backend findings closed. Residual note recorded in
+  `payroll/staffViews.test.ts`: calls are matched by name, so an aliased import escapes the scan.
+- Final gates: tsc 0 · vitest 867/867 in 44 files · build 0 (lock).

@@ -443,7 +443,7 @@ describe("static: rule 10 in the source", () => {
  * code shape — a receiver, an import, a Prisma key — so prose cannot trip it
  * and no comment stripper is needed.
  */
-describe("static: v1.2a models never reach the admin area", () => {
+describe("static: v1.2a and v1.2b models never reach the admin area", () => {
   function walk(dir: string): string[] {
     return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
       const path = `${dir}/${entry.name}`;
@@ -454,9 +454,14 @@ describe("static: v1.2a models never reach the admin area", () => {
 
   const ADMIN = [...walk("src/features/admin"), ...walk("src/app/(admin)")];
   const CHROME = walk("src/components/chrome");
-  const FEATURE_IMPORT = /(?:from\s+|import\s*\(\s*)["'][^"']*features\/(?:parties|projects|plans)\b/;
-  const MODEL_CALL = /\b(?:db|tx|client)\.(?:party|project|plan|instalment)\./;
-  const RELATION_READ = /\b(?:party|parties|project|projects|plans?|instalments?)\s*:\s*(?:true|\{)/;
+  // v1.2b (N8): the employee, salary and attendance features and models join
+  // the lists — the patterns only widen what is forbidden.
+  const FEATURE_IMPORT =
+    /(?:from\s+|import\s*\(\s*)["'][^"']*features\/(?:parties|projects|plans|employees|payroll|attendance)\b/;
+  const MODEL_CALL =
+    /\b(?:db|tx|client)\.(?:party|project|plan|instalment|employee|employeeAllowance|salaryPeriod|salaryDeduction|attendanceRecord)\./;
+  const RELATION_READ =
+    /\b(?:party|parties|project|projects|plans?|instalments?|employees?|allowances|salaryPeriods?|salaryDeductions?|deductions(?:Created)?|attendance(?:Records|Recorded)?)\s*:\s*(?:true|\{)/;
 
   it("scans real files", () => {
     expect(ADMIN.length).toBeGreaterThanOrEqual(5);
@@ -484,5 +489,15 @@ describe("static: v1.2a models never reach the admin area", () => {
     expect("tx.instalment.findMany(").toMatch(MODEL_CALL);
     expect("_count: { select: { parties: true } }").toMatch(RELATION_READ);
     expect("include: { plans: { select: { id: true } } }").toMatch(RELATION_READ);
+    // v1.2b
+    expect('import { listEmployees } from "@/features/employees/queries";').toMatch(FEATURE_IMPORT);
+    expect('await import("@/features/payroll/generate")').toMatch(FEATURE_IMPORT);
+    expect("db.salaryPeriod.findMany(").toMatch(MODEL_CALL);
+    expect("tx.employee.count(").toMatch(MODEL_CALL);
+    expect("db.attendanceRecord.groupBy(").toMatch(MODEL_CALL);
+    expect("_count: { select: { employees: true } }").toMatch(RELATION_READ);
+    expect("select: { employee: { select: { id: true } } }").toMatch(RELATION_READ);
+    expect("include: { attendanceRecords: true }").toMatch(RELATION_READ);
+    expect("select: { salaryDeductions: { select: { id: true } } }").toMatch(RELATION_READ);
   });
 });

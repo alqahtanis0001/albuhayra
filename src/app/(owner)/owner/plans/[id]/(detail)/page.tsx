@@ -5,8 +5,9 @@ import { notFound } from "next/navigation";
 import { Card } from "@/components/Card";
 import { DateText } from "@/components/DateText";
 import { MoneyText } from "@/components/MoneyText";
+import { ensureSalaryInstalments } from "@/features/payroll/generate";
 import { InstalmentList } from "@/features/plans/components/InstalmentList";
-import { PlanActions } from "@/features/plans/components/PlanActions";
+import { PlanActions, SalaryPlanNotice } from "@/features/plans/components/PlanActions";
 import {
   PlanStatusBadge,
   directionWording,
@@ -25,6 +26,8 @@ export const metadata: Metadata = { title: t.plans.title };
  */
 export default async function PlanPage({ params }: { params: Promise<{ id: string }> }) {
   const { establishmentId } = await requireOwner();
+  // D2: this month's salary rows exist before anything reads them (cached per request).
+  await ensureSalaryInstalments(establishmentId);
   const { id } = await params;
   const plan = await getPlan(establishmentId, id);
   if (!plan) notFound();
@@ -83,7 +86,12 @@ export default async function PlanPage({ params }: { params: Promise<{ id: strin
         </dl>
       </Card>
 
-      {open ? <PlanActions planId={plan.id} canCancel={plan.canCancel} /> : null}
+      {plan.kind === "SALARY" ? (
+        // D1: a salary plan is system-managed; its controls live on the profile.
+        <SalaryPlanNotice employeeId={plan.employeeId} />
+      ) : open ? (
+        <PlanActions planId={plan.id} canCancel={plan.canCancel} />
+      ) : null}
 
       {/* Only if a rule was bypassed: payments beyond the total (allocation's
           residue). Said in words, with the amount; amber is not the message. */}

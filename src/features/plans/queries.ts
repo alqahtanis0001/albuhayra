@@ -11,6 +11,7 @@ import {
   type PlanStatus,
 } from "@/lib/instalments";
 import { displayName, NAME_SELECT } from "@/lib/names";
+import { planTitleOf } from "@/lib/payroll";
 import type { DirectionValue, PartyTypeValue } from "@/lib/validation";
 
 /**
@@ -22,6 +23,7 @@ import type { DirectionValue, PartyTypeValue } from "@/lib/validation";
 
 export type NextDue = {
   instalmentId: string;
+  periodYm: string | null;
   dueDate: string;
   remainingHalalas: number;
   status: InstalmentStatus;
@@ -43,6 +45,9 @@ export type PlanRow = {
   instalmentCount: number;
   paidCount: number;
   nextDue: NextDue | null;
+  /** v1.2b: SALARY plans are managed from the employee profile (D1); title derived (X13). */
+  kind: "STANDARD" | "SALARY";
+  employeeId: string | null;
 };
 
 export type PlanPayment = { transactionId: string; date: string; amountHalalas: number; createdByName: string };
@@ -50,6 +55,8 @@ export type PlanPayment = { transactionId: string; date: string; amountHalalas: 
 export type PlanInstalment = {
   id: string;
   seq: number;
+  /** v1.2b: the month of a SALARY row — shown instead of `seq`. */
+  periodYm: string | null;
   dueDate: string;
   amountDueHalalas: number;
   paidHalalas: number;
@@ -85,16 +92,21 @@ const PLAN_SELECT = {
   totalHalalas: true,
   reminderDays: true,
   state: true,
+  kind: true,
+  employeeId: true,
   party: { select: { name: true, type: true } },
+  employee: { select: { status: true } },
 } as const;
 
-type InstalmentRead = { id: string; planId: string; seq: number; dueDate: Date; amountDueHalalas: number; paidHalalas: number };
+type InstalmentRead = {
+  id: string; planId: string; seq: number; periodYm: string | null; dueDate: Date; amountDueHalalas: number; paidHalalas: number;
+};
 
 async function instalmentsOf(establishmentId: string, planIds: string[]): Promise<InstalmentRead[]> {
   if (planIds.length === 0) return [];
   return db.instalment.findMany({
     where: { establishmentId, planId: { in: planIds } },
-    select: { id: true, planId: true, seq: true, dueDate: true, amountDueHalalas: true, paidHalalas: true },
+    select: { id: true, planId: true, seq: true, periodYm: true, dueDate: true, amountDueHalalas: true, paidHalalas: true },
     orderBy: [{ dueDate: "asc" }, { seq: "asc" }, { id: "asc" }],
   });
 }
@@ -108,7 +120,10 @@ type PlanRead = {
   totalHalalas: number;
   reminderDays: number;
   state: "OPEN" | "ARCHIVED" | "CANCELLED";
+  kind: "STANDARD" | "SALARY";
+  employeeId: string | null;
   party: { name: string; type: PartyTypeValue };
+  employee: { status: "ACTIVE" | "ENDED" } | null;
 };
 
 function toRow(plan: PlanRead, rows: InstalmentRead[], today: string): PlanRow {
@@ -116,9 +131,12 @@ function toRow(plan: PlanRead, rows: InstalmentRead[], today: string): PlanRow {
   const paidHalalas = rows.reduce((s, r) => s + r.paidHalalas, 0);
   const next = plan.state === "OPEN" ? rows.find((r) => r.paidHalalas < r.amountDueHalalas) : undefined;
   const nextDueDate = next ? dateToISO(next.dueDate) : null;
+  const derived = planStatus({ state: plan.state, startDate, instalments: rows }, today);
+  // Y8: a salary plan reads جارية while its employee is ACTIVE, even prepaid.
+  const status = plan.kind === "SALARY" && plan.state === "OPEN" && plan.employee?.status === "ACTIVE" ? "ACTIVE" : derived;
   return {
     id: plan.id,
-    title: plan.title,
+    title: planTitleOf(plan, plan.party.name),
     partyId: plan.partyId,
     partyName: plan.party.name,
     partyType: plan.party.type,
@@ -127,19 +145,22 @@ function toRow(plan: PlanRead, rows: InstalmentRead[], today: string): PlanRow {
     totalHalalas: plan.totalHalalas,
     paidHalalas,
     remainingHalalas: plan.totalHalalas - paidHalalas,
-    status: planStatus({ state: plan.state, startDate, instalments: rows }, today),
+    status,
     instalmentCount: rows.length,
     paidCount: rows.filter((r) => r.paidHalalas >= r.amountDueHalalas).length,
     nextDue:
       next && nextDueDate
         ? {
             instalmentId: next.id,
+            periodYm: next.periodYm,
             dueDate: nextDueDate,
             remainingHalalas: next.amountDueHalalas - next.paidHalalas,
             status: instalmentStatus({ ...next, dueDate: nextDueDate }, today, plan.reminderDays),
             dayOffset: dayOffset(nextDueDate, today),
           }
         : null,
+    kind: plan.kind,
+    employeeId: plan.employeeId,
   };
 }
 
@@ -208,13 +229,14 @@ export async function getPlan(
     reminderDays: plan.reminderDays,
     notes: plan.notes,
     closedAt: plan.closedAt ? todayISO(plan.closedAt) : null,
-    canCancel: plan.state === "OPEN" && payments.length === 0,
+    canCancel: plan.kind === "STANDARD" && plan.state === "OPEN" && payments.length === 0,
     overpaidHalalas,
     instalments: rows.map((r) => {
       const dueDate = dateToISO(r.dueDate);
       return {
         id: r.id,
         seq: r.seq,
+        periodYm: r.periodYm,
         dueDate,
         amountDueHalalas: r.amountDueHalalas,
         paidHalalas: r.paidHalalas,

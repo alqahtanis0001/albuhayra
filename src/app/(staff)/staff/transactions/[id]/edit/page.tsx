@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { updateTransaction } from "@/features/transactions/components/actions";
+import { salaryCategoryIds } from "@/features/payroll/privacy";
+import { StaffSalaryNote } from "@/features/transactions/components/StaffSalaryNote";
 import { getTransaction } from "@/features/transactions/components/data";
 import { TransactionForm } from "@/features/transactions/components/TransactionForm";
 import { listLocks } from "@/features/locks/queries";
@@ -30,12 +32,14 @@ export default async function StaffEditTransactionPage({
   const { id } = await params;
   const { establishmentId } = await requireCanEdit();
 
-  const [row, categories, locks, parties, projects] = await Promise.all([
-    getTransaction(establishmentId, id),
+  const [row, categories, locks, parties, projects, salaryIds] = await Promise.all([
+    // Spec §3.5: a salary-linked entry reads as missing to staff (notFound below).
+    getTransaction(establishmentId, id, { hideSalary: true }),
     listCategories(establishmentId),
     listLocks(establishmentId),
     listPartyOptions(establishmentId),
     listProjectOptions(establishmentId),
+    salaryCategoryIds(establishmentId),
   ]);
   if (!row) notFound();
   // A payment keeps its plan's direction and party (W1): locked, not editable.
@@ -66,7 +70,9 @@ export default async function StaffEditTransactionPage({
               partyId={link.partyId}
               partyName={link.partyName}
             />
-          ) : undefined
+          ) : (
+            <StaffSalaryNote salaryCategoryIds={salaryIds} parties={parties} />
+          )
         }
       />
     </div>

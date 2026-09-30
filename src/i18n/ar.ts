@@ -4,8 +4,10 @@
  * `err.*` keys are the error contract — server actions return these keys.
  */
 import { v12aSections } from "./ar.v12a";
+import { v12bSections } from "./ar.v12b";
 
 const { errV12a, ...v12a } = v12aSections;
+const { errV12b, ...v12b } = v12bSections;
 
 const APP_NAME = "زخم";
 const APP_TAGLINE = "نظام السجل المالي للمنشآت";
@@ -386,6 +388,9 @@ export const t = {
 
     // v1.2a — parties, إضافة, agreements (src/i18n/ar.v12a.ts)
     ...errV12a,
+
+    // v1.2b — employees, salaries, attendance (src/i18n/ar.v12b.ts)
+    ...errV12b,
   },
 
   /** v1.1e — sign-up field labels and helper lines. Western digits throughout. */
@@ -453,6 +458,9 @@ export const t = {
 
   // v1.2a sections (navGroup, navItem, parties, projects, plans, dues, …)
   ...v12a,
+
+  // v1.2b sections (employees, attendance, myAttendance, deductions, payslip, …)
+  ...v12b,
 
   a11y: {
     skipToContent: "تجاوز إلى المحتوى",

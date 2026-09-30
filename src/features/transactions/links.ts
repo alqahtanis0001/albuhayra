@@ -14,6 +14,9 @@ import type { DirectionValue } from "@/lib/validation";
 
 export type LinkProblem = { field: string; key: string };
 
+/** v1.2b D13/Y3: a STAFF edit reads the entry through the staff salary filter (→ err.notFound). */
+export { withSalaryHidden } from "@/features/payroll/privacy";
+
 /**
  * v1.2a links (docs/BACKEND.md → v1.2a → Transactions). Each id is resolved by
  * a scoped `findFirst`, so a foreign id and an unknown one get the same field

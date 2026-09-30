@@ -41,7 +41,19 @@ export type AuditAction =
   | "PLAN_UPDATE"
   | "PLAN_CANCEL"
   | "PLAN_ARCHIVE"
-  | "PLAN_ALLOCATE";
+  | "PLAN_ALLOCATE"
+  // v1.2b (docs/V12B-DESIGN.md)
+  | "EMPLOYEE_CREATE"
+  | "EMPLOYEE_UPDATE"
+  | "EMPLOYEE_END"
+  | "EMPLOYEE_REACTIVATE"
+  | "SALARY_GENERATE"
+  | "SALARY_UPDATE"
+  | "DEDUCTION_ADD"
+  | "DEDUCTION_DELETE"
+  | "ATTENDANCE_SET"
+  | "CHECK_IN"
+  | "CHECK_OUT";
 
 export type AuditEntity =
   | "Transaction"
@@ -52,7 +64,11 @@ export type AuditEntity =
   // v1.2a
   | "Party"
   | "Project"
-  | "Plan";
+  | "Plan"
+  // v1.2b
+  | "Employee"
+  | "SalaryPeriod"
+  | "AttendanceRecord";
 
 /**
  * Never pass a password hash or a session into `before`/`after`.

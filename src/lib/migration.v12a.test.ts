@@ -140,7 +140,8 @@ describe("links and their foreign keys", () => {
 });
 
 describe("no drift: the migrations equal the schema", () => {
-  type Shape = { columns: string[]; indexes: string[]; constraints: string[] };
+  /** N-L1a: enum labels too — a missing label leaves every column reading USER-DEFINED. */
+  type Shape = { columns: string[]; indexes: string[]; constraints: string[]; enums: string[] };
 
   async function shape(db: PGlite): Promise<Shape> {
     const columns = await db.query<{ s: string }>(
@@ -156,14 +157,32 @@ describe("no drift: the migrations equal the schema", () => {
        FROM pg_constraint c JOIN pg_namespace n ON n.oid = c.connamespace
        WHERE n.nspname = 'public' ORDER BY s`,
     );
+    const enums = await db.query<{ s: string }>(
+      `SELECT t.typname || ':' || string_agg(e.enumlabel, ',' ORDER BY e.enumsortorder) AS s
+       FROM pg_type t JOIN pg_enum e ON e.enumtypid = t.oid GROUP BY t.typname ORDER BY s`,
+    );
     return {
       columns: columns.rows.map((r) => r.s),
       indexes: indexes.rows.map((r) => r.s),
       constraints: constraints.rows.map((r) => r.s),
+      enums: enums.rows.map((r) => r.s),
     };
   }
 
-  it("init → v1.1e → v1.2a has the same columns, indexes and constraints as --from-empty", async () => {
+  /**
+   * v1.2b: every migration directory, in name order — not the three this file
+   * seeds `lite` with — so the check keeps passing as releases add migrations
+   * and still fails when any one of them drifts from the schema.
+   */
+  it("every migration, in order, has the same columns, indexes and constraints as --from-empty", async () => {
+    const dirs = readdirSync(MIGRATIONS, { withFileTypes: true })
+      .filter((e) => e.isDirectory())
+      .map((e) => e.name)
+      .sort();
+    expect(dirs.length).toBeGreaterThanOrEqual(4);
+    const migratedDb = new PGlite();
+    for (const dir of dirs) await migratedDb.exec(sql(dir));
+
     const fromEmpty = execSync(
       "npx prisma migrate diff --from-empty --to-schema prisma/schema.prisma --script",
       { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
@@ -171,8 +190,9 @@ describe("no drift: the migrations equal the schema", () => {
     const fresh = new PGlite();
     await fresh.exec(fromEmpty);
 
-    const [migrated, expected] = await Promise.all([shape(lite), shape(fresh)]);
+    const [migrated, expected] = await Promise.all([shape(migratedDb), shape(fresh)]);
     expect(migrated.columns.length).toBeGreaterThan(50);
+    expect(migrated.enums).toContain("AttendanceStatus:PRESENT,LATE,ABSENT,LEAVE,REMOTE,HOLIDAY");
     expect(migrated).toEqual(expected);
   }, 120_000);
 });

@@ -2105,3 +2105,416 @@ No BLOCKER; 6 SHOULD, 7 NOTE.
   4. edit a payment down, then up to exactly the remaining;
   5. archive a partly paid plan → write-off row and party balance 0;
   6. midnight Riyadh rollover of a due-today instalment.
+
+# v1.2b
+
+## 2026-09-30 — v1.2b R-brief-b (pre-code: V12B-DESIGN, schema block, employees.ts, ar.v12b.ts, CP1 briefs) — 5 BLOCKER, 10 SHOULD, 12 NOTE
+State: `prisma validate` OK; `tsc --noEmit` 0; vitest 752/753 (only the expected v12a drift case fails).
+
+### BLOCKER
+- **B1 — D2 trigger is unreliable.**
+  - Why: Next renders the layout and the page in parallel (`node_modules/next/dist/docs/01-app/01-getting-started/06-fetching-data.md:460`), and layouts do not re-render on client navigation (`03-api-reference/03-file-conventions/layout.md:240`; `staleTimes.md:35`).
+  - Effect: a layout-only `ensureSalaryInstalments` can run after the page has read (dues, «صرف راتب», the payslip's `notFound()`), and never runs on in-app navigation.
+  - Fix: wrap it in React `cache()` and await it first in every page that reads salary data. That means the owner home, dues, plans list/detail, parties list/detail/statement, `owner/staff/**`, `transactions/new?instalmentId` and «حضوري». Keep the layout call before `getOverdueCount`.
+  - It must fail safe: catch `ConcurrentChangeError`/P2002 as a no-op and never break a render.
+- **B2 — Backfill from startDate.**
+  - Why: D2 creates every month whose pay date ≥ `Employee.startDate`.
+  - Effect: an owner entering a real hire date (e.g. 2019) gets about 80 overdue months in علينا, the badge and the balance. Reactivation would regenerate from the original start and collide with `SalaryPeriod @@unique([employeeId, periodYm])`. This also contradicts `t.employees.reactivateConfirm` ("from next month").
+  - Fix: the generation lower bound is `Plan.startDate`, which the system sets:
+    - to max(employee.startDate, the 1st of the current month) when the plan is created or a salary is first set;
+    - to the 1st of next month on reactivation.
+  - Skip any month for which the employee already has a SalaryPeriod.
+- **B3 — D6 auto-archive silently writes off the final salary.**
+  - Why: when a future endDate passes, `ensureSalaryInstalments` archives the plan.
+  - Effect: the unpaid last months are written off with no warning, and ARCHIVED refuses new payments (`payments.ts:76`), so the owner cannot pay what they owe.
+  - Fix: the automatic path only stops generation and marks the employee ENDED. It archives only when nothing is unpaid; otherwise the plan stays OPEN until it is paid. The explicit past-dated end keeps R3's archive, with its list and warning.
+- **B4 — D7 accrual breaks closing = balance.**
+  - Why: advance payments exist by design — «صرف راتب» offers next month, and a rollover can land in a not-yet-due month.
+  - Effect: the statement shows +X, but `listParties` gives 0: it clamps `Math.max(0, due − paid)` per plan (`parties/queries.ts:89`) and counts only instalments due by today.
+  - Fix: for SALARY, balance = Σ amountDue(due ≤ today) − Σ paidHalalas(all rows), signed; a negative OUT remainder counts in owedToUs. The statement shows charges due ≤ today and all payments.
+  - Test: the real-SQL invariant test adds an advance on next month, a rollover into a future month, and an archived salary plan.
+- **B5 — Plan total maintenance.**
+  - Why: only D2 updates `totalHalalas`, yet D5, D6's deletion and D9 all change amounts. The payment ceiling is `plan.totalHalalas − Σ payments` (`payments.ts:97`) and the write-off is `totalHalalas − paid` (`statement.ts:94`).
+  - Fix: every salary write recomputes `totalHalalas = Σ amountDueHalalas` by aggregate inside the same `$transaction`, after the row writes; never increment. Add one test per path.
+
+### SHOULD
+- **S1** `archivePlan` must also refuse SALARY (`plans/actions.ts:213`). L5 names only update and cancel.
+- **S2 — D8 gaps.**
+  - (a) `/staff/transactions/[id]/edit` (`getTransaction` + `getPaymentLink`, page.tsx:206-217) and `updateTransaction` (`payments.ts:62` lets STAFF with canEdit through) can reach a salary payment by id → notFound / refuse.
+  - (b) Salary paid outside the plan (final settlement, first month, bonus, advance) is a plain entry with party = employee, visible in the staff ledger. Propose hideSalary = SALARY-instalment-linked OR `party.type = EMPLOYEE`; confirm with the user together with D8.
+  - (c) Trap: `ledgerWhere` spreads `OR` for `q` (`transactions/queries.ts:145`), so a second `OR` silently replaces it. Use `AND`/`NOT`, and add a real-SQL test that unlinked rows stay visible (NULL logic).
+- **S3 — "One OPEN salary plan" has no DB guard.** A double submit on create or reactivate gives two plans and double months.
+  - Compare-and-set the employee status with `updateMany` and a count check.
+  - Create SalaryPeriod rows without skipDuplicates, so `(employeeId, periodYm)` aborts a second plan.
+  - A generator conflict is a silent no-op.
+- **S4 — `updateEmployee` salary transitions are unspecified:**
+  - set→none and none→set;
+  - a payDay change (move unfixed future dueDates, re-seq);
+  - a category change;
+  - a startDate change after months exist;
+  - a new gross below Σ deductions (refuse with `err.deductionExceedsGross`).
+  - "Fixed" for amount changes (D5/D9) should be: paid = 0 and no non-deleted payment. v1.2a's predicate counts soft-deleted references, which would freeze a month forever and block its deductions. Keep v1.2a's predicate for deletion (D6, FK).
+- **S5 — Lifecycle.** Status against a future endDate is undefined (attendance and check-in eligibility, tabs). endDate ≥ startDate is not checked and has no key (`err.endBeforeStart` is missing). Reactivate must clear endDate.
+- **S6 — Adoption.** L3 says "adopt an unlinked موظف party", but `EmployeeInputSchema` has no `partyId`. The party pages can also retype, deactivate or delete an employee's party (`parties/actions.ts:129,174`), which breaks R1. Refuse these for linked parties, or send the owner to the employee profile.
+- **S7 — Overflow.** Gross = basic + 10 allowances, each ≤ 2e9, can reach 2.2e10, above int4 (V3). Add a refine Σ ≤ MAX_AMOUNT_HALALAS.
+- **S8** `payroll/generate.ts` takes an estId and writes, so it must be `server-only` and never `"use server"`. Add a static pin.
+- **S9 (CP2)** The owner's day save against a self check-in:
+  - a lost update (a stale sheet blanks a check-in) → echo `updatedAt` per row and answer `err.concurrentChange`;
+  - P2002 on a concurrent create or a double tap → map it to a key.
+- **S10 (D12)** The payslip's "paid" from payments recorded against the month is not the allocation when a rollover happened. Use `paidHalalas`, or cap SALARY payments at the instalment's remaining.
+
+### NOTE
+N1 D11: take date and time from one `now`. A check-in on a non-work day is PRESENT and never late. Grace null needs a defined meaning. A check-out in the same minute hits `err.timeOrder`.
+N2 A STAFF salary-instalment refusal should answer `err.instalmentInvalid`, as the prefill does, so there is no in-tenant oracle.
+N3 `Plan.employee` defaults to SetNull → make it Restrict.
+N4 zod-parse the allowances Json on read.
+N5 D6 deletes in order: deductions → periods → instalments.
+N6 Derive the SALARY plan label from the party name. Show جارية, not مكتملة, when months are prepaid.
+N7 Size: plans/actions.ts is already 258 lines; scoping.test.ts is 1849 → put the new gates in a new file.
+N8 R8 helper text in the forms; the admin RELATION_READ adds the v1.2b relations (`employee` on User).
+N9 In a 1–2 employee shop, the staff home's month totals reveal a salary; mention this with the D8 question.
+N10 workDays is one integer field; seq is deterministic from periodYm.
+N11 The inherited duplicate-name rule stops two active employees sharing a name.
+N12 listLinkableStaff = ACTIVE STAFF, unlinked, plus the current link.
+Feasibility OK: createMany skipDuplicates (the harness checks only `data`, scoping.test.ts:247); the nullable composite unique is valid; Json is fine.
+
+## 2026-09-30 — v1.2b R-brief-b (re-run against docs/V12-SPEC.md @99d526e and the reconciled design X1–X14 / D1–D14)
+Checked: spec §0–§3 and §5 against V12B-DESIGN.md, the TASKS "reconciled" deltas, `employees.ts`, `ar.v12b.ts`, the schema diff, and PROGRESS decisions 251–254.
+- Payslip footer is byte-identical to the spec.
+- Mobile bar = spec.
+- Nav collapse is v1.2a's.
+
+### The 27 earlier findings
+**Closed by the design:** B1 (D2), B5 (D8), S1, S2a, S2c, S3, S5, S6, S7, S8, S10, N2, N3 (schema has Restrict), N4, N5, N8, N11 (accepted).
+**Closed by the spec:** N9 (§3.5 allows aggregates on the staff dashboard).
+**Declined, and I agree:** N7.
+**B3:** accept the in-spec closure. Residual NOTE: after the auto-archive, a late payment must be an ordinary رواتب entry with the employee party, so D13 hides it. endFutureWarning could say how to record it.
+
+**Re-graded or still open:**
+- **B2 → new BLOCKER (my own proposal was wrong).** With the lower bound at max(hire, **1st of the current month**), the current month is generated even when its pay date has already passed. Owners who have been recording salaries as plain رواتب entries since v1.1 then get a phantom overdue month. They cannot clear it:
+  - cancel and archive are refused (D1);
+  - linking the existing entry is refused (`err.paymentLinkFixed`, W17);
+  - so the only way out is a second payment, which double-counts the expense.
+  - Fix: `Plan.startDate` = max(hire date, **today**). The first generated month is the first pay date ≥ today.
+  - Same bug: in D5, "salary removed → plan left OPEN without further generation" followed by "salary added later → plan created per D2" either makes a second OPEN plan, or resumes the old one from its old startDate, which backfills the gap. Fix: re-adding moves the OPEN plan's startDate to max(hire, today). `Plan.startDate` never moves earlier (hire-date edits included).
+- **B4 / D7 → SHOULD, §5 question.** Accrual changes v1.2a's party balance and statement semantics for salary plans. The spec says "via the v1.2a mechanism" and "balances … count agreements". Without D7, v1.2a's own invariant holds — payments ≤ total, so the `max(0)` clamp never bites. B4 exists only because of D7. Recommend dropping D7:
+  - balance = all generated rows, as in v1.2a;
+  - optionally show the statement per instalment on its due date for SALARY — closing = listParties by construction.
+  - If D7 stays, it goes to Waiting on user.
+- **S2b → SHOULD (the D13 predicate misses part of §3.5).**
+  - (1) The spec says "linked to an employee party"; D13 checks `party.employee` exists. v1.2a-era موظف parties with no profile — where owners already record salaries — stay visible to staff. Use `party.type = EMPLOYEE`.
+  - (2) Matching `category.nameAr = 'رواتب'` fails silently when the owner renames the category (updateCategory allows renames). Use nameAr = 'رواتب' OR category.id ∈ the establishment's `Employee.salaryCategoryId`, and mutation-test it.
+- **D13 wording → SHOULD, §5.** "createTransaction by STAFF on a salary entry … refused" must mean a SALARY **instalment** only. Refusing a plain رواتب + employee-party entry breaks CLAUDE.md's "STAFF can always add entries". Such an entry is allowed, then hidden (including from حركاتي الأخيرة) → the form should say so.
+- **S4 →** closed except the re-add gap above.
+- **S9 → SHOULD, contract gap.** D10 says rows carry `updatedAt`, but `AttendanceRowSchema` (employees.ts:136-153) has no such field. zod strips it, so the lost-update guard cannot be built. The lead adds `loadedAt`/`updatedAt` (optional, ISO) to the schema.
+- **N1 → SHOULD (spec conflict).** D11 "null grace = 0 when a start time exists" computes late **without** a grace. Spec §3.3: "with a check-in time **and a grace**, «متأخر» is computed". Null grace → PRESENT. Grace 0 given explicitly → late after start.
+- **N6:** plan status still shows مكتملة when every generated month is prepaid → show جارية while ACTIVE. Minor, open.
+- **N10:** the workDays posting shape is still unstated (frontend brief). Open.
+- **N12:** listLinkableStaff filter is unstated. Open.
+
+### New
+- **NOTE:** «صرف راتب» in M2 says "this month's, **else the next**". The spec says "the current month's instalment" → keep the current month only; otherwise show noSalaryDue.
+- **NOTE:** X4 reactivates a deliberately deactivated رواتب category. This is a side effect on the owner's categories and should be visible in the form (one line).
+- **NOTE:** reactivation is not in the spec. Accepted as the inverse of the optional end date; log it as an interpretation.
+- **NOTE:** D2 on «حضوري» should call `ensureSalaryInstalments(estId, ownEmployeeId)`, not generate every employee under a staff session.
+- **NOTE:** D14 adoption: say whether name/phone/email from the form overwrite the adopted party (they should — the profile owns it).
+- **NOTE:** PROGRESS.md has `## Waiting on user` **twice** (just above Known issues). Per the anchored-edit gotcha, a heading must occur once.
+
+### §5 — adding drivers is not changing the gate
+Agree, under five conditions:
+1. No edit to `scopeFailure`, `isReferenceProbe`, `LINK_KEYS`, `PROBE_SELECT_KEYS`, `UNIQUE_WRITE_METHODS`, `WHERE_METHODS`.
+2. New models only enter the harness's model list. They fall through to the generic rule, which is correct.
+3. The W5 `paidHalalas` gate stays untouched, so the generator must not put `paidHalalas` (even 0) in `createMany` data.
+4. Admin pattern additions only tighten.
+5. If any v1.2b call needs a new exemption, that is a §5 stop, not a gate edit.
+I found no v1.2b read that needs one: D13's `AND/NOT` sits beside a top-level `establishmentId` + `deletedAt: null`; the D6 FK probe uses `instalmentId` ∈ LINK_KEYS.
+
+**Follow-up (lead accepted all as Y1–Y12, design §6):** the duplicate-heading NOTE is **retracted**. `grep -n "^## Waiting on user"` gives exactly one line (258; HEAD 253), so the duplicate I reported was not in the tree. Standing for task reviews: spec first, then Y1–Y12 over D1–D14; Y12 gate conditions are binding.
+
+## 2026-09-30 — v1.2b R-L2 (src/lib/payroll.ts, nowRiyadhHHMM, payroll.test.ts) — PASS, 1 SHOULD, 3 NOTE
+Checks run: vitest on payroll + dates → 28/28; tsc 0; no clock in payroll.ts (the only default `new Date()` is nowRiyadhHHMM's argument, as todayISO's is).
+- Y1 holds: `dueDate < startDate → skip` plus the caller's `startDate = max(hire, today)` means no past month is created. Pinned by "pay date already passed → next month only".
+- D3 clamp is correct (`Date.UTC(y, m, 0)`): Feb 28/29 and Apr 30 are pinned.
+- Horizon is next month, and today on a month's last day is pinned.
+- `endDate` uses `break`, which is safe because due dates only increase.
+- The one `now` for date and time is pinned at 00:05. `hourCycle: "h23"` avoids "24:05".
+- **Reading (1) holds for allocation.** `(dueDate, seq)` never ties across salary months, and no code assumes seq is contiguous or starts at 1 (updatePlan's renumbering is refused for SALARY).
+- **Reading (2) holds.** Each branch is `fk IS NOT NULL AND …`. When fk is NULL the branch is FALSE, not NULL, whatever SQL Prisma emits for the relation filter, so `NOT(OR(…))` is TRUE for unlinked rows. Real SQL is still owed in L5.
+- **SHOULD S-L2a — seq is rendered in three places, where a salary row would show «الدفعة 24321»:**
+  - `DueList.tsx:33` (المستحقات and the home week card);
+  - `InstalmentList.tsx:32` (plan detail);
+  - `PaymentBanner.tsx:43` (`{seq}` in the owner payment banner via `transactions/new/page.tsx:83`).
+  - None of DueRow, PlanDetail.instalments or getInstalmentForPayment carries `periodYm` or `kind`.
+  - Fix: L5 adds `periodYm: string | null` to those three shapes; M4 renders `monthNameAr` + year when it is set, else `{t.schedule.row} {seq}`.
+- NOTE: add a catch-up case. The app is unopened for months (start 2026-10-01, today 2027-03-10, existing Oct) → Nov…Apr, with the past ones overdue. That is correct, but pin it.
+- NOTE: `salaryCategoryIds = []` → `categoryId: { in: [] }`. L5's real-SQL case should include an empty list, to prove Prisma 7 renders it as always-false and not as an error.
+- NOTE: payroll.ts imports `Prisma` as `import type` only, so it stays client-safe.
+
+## 2026-09-30 — v1.2b R-M4a (owner home order + quick actions, staff nav حسابي) — PASS, 3 NOTE
+- **Order = spec §1, word for word:**
+  1. quick actions (حركة جديدة · تسجيل دفعة; تسجيل حضور in CP2);
+  2. the four money cards;
+  3. OverdueStrip + WeekDues («مستحقات هذا الأسبوع» with the red strip);
+  4. ActiveProjects;
+  5. balance by method → chart → top expenses → last entries.
+- No employee widget.
+- The old header add-button is gone, so there is exactly one «حركة جديدة» on the page.
+- «تسجيل دفعة» → /owner/dues fits the spec: §2.6 gives المستحقات its per-row quick pay.
+- The actions are real links (LinkButton, min-h-11). Icons are aria-hidden (Svg base). The section has an aria-label. RTL is clean (grid only, no physical utilities).
+- STAFF_NAV = الرئيسية | حركة جديدة | السجل | حسابي. Staff has no tabHrefs, so all items are tabs (5 in CP2, as the spec says). `/staff/account` already has a loading.tsx. The nav test pins the order, the label equality with the owner's حسابي, and activeHref.
+- nav.test 13/13.
+- NOTE: the skeleton has 5 blocks after the stat cards for 6 sections (the ActiveProjects card has none — already true at HEAD), and its doc comment omits الإضافات الجارية. Add one card, or fix the comment.
+- NOTE (CP2): a third quick action in `grid-flow-col auto-cols-fr` at 320px gives about 96px per button. Check that «تسجيل حضور» with its icon fits, or allows a two-line wrap, at 320px.
+- NOTE: the h1 «الرئيسية» stays as the page title, and the quick actions sit directly under it. Fine.
+
+## 2026-09-30 — v1.2b R-L1 (migration 20261002000000_v1_2b_employees_salaries + tests) — PASS, 1 NOTE
+Checks run: full vitest 782/782 in 39 files (the v12a drift case is green again); the migration is LF (0 CR) and ASCII.
+
+**Expand-only.** The migration only CREATEs and ADDs: 4 enums, 5 tables, `Plan.kind` NOT NULL DEFAULT 'STANDARD', and the nullable `Plan.employeeId` and `Instalment.periodYm`. It contains no DROP, ALTER COLUMN, RENAME or data UPDATE.
+- The old-release inserts are tested: rows written earlier read STANDARD/null, and many null months per plan don't collide.
+
+**Constraints.** Every new table has a NOT NULL `establishmentId` (tested). Checked against the schema:
+- Restrict on Employee.party, SalaryPeriod.instalment, Plan.employee (N3), SalaryPeriod.employee, SalaryDeduction.period and AttendanceRecord.employee. Each case holds its row by exactly one foreign key, a good design that stops one FK from masking a missing one.
+- SetNull only on Employee.user and Employee.salaryCategory, whose targets are never hard-deleted.
+- Cascade only on the allowances.
+
+**Other checks.**
+- Both month uniques, one login per employee, one attendance row per day, the N5 delete order, and no sensitive column (the regex covers Party as well).
+- The drift check now applies every migration directory in name order, with a count ≥ 4 guard. moneyPath applies every directory too.
+- Mutations are logged in progress/backend.md (plain index; SET NULL), restored with `cmp`.
+
+**NOTE N-L1a.** The drift `shape()` compares columns, indexes and constraints but not enum **labels**. An enum missing a value (e.g. `REMOTE`) in a migration would still pass, because the column stays `USER-DEFINED:<udt>`. v1.2b adds 4 enums. Add a fourth list: `SELECT t.typname || ':' || string_agg(e.enumlabel, ',' ORDER BY e.enumsortorder) FROM pg_type t JOIN pg_enum e ON e.enumtypid = t.oid GROUP BY t.typname`. Then mutation-verify it by dropping one label from a copy of the migration.
+- **R-L1 follow-up (the lead's checklist).**
+  - grep for DROP / ALTER COLUMN / `ALTER … TYPE` / SET NOT NULL / RENAME: no match. The only NOT NULL added to an existing table is the **new** `Plan.kind`, and it carries a DEFAULT.
+  - The file is LF (0 CR).
+  - The old-release inserts are **proven**, not assumed: explicit INSERTs without the new columns run both before the migration and after it.
+  - Each Restrict case holds its row by exactly one FK.
+  - I checked independently that the drift test can still fail, with a scratch script (`scratchpad/drift-mut.mjs`) that mutates the v1.2b SQL in memory and applies the test's own `shape()` against `--from-empty`. It touches no repo file. Results:
+    - baseline: no diff;
+    - unique→index: caught;
+    - `Plan.kind` without DEFAULT: caught;
+    - Plan.employee FK → SET NULL: caught;
+    - **enum label REMOTE dropped: NOT caught** — caught once the pg_enum list is added. N-L1a is confirmed empirically.
+- **R-M4a follow-up — verified.** The skeleton now has a block for every section and its comment is correct. For S-L2a, `periodLabel` and `<InstalmentName>` in PlanBits.tsx (107 lines) take the month name from `dates.ts` (client-safe; no new keys) and fall back to «الدفعة {seq}» inside `<bdi>`. S-L2a stays open until DueList, InstalmentList and PaymentBanner use it, which waits on backend's `periodYm` fields.
+
+## 2026-09-30 — v1.2b R-M1/M2/M3 + M4 (partial) — PASS, 1 SHOULD, 6 NOTE
+Checks run: tsc 0; vitest 815/815 in 41 files. A comment-stripped scan finds no Arabic literal in the new tsx and no physical utilities.
+
+**Routes**
+- Every new route has a loading.tsx.
+- The id comes only from params. Another establishment's id → notFound.
+- The payslip `ym` is validated with `PeriodYmSchema` → notFound.
+
+**`ensureSalaryInstalments`** runs after `requireOwner` in:
+- layout (before the badge), home, dues, plans list/detail, parties list/detail, transactions/new, staff list/detail/edit/payslip.
+- It takes the same argument everywhere, so React `cache()` dedupes the layout's and the page's calls.
+
+**Spec checks**
+- No category field (X4). salaryCategoryNote and privacyNote are shown. There is no ID/IBAN/DOB field.
+- «صرف راتب» appears only when `thisMonth.payable` (OPEN plan and remaining > 0) → Y7. Otherwise `noSalaryDue` is said in words.
+- Payslip (§3.4):
+  - PrintHeader carries the establishment.
+  - It shows basic, allowances, gross, deductions with reasons (or none), net, and payments with date and method.
+  - paid/remaining come from `paidHalalas` (S10).
+  - The footer text is exact and prints.
+- D14: the party detail/edit pages of an employee's party show «فتح ملف الموظف» instead of PartyActions or the form.
+- The form checks EmployeeInputSchema client-first with parsed JSON allowances. The unparsable-basic guard is right: AmountField would otherwise post "" and save the employee with no salary.
+- workDays posts one mask (Y9). The chips are real checkboxes with a check mark, not colour alone. The allowance controls are kept out of FormData with `form="__none"`.
+
+**SHOULD S-M2a — the end dialog overstates the write-off for a past date**
+- `getUnpaidSalaryMonths` returns every unpaid month of the open plan. That always includes next month's pre-generated instalment, and any month whose pay date falls after the end date.
+- `endSalaryPlan` **deletes** unfixed months after `endDate` (salaryPlan.ts:180) and writes off only the rest.
+- So the dialog tells the owner that months will be written off which are simply removed.
+- Fix (EndEmploymentDialog.tsx:209-227): list `m.dueDate <= endDate` OR `m.paidHalalas > 0` (a partly paid month after the end is fixed and is written off). `UnpaidMonth` needs `paidHalalas`; the query already returns it.
+
+**NOTEs**
+1. `endFutureWarning` (it speaks of salaries) shows even when the employee has no salary. Pass `hasSalary` and hide it.
+2. Clearing the basic salary on edit triggers the D5 "salary removed" transition (future months deleted, plan maybe archived) with no line saying so. Consider a one-line notice when the profile had a salary and the field is now empty.
+3. An added-then-left-blank allowance row posts `amountHalalas: null`. The schema refuses `allowances`, but `allowanceRowErrors` marks no row. Drop fully blank rows from `allowancesJson`, or mark them.
+4. The employee list has no linked-login badge (it was in the pre-spec design; the spec is silent). Optional.
+5. MonthsCard's title reuses `t.myAttendance.myPayslips` on the owner page. The value fits; it's key semantics only.
+6. (backend, for R-L3) `payslip.ts:76` falls back silently to `[]` when the allowances JSON fails to parse. The payslip then shows a gross that its lines don't add up to — the "fallback hides the failure" gotcha. Prefer throwing or notFound.
+- **M2 delta — verified.**
+  - `endPending = ACTIVE && endDate !== null` (which includes an end date of today, still ACTIVE).
+  - With it set, the button and dialog read `cancelEnd` / `cancelEndConfirm` ("salaries continue as usual"). ENDED employees keep `reactivate` / `reactivateConfirm`.
+  - Both call `reactivateEmployee`, which clears the end date with a compare-and-set on the current status.
+  - Frontend's correction noted: in CP1 no staff-role page calls `ensureSalaryInstalments`; Y11 is CP2.
+- **S-M2a — closed.** `writtenOff = dueDate <= endDate || paidHalalas > 0` matches `deleteUnfixedMonthsAfter` (core.ts:133-143: after the end, paid 0 and no reference → deleted). NOTE 1 and NOTE 3 are done: blank rows are dropped, and a half-filled row is still marked.
+- **Residual NOTEs:**
+  - (a) The dialog hides every warning when `!hasSalary` (grossHalalas === null). After D5's "salary removed" transition, though, the plan can stay OPEN with unpaid months, and a past end still archives it and writes them off. Gate on `hasSalary || unpaid.length > 0`.
+  - (b) A month after the end whose only link is a soft-deleted payment is kept (the FK predicate) and written off, but it has paidHalalas 0, so it is not listed. The edge is rare; accept it, or have the query flag `referenced`.
+- **R-M delta, final — verified by grep.**
+  - NOTE 2: `salaryRemovedNote` appears when `hadSalary` is set and the basic salary is cleared.
+  - NOTE 4: rows with `hasLogin` get a neutral «حساب الدخول» badge.
+  - NOTE 5: MonthsCard's title is `t.employees.payslip`.
+  - The part-paid clause in `writtenOff` is kept, which is correct.
+  - EmployeeFormSections.tsx is 251 lines — at the limit, fine.
+  - Still open, a NOTE only: residual (a). EndEmploymentDialog.tsx:111 still gates on `!hasSalary`.
+- **Residual (a) closed:** EmployeeActions passes `hasSalary || unpaid.length > 0` to the dialog. (b) accepted. **Frontend M1–M3: nothing open.**
+  - Follow-up: the check moved into the dialog (`!hasSalary && unpaid.length === 0 ? null`); EmployeeActions passes plain hasSalary. Behaviour is the same. Verified.
+
+## 2026-09-30 — v1.2b R-L3/L4/L5 (employees, payroll, v1.2a integration) — PASS on money; 3 SHOULD, 1 OPEN (ruling 2), 6 NOTE
+Checks run: tsc 0; vitest 843/843 in 43 files.
+
+**Verified**
+- **D8** total = aggregate `Σ amountDue` after every salary write: generate, resnapshot, delete-after-end, salary removal (core.ts:56-65, salaryPlan.ts). `totalsHold()` asserts it on real SQL across paths.
+- **D5/S4:** re-snapshot only when `dueDate > today`, `paidHalalas = 0` and there is no non-deleted payment; `minus > gross` → `err.deductionExceedsGross`.
+- **D6/N5:** FK-safe delete order with a V1 probe; delete → recompute → reallocate → archive.
+- **S3:** SalaryPeriod created without skipDuplicates. The duplicate-plan run is swallowed (P2002) and the run survives (tested).
+- **Y1:** `startDate = max(hire, today)`, never earlier. A salary re-added uses today.
+- **Y12:** scopeFailure is unchanged (only model names are added to the harness). The generator puts no `paidHalalas` in data, and the W5 scan walks all of `src`. The admin patterns only tightened.
+- **ensureSalaryInstalments:** `server-only`, `cache()`, `requireMember()`, returns unless `session.establishmentId === establishmentId`. Per-plan transactions; a benign race is a no-op.
+- **D1/S1:** update, cancel and archive all refuse SALARY; canCancel is false.
+- Y8 status; X13 derived title (plans, dues, statement, payment link); N2 (STAFF on a salary instalment → `err.instalmentInvalid` after the canEdit check).
+- **Y4:** staff recent list uses `hideSalary`. updateTransaction reads through the staff filter for STAFF → `err.notFound`.
+- **Y2:** statement semantics unchanged.
+- D14 refusals in parties/actions.
+- **S-L2a data** is present: `periodYm` + `kind` on DueRow, PlanInstalment, NextDue and InstalmentForPayment.
+
+**SHOULD S-L3a — renaming «رواتب» splits the salary category and breaks Y3**
+- `resolveSalaryCategory` (salaryPlan.ts:44-73) resolves by **name** on every `startSalaryPlan` and overwrites `Employee.salaryCategoryId`.
+- After the owner renames «رواتب», the next new employee, reactivation or re-added salary silently creates a second «رواتب» and repoints that employee to it.
+- The renamed category's id then leaves `staffSalaryFilter`'s set (privacy.ts:15-19). Plain entries on it that are linked to an employee party become visible to staff — a silent §3.5 regression.
+- Fix:
+  - resolve prefers, in order: the employee's current `salaryCategoryId` if it is OUT; then any category used by a SALARY plan in the establishment; then the name.
+  - the privacy set = Employee.salaryCategoryId ∪ `Plan.categoryId where kind = SALARY`.
+  - add a mutation-tested rename case.
+
+**SHOULD S-L5a — `hideSalary` is opt-in (fail-open) and nothing pins the call sites**
+- The staff pages pass it today: staff ledger :36, edit :35, dashboard recent.
+- The §3.5 test drives the queries **with** the flag, so a future staff page that forgets it passes every test.
+- Fix: add a static case in privacy.test.ts. Every `listTransactions` / `getTransaction` / `recentTransactions` call under `src/app/(staff)/**` and in `getStaffDashboard` must carry `hideSalary: true`, with a pattern self-test.
+
+**SHOULD S-L4a — the automatic end is unaudited (spec §0 "audit on every mutation")**
+- `runSalaryGeneration` flips ACTIVE → ENDED with a bare `updateMany` (generate.ts:87-90) and no `EMPLOYEE_END` audit. The archive that follows is audited.
+- Fix: read the due ids, CAS-update, and audit each (after: `{ status: "ENDED", auto: true }`).
+
+**OPEN — ruling (2) is not in the tree yet**
+- `unpaidUntil(…, staff)` filters only `kind: STANDARD` (dues.ts:85).
+- `getStaffPaymentPrefill` checks only `kind === "SALARY"`.
+- `payments.ts:76` refuses only SALARY.
+- A STANDARD plan with an EMPLOYEE party and a «رواتب»/salary category is still in the staff card, prefill and payment. Re-check when it lands, and reuse S-L3a's category set.
+
+**NOTEs**
+1. With a STAFF session and no `employeeId`, `ensureSalaryInstalments` generates for the whole establishment. For CP2, force the session's own employee when role = STAFF instead of relying on the caller.
+2. Moving the hire date **later** leaves earlier-generated unpaid months before it. A pay-day change can move an unpaid month's pay date past a future `endDate`. Both are rare; accept them or delete such months in `applySalaryChange`.
+3. Files over ~250 lines: parties/actions.ts 274, plans/actions.ts 261, plans/queries.ts 258, payroll/core.ts 254.
+4. `archiveSalaryPlan` writes PLAN_ARCHIVE even when its `updateMany` counts 0. It is harmless after the bump; guard on count.
+5. `PARTY_SELECT` gains a nested `employee` read. The harness can't see it, but it is a 1:1 FK created in-establishment. Acceptable; say so in a comment.
+6. Still owed: L6 (the v1.2b modules are not yet in scoping `FILES` or drivers), N-L1a (enum labels in the drift check), and the payslip JSON fail-loud (payslip.ts:76).
+
+## 2026-09-30 — v1.2b R-M4 (rest) — PASS; S-L2a closed
+- **S-L2a closed:**
+  - DueList and InstalmentList use `<InstalmentName seq periodYm>`.
+  - PaymentBanner on a salary month reads «{planTitle} · {month year}».
+  - The owner new-entry page passes `periodYm`.
+- **D1:** the plan detail shows SalaryPlanNotice in place of PlanActions for SALARY (archived too). Plan edit shows `managedFromProfile` + «فتح ملف الموظف» instead of the form. The server refusals remain the control.
+- **§3.5 page side:** the staff ledger passes `{ hideSalary: true }`. The staff edit page passes it to `getTransaction` → null → notFound. The static pin is still owed (S-L5a).
+- **D14:** the party pages read `party.employeeId`.
+- **Y4:** StaffSalaryNote sits in the banner slot, so TransactionForm stays at 254 lines. It reads the form on the next tick after change/reset, shows as `role="status"`, and is not shown in payment mode.
+  - Matching by name only is acceptable: it is advice, and the server hides regardless.
+  - Once S-L3a lands, backend could expose the establishment's salary category ids so the note also covers a renamed category. That is a NOTE, not required.
+
+## 2026-09-30 — v1.2b R-brief-c2 (CP2 briefs L7–L11, M5–M8, before code) — 0 BLOCKER, 5 SHOULD, 8 NOTE
+Checked against spec §1 and §3.3–§3.5, Y1–Y12, and the CP1 tree (`AttendanceRowSchema` now has `updatedAt`).
+**Covered correctly:**
+- Button actions with no id; every «حضوري» read keyed by `Employee.userId = session`.
+- Y11 own scope forced for STAFF.
+- Y5 grace table.
+- X7 times only.
+- One `now`.
+- Y6 + P2002.
+- D8 total and revision lock on deductions.
+- canEdit not applying; no month locks on attendance.
+- The printable grid with legend.
+- Nav order.
+- «تسجيل حضور» → today's sheet.
+
+### SHOULD
+- **S-C2a — override rule ambiguous; contract vs brief conflict.**
+  - Contract vs brief: `AttendanceRowSchema.statusOverridden` comes from the client, but L8 says the server sets it ("unless it equals the derived one").
+  - With no check-in the derived status is undefined, so an owner's early «حاضر» would count as overridden and block a later LATE from self check-in.
+  - Proposed rule, server-side, ignoring the client flag:
+    - `expected = checkIn ? derivedStatus(...) : (non-work day ? HOLIDAY : null)`.
+    - ABSENT/LEAVE/REMOTE always override.
+    - HOLIDAY overrides unless it equals `expected`.
+    - PRESENT/LATE override only when a check-in exists and they differ from derived.
+    - With `statusOverridden = false` the stored status is **recomputed** (the posted status is not trusted).
+  - Either drop `statusOverridden` from the schema, or document it as display-only.
+- **S-C2b — "employed on that date" vs "ACTIVE".** getDaySheet says "ACTIVE employees on that date", and save refuses "ENDED". The owner then cannot correct a past day for someone who has since left.
+  - Use one eligibility rule for sheet, save and grid: `hire ≤ date ≤ (endDate ?? ∞)`, whatever the current status.
+  - Self check-in keeps ACTIVE and `hire ≤ today ≤ end`.
+- **S-C2c — Y6 makes every whole-sheet save conflict once anyone self-checks in after load.** Fix both sides:
+  - M5 posts only the rows the owner changed.
+  - L8 does the check as a CAS inside the transaction: `updateMany where { establishmentId, employeeId, date, updatedAt: loaded }`, count 0 → `err.concurrentChange`, not read-then-write.
+  - A posted row with no `updatedAt` for which a record now exists → the same key, via P2002 on `createMany`.
+- **S-C2d — deductions on a closed plan.** L10 checks "unpaid" but not the plan's state. A deduction on an ARCHIVED (written-off) month would change the write-off amount. Require the plan OPEN (reuse `err.salaryPeriodPaid` or `err.planClosed`). `deleteDeduction` runs the same checks (unpaid and OPEN) — L10 states them only for add.
+- **S-C2e — L9 misses the same-minute check-out.** A check-out at the check-in minute breaks D10's strict order. Name the key (`err.timeOrder`) and test it. Reads on «حضوري» should also be allowed to a linked **ENDED** employee (own payslips of past months), while check-in/out need ACTIVE and hire ≤ today ≤ end. The brief conflates the two.
+
+### NOTE
+1. Owner attendance **notes** will show in the employee's own month («حضوري»). Either the owner's note field says so (a new key), or staff reads omit `note`. Decide which. Spec: "view of own attendance month".
+2. «نسخ من آخر يوم عمل» should copy statuses only — not times or notes — and only into rows with no record yet. Otherwise the copied rows conflict (S-C2c) or invent check-in times.
+3. There is no way to clear a saved day back to «غير مسجل». Accept it, or add a "clear" status in the row (it would need a schema change).
+4. `/owner/staff/[id]/month/[ym]` reads the salary summary, so it awaits `ensureSalaryInstalments` (D2's `owner/staff/**` rule); M6 should say so. Validate `ym` with `PeriodYmSchema` → notFound, as the payslip does.
+5. L9's P2002 on check-in: do the update first (`updateMany where { …, checkIn: null }`), then create; a P2002 on the create → `alreadyCheckedIn`.
+6. L11 should add: a STAFF with canEdit calling the owner attendance/deduction actions → refused (requireOwner). A self-service action whose FormData carries an `employeeId` → ignored (no parameter).
+7. M7: the staff layout's link lookup runs every render. Keep it one scoped `findFirst` returning a boolean/id, and never pass another employee's data to the client.
+8. The deduction net 0 → PAID works with v1.2a `instalmentStatus` (paid ≥ due). `getDues` excludes it (`paid < due`). Test it on the payslip ("remaining 0").
+
+## 2026-09-30 — v1.2b R-L6 (gates) — PASS on content; re-run owed once S-L3a settles
+**Y12 confirmed by diff.**
+- The hunks in scoping.test.ts sit at 57 (models), 211 (imports), 1688 (drivers), 1731 (FILES), 1781 (nested scan: `dirs` widened by employees/ and payroll/ — the only removed line) and 1842 (S8).
+- None falls in the rule region (235–~380). `scopeFailure`, `isReferenceProbe`, `LINK_KEYS`, `PROBE_SELECT_KEYS`, `UNIQUE_WRITE_METHODS` and `WHERE_METHODS` are unchanged.
+
+**Coverage.**
+- FILES has all 9 v1.2b modules, so the "every (model, method) pair exercised" sweep now covers them. 12 driver cases cover create (with and without adoption), D5 change, removal (N5 order), salary add, end/reactivate, the generating and ended passes, and the staff privacy reads.
+- S8 pins `import "server-only"` with no `"use server"` on the 7 non-action modules, anchored with a self-test. The two `"use server"` files (actions, lifecycle) are correctly left out.
+- The admin patterns only widen.
+- validation.v12b has 14 cases, including S7, N1 same-minute and Y6 `updatedAt`.
+
+**State at my run.** The tree is mid-edit for S-L3a (privacy.ts/salaryPlan.ts/core.ts are changing): full vitest shows 3 failed files, including scoping "createEmployee…" and "resnapshotFutureMonths is not a function". backend reported 854/854 at submission. I'll re-run the gates when backend reports S-L3a done.
+
+**Still owed:** S-L5a (static pin that staff pages pass `hideSalary`), S-L4a (auto-end audit), ruling 2, N-L1a (enum labels), and the payslip JSON fail-loud (payslip.ts:68-76 still `safeParse` → `[]`).
+- **R-brief-c2 follow-up:** the lead accepted all findings as Z1–Z6 (TASKS.md) — checked against my findings, and they match. Lead's calls: staff reads omit the owner's notes; clearing a day is a known limit; statusOverridden leaves the schema at CP2 start. Waiting on backend's CP1 delta (S-L3a, S-L5a, S-L4a, ruling 2, N-L1a, payslip fail-loud, the parties/actions split) before the CP1 commit.
+
+## 2026-09-30 — v1.2b CP1 delta after R-L1..R-L5 — all closed; CP1 CLEAR from reviewer
+My run: tsc 0; vitest **867/867 in 44 files**.
+
+**N-L1a.** `shape()` has an `enums` list (pg_enum labels, in order) and pins the AttendanceStatus labels. Dropping or reordering a label now fails.
+
+**Ruling 2.**
+- `salaryLinkedPlanWhere` = SALARY OR (EMPLOYEE party AND («رواتب» OR a salary category id)).
+- Staff dues use `plan: { AND: [staffPlanFilter] }`.
+- The prefill runs a scoped visibility probe before `getInstalmentForPayment`.
+- The STAFF payment check (payments.ts:77, after the canEdit check and the instalment/plan read) calls `isStaffHiddenPlan` → `err.instalmentInvalid` (N2).
+- Transaction branch 1 now uses the plan predicate.
+- Tested on PGlite with a STANDARD plan to a موظف party in «رواتب».
+
+**S-L3a.**
+- `salaryCategoryIds` = Employee.salaryCategoryId ∪ SALARY plans' categories ∪ categories named «رواتب». It is built from ids, so a rename cannot drop one.
+- `resolveSalaryCategory` checks the employee's own, then the newest SALARY plan's, then any employee's, then the name, then creates one; an inactive category is reactivated (audited).
+- The rename case is on PGlite, and backend reports it mutation-verified.
+
+**S-L5a.** `payroll/staffViews.test.ts`:
+- balanced-paren argument capture;
+- every ledger read under `src/app/(staff)` and getStaffDashboard's recent list carries `hideSalary: true`;
+- no staff file calls an owner-shaped read;
+- self-tests.
+- Residual NOTE: an aliased import (`getTransaction as x`) would escape the name match. Acceptable; say so in the file.
+
+**S-L4a.** `endPassedEmployments`: read, then per-employee CAS (status ACTIVE + endDate as read), then `EMPLOYEE_END {auto: true}`. `archiveSalaryPlan` audits only when count > 0.
+
+**Payslip.** `AllowanceSnapshotSchema.parse` throws, and basic + Σ allowances ≠ gross throws. Resnapshot writes basic/allowances/gross together, so it cannot trip on valid data.
+
+**Splits.** parties/actions.ts 215 (+rules.ts 75) and payroll/core.ts 180 (+resnapshot.ts 89). Both new files are server-only and in FILES and S8. plans/actions.ts 261 and plans/queries.ts 258 are accepted by the lead.
+
+**Verdict:** no reviewer finding is open for CP1. Frontend M1–M4 closed; backend L1–L6 closed. The CP2 briefs are amended as Z1–Z6.
+- **Final CP1 pass (after both sides settled).**
+  - Gates on my run: tsc 0; vitest 867/867 in 44 files.
+  - **Frontend delta:** StaffSalaryNote takes the server's `salaryCategoryIds` (only category ids, which staff already see as categories), and name matching is gone, so the Y4 rename gap is closed.
+  - **Staff pages back to frontend's content:** the diffs of `(list)`, `new` and `[id]/edit` against HEAD show only the intended changes — `hideSalary: true`, the salaryCategoryIds load and StaffSalaryNote — with no mutation leftovers.
+  - **Tree hygiene:**
+    - Every untracked file is a legitimate v1.2b file under docs/, prisma/ or src/.
+    - API routes are only health + export.
+    - No temp markers in src (only in the generated Prisma client).
+  - **CP1 verdict: CLEAR.**

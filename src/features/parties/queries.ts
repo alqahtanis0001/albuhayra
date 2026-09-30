@@ -25,6 +25,8 @@ export type PartyRow = {
   owedByUsHalalas: number;
   /** Any transaction (soft-deleted included) or any plan points at it. */
   hasHistory: boolean;
+  /** v1.2b D14: the employee profile that manages this party, if any. */
+  employeeId: string | null;
 };
 
 export type PartyDetail = PartyRow & {
@@ -49,6 +51,9 @@ const PARTY_SELECT = {
   phone: true,
   email: true,
   active: true,
+  // v1.2b D14. A nested read the scoping harness cannot see; it is bounded by
+  // the scoped party row it hangs off and returns only the id (R-L5 note 5).
+  employee: { select: { id: true } },
 } as const;
 
 type Balance = { owedToUsHalalas: number; owedByUsHalalas: number };
@@ -119,6 +124,7 @@ type SelectedParty = {
   phone: string | null;
   email: string | null;
   active: boolean;
+  employee: { id: string } | null;
 };
 
 async function toRows(
@@ -130,8 +136,9 @@ async function toRows(
     balances(establishmentId, ids),
     partiesWithTransactions(establishmentId, ids),
   ]);
-  return parties.map((p) => ({
+  return parties.map(({ employee, ...p }) => ({
     ...p,
+    employeeId: employee?.id ?? null,
     owedToUsHalalas: balance.get(p.id)?.owedToUsHalalas ?? 0,
     owedByUsHalalas: balance.get(p.id)?.owedByUsHalalas ?? 0,
     hasHistory: withPlans.has(p.id) || withTransactions.has(p.id),

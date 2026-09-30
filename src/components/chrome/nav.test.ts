@@ -113,13 +113,16 @@ describe("owner navigation groups (v1.2a)", () => {
     expect(groupOf(OWNER_NAV_GROUPS, null)).toBeNull();
   });
 
-  it("keeps staff at three items, the new-entry one relabelled", () => {
+  it("gives staff the spec §1 items, the new-entry one relabelled, حسابي last", () => {
     expect(STAFF_NAV.map((i) => i.href)).toEqual([
       "/staff",
       "/staff/transactions/new",
       "/staff/transactions",
+      "/staff/account",
     ]);
     expect(STAFF_NAV[1].label).toBe(OWNER[1].label);
+    expect(STAFF_NAV[3].label).toBe(OWNER.find((i) => i.href === "/owner/settings/account")!.label);
+    expect(activeHref("/staff/account", STAFF_NAV)).toBe("/staff/account");
   });
 });
 

@@ -14,12 +14,9 @@ import { z } from "zod";
 import { writeAudit } from "@/lib/audit";
 import { requireOwner } from "@/lib/auth";
 import { db } from "@/lib/db";
-import {
-  PartyInputSchema,
-  invalid,
-  type ActionResult,
-  type PartyInput,
-} from "@/lib/validation";
+import { PartyInputSchema, invalid, type ActionResult } from "@/lib/validation";
+
+import { columns, employeeIdOfParty, findOwnParty, isForeignKeyViolation, nameTaken } from "./rules";
 
 export type PartyState = ActionResult<{ id: string }> | ActionResult<null> | null;
 
@@ -35,61 +32,6 @@ function revalidateParties(): void {
 
 function fieldError(field: string, key: string) {
   return { ok: false as const, error: key, fieldErrors: { [field]: key } };
-}
-
-/** The P2003 a `Restrict` foreign key raises when a row still points here (V2). */
-function isForeignKeyViolation(error: unknown): boolean {
-  return (error as { code?: unknown } | null)?.code === "P2003";
-}
-
-const SNAPSHOT_SELECT = {
-  id: true,
-  name: true,
-  type: true,
-  phone: true,
-  email: true,
-  notes: true,
-  active: true,
-} as const;
-
-async function findOwnParty(establishmentId: string, partyId: string) {
-  return db.party.findFirst({
-    where: { establishmentId, id: partyId },
-    select: SNAPSHOT_SELECT,
-  });
-}
-
-/**
- * Another *active* party already carries this name (case-insensitive). An
- * inactive namesake is not a clash and is never reactivated in its place — a
- * party carries contact data, so two rows are two contacts.
- */
-async function nameTaken(
-  establishmentId: string,
-  name: string,
-  exceptId?: string,
-): Promise<boolean> {
-  const clash = await db.party.findFirst({
-    where: {
-      establishmentId,
-      active: true,
-      name: { equals: name, mode: "insensitive" },
-      ...(exceptId ? { id: { not: exceptId } } : {}),
-    },
-    select: { id: true },
-  });
-  return clash !== null;
-}
-
-/** Clearing an optional field writes null (V12). */
-function columns(input: PartyInput) {
-  return {
-    name: input.name,
-    type: input.type,
-    phone: input.phone ?? null,
-    email: input.email ?? null,
-    notes: input.notes ?? null,
-  };
 }
 
 export async function createParty(
@@ -139,6 +81,10 @@ export async function updateParty(
 
   const existing = await findOwnParty(establishmentId, parsedId.data);
   if (!existing) return { ok: false, error: "err.notFound" };
+  // D14: an employee's party is managed from the profile — no retyping here.
+  if (parsed.data.type !== existing.type && (await employeeIdOfParty(establishmentId, existing.id))) {
+    return fieldError("type", "err.partyIsEmployee");
+  }
 
   // Only an active party can clash: an inactive one is checked on reactivation.
   if (existing.active && (await nameTaken(establishmentId, parsed.data.name, existing.id))) {
@@ -183,6 +129,9 @@ export async function setPartyActive(
 
   const existing = await findOwnParty(establishmentId, parsedId.data);
   if (!existing) return { ok: false, error: "err.notFound" };
+  if (!parsedActive.data && (await employeeIdOfParty(establishmentId, existing.id))) {
+    return { ok: false, error: "err.partyIsEmployee" }; // D14
+  }
 
   if (
     parsedActive.data &&
@@ -228,6 +177,7 @@ export async function deleteParty(partyId: string): Promise<ActionResult<null>> 
 
   const existing = await findOwnParty(establishmentId, parsedId.data);
   if (!existing) return { ok: false, error: "err.notFound" };
+  if (await employeeIdOfParty(establishmentId, existing.id)) return { ok: false, error: "err.partyIsEmployee" }; // D14
 
   const [transactions, plans] = await Promise.all([
     db.transaction.count({ where: { establishmentId, partyId: existing.id } }),

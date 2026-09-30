@@ -90,10 +90,15 @@ export const OWNER_TAB_HREFS = [
   "/owner/dues",
 ];
 
+/**
+ * Spec §1: الرئيسية | حركة جديدة | السجل | حضوري | حسابي. «حضوري» (only for a
+ * login linked to an employee) arrives in v1.2b CP2, before حسابي.
+ */
 export const STAFF_NAV: NavItem[] = [
   { href: "/staff", label: t.nav.home, icon: "home" },
   { href: "/staff/transactions/new", label: t.navItem.newEntry, icon: "add" },
   { href: "/staff/transactions", label: t.nav.ledger, icon: "ledger" },
+  { href: "/staff/account", label: t.nav.account, icon: "account" },
 ];
 
 export const ADMIN_NAV: NavItem[] = [

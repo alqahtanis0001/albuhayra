@@ -14,7 +14,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { assertUnlocked } from "@/features/locks/assertUnlocked";
-import { checkCategory, EXISTING_SELECT, snapshot } from "@/features/transactions/links";
+import { checkCategory, EXISTING_SELECT, snapshot, withSalaryHidden } from "@/features/transactions/links";
 import { CONFLICT, inEntryTransaction, paymentOf, resolveEntry } from "@/features/transactions/payments";
 import { writeAudit } from "@/lib/audit";
 import { requireCanEdit, requireMember, requireOwner } from "@/lib/auth";
@@ -138,7 +138,7 @@ export async function updateTransaction(
   const when = isoToDate(input.date);
 
   const existing = await db.transaction.findFirst({
-    where: { establishmentId, id: parsedId.data, deletedAt: null },
+    where: await withSalaryHidden(establishmentId, { establishmentId, id: parsedId.data, deletedAt: null }, user.role === "STAFF"),
     select: EXISTING_SELECT,
   });
   if (!existing) return { ok: false, error: "err.notFound" };

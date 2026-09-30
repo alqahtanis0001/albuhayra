@@ -32,7 +32,8 @@ export default async function StaffLedgerPage({
   const filters = parseLedgerFilters(await searchParams);
 
   const [page, categories, locks] = await Promise.all([
-    listTransactions(establishmentId, filters),
+    // Spec §3.5: salary-linked entries leave the staff ledger — rows, search and totals.
+    listTransactions(establishmentId, filters, { hideSalary: true }),
     listCategories(establishmentId),
     listLocks(establishmentId),
   ]);

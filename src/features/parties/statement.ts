@@ -3,6 +3,7 @@ import "server-only";
 import { recentTransactions, type LedgerRow } from "@/features/transactions/queries";
 import { dateToISO, todayISO } from "@/lib/dates";
 import { db } from "@/lib/db";
+import { planTitleOf } from "@/lib/payroll";
 
 import { getParty, type PartyDetail } from "./queries";
 
@@ -50,7 +51,7 @@ export async function getPartyStatement(establishmentId: string, partyId: string
 
   const plans = await db.plan.findMany({
     where: { establishmentId, partyId: party.id, state: { in: ["OPEN", "ARCHIVED"] } },
-    select: { id: true, title: true, direction: true, totalHalalas: true, startDate: true, state: true, closedAt: true, createdAt: true },
+    select: { id: true, title: true, kind: true, direction: true, totalHalalas: true, startDate: true, state: true, closedAt: true, createdAt: true },
   });
   const instalments = plans.length
     ? await db.instalment.findMany({
@@ -69,11 +70,12 @@ export async function getPartyStatement(establishmentId: string, partyId: string
   const unsorted: Unsorted[] = [];
   for (const plan of plans) {
     const sign = plan.direction === "IN" ? 1 : -1;
+    const title = planTitleOf(plan, party.name); // X13
     unsorted.push({
       date: dateToISO(plan.startDate),
       kind: "PLAN",
       planId: plan.id,
-      planTitle: plan.title,
+      planTitle: title,
       transactionId: null,
       deltaHalalas: sign * plan.totalHalalas,
       sortKey: plan.createdAt.toISOString(),
@@ -85,7 +87,7 @@ export async function getPartyStatement(establishmentId: string, partyId: string
         date: dateToISO(p.date),
         kind: "PAYMENT",
         planId: plan.id,
-        planTitle: plan.title,
+        planTitle: title,
         transactionId: p.id,
         deltaHalalas: -sign * p.amountHalalas,
         sortKey: p.createdAt.toISOString(),
@@ -97,7 +99,7 @@ export async function getPartyStatement(establishmentId: string, partyId: string
         date: todayISO(plan.closedAt),
         kind: "WRITE_OFF",
         planId: plan.id,
-        planTitle: plan.title,
+        planTitle: title,
         transactionId: null,
         deltaHalalas: -sign * rest,
         sortKey: plan.closedAt.toISOString(),

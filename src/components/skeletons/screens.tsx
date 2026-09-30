@@ -13,15 +13,22 @@ import {
   SkeletonStatCards,
 } from "./Skeleton";
 
-/** /owner: this week's dues, four stat cards, balance by method, the chart, top OUT, recent. */
+/** /owner: quick actions, four stat cards, this week's dues, الإضافات الجارية, balance by method, the chart, top OUT, recent. */
 export function OwnerDashboardSkeleton() {
   return (
     <SkeletonPage>
-      <SkeletonHeader action />
+      <SkeletonHeader />
+      <div className="grid auto-cols-fr grid-flow-col gap-2">
+        <Bone onBody className="h-11" />
+        <Bone onBody className="h-11" />
+      </div>
+      <SkeletonStatCards count={4} />
       <SkeletonCard title>
         <SkeletonRows count={3} />
       </SkeletonCard>
-      <SkeletonStatCards count={4} />
+      <SkeletonCard title>
+        <SkeletonRows count={3} />
+      </SkeletonCard>
       <SkeletonCard title>
         <SkeletonRows count={3} />
       </SkeletonCard>

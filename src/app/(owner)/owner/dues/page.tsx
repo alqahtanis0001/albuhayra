@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { fillTemplate } from "@/components/fillTemplate";
 import { AlertIcon } from "@/components/icons";
 import { DueSplit } from "@/features/dues/components/DueList";
+import { ensureSalaryInstalments } from "@/features/payroll/generate";
 import { getDues } from "@/features/plans/dues";
 import { t } from "@/i18n/ar";
 import { requireOwner } from "@/lib/auth";
@@ -20,6 +21,8 @@ export const metadata: Metadata = { title: t.dues.title };
  */
 export default async function DuesPage() {
   const { establishmentId } = await requireOwner();
+  // D2: this month's salary rows exist before anything reads them (cached per request).
+  await ensureSalaryInstalments(establishmentId);
   const dues = await getDues(establishmentId);
   const { totals } = dues;
 

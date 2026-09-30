@@ -21,6 +21,8 @@ const h = vi.hoisted(() => ({
   othersSum: 500,
   existing: null as Record<string, unknown> | null,
   bumpCount: 1,
+  /** v1.2b: how many plans the staff salary predicate matches (0 = visible). */
+  planHidden: 0,
 }));
 
 vi.mock("server-only", () => ({}));
@@ -37,11 +39,15 @@ vi.mock("@/features/plans/allocate", async (original) => ({
 }));
 vi.mock("@/lib/db", () => {
   const db = {
-    category: { findFirst: async () => ({ type: "OUT", active: true }) },
     party: { findFirst: async () => ({ active: true }) },
     project: { findFirst: async () => ({ status: "ACTIVE" }) },
     instalment: { findFirst: async () => (h.lookups.push("instalment"), h.instalment) },
+    // v1.2b: the staff salary predicate's reads (payroll/privacy.ts).
+    employee: { findMany: async () => [] },
+    category: { findFirst: async () => ({ type: "OUT", active: true }), findMany: async () => [] },
     plan: {
+      findMany: async () => [],
+      count: async () => (h.lookups.push("hidden?"), h.planHidden),
       findFirst: async () => (h.lookups.push("plan"), h.plan),
       updateMany: async () => (h.writes.push({ op: "bump" }), { count: h.bumpCount }),
     },
@@ -77,7 +83,7 @@ const refused = (field: string, key: string) => ({ ok: false, error: key, fieldE
 beforeEach(() => {
   Object.assign(h, {
     user: { id: "u1", role: "OWNER", status: "ACTIVE", canEdit: true, establishmentId: "est_1" },
-    lookups: [], writes: [], locked: false,
+    lookups: [], writes: [], locked: false, planHidden: 0,
     instalment: { planId: "plan_1", amountDueHalalas: 1000, paidHalalas: 0 },
     plan: { id: "plan_1", state: "OPEN", revision: 3, totalHalalas: 3000, direction: "OUT", partyId: "party_1" },
     paidSum: 1000, othersSum: 500, existing: { ...PAYMENT_ROW }, bumpCount: 1,
@@ -93,6 +99,15 @@ describe("the canEdit matrix for recording a payment", () => {
 
   it("STAFF with canEdit ✓", async () => {
     h.user = staff(true);
+    expect(await createTransaction(null, form())).toEqual({ ok: true, data: null });
+  });
+
+  it("v1.2b ruling 2: STAFF on a salary agreement gets the missing-id answer, and nothing is written", async () => {
+    h.user = staff(true);
+    h.planHidden = 1;
+    expect(await createTransaction(null, form())).toMatchObject({ fieldErrors: { instalmentId: "err.instalmentInvalid" } });
+    expect(ops()).toEqual([]);
+    h.user = { id: "u1", role: "OWNER", status: "ACTIVE", canEdit: true, establishmentId: "est_1" };
     expect(await createTransaction(null, form())).toEqual({ ok: true, data: null });
   });
 

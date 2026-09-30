@@ -13,6 +13,7 @@
 import Link from "next/link";
 
 import { MoneyText } from "@/components/MoneyText";
+import { periodLabel } from "@/features/plans/components/PlanBits";
 import { t } from "@/i18n/ar";
 import type { DirectionValue } from "@/lib/validation";
 
@@ -26,7 +27,8 @@ export type PaymentBannerProps =
       mode: "new";
       instalmentId: string;
       instalmentRemainingHalalas: number;
-      plan?: OwnerPlan & { seq: number; planRemainingHalalas: number };
+      /** `periodYm` is set on a salary month (S-L2a): named by its month, not its seq. */
+      plan?: OwnerPlan & { seq: number; periodYm: string | null; planRemainingHalalas: number };
     })
   | (Common & { mode: "edit"; plan?: OwnerPlan });
 
@@ -39,9 +41,11 @@ export function PaymentBanner(props: PaymentBannerProps) {
       </h2>
       {props.mode === "new" && props.plan ? (
         <p>
-          {t.payment.forInstalment
-            .replace("{seq}", String(props.plan.seq))
-            .replace("{title}", props.plan.planTitle)}
+          {props.plan.periodYm
+            ? `${props.plan.planTitle} · ${periodLabel(props.plan.periodYm)}`
+            : t.payment.forInstalment
+                .replace("{seq}", String(props.plan.seq))
+                .replace("{title}", props.plan.planTitle)}
         </p>
       ) : null}
 

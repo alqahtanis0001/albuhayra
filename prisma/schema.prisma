@@ -42,14 +42,20 @@ model Establishment {
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
 
-  users        User[]
-  categories   Category[]
-  transactions Transaction[]
-  locks        PeriodLock[]
-  parties      Party[]
-  projects     Project[]
-  plans        Plan[]
-  instalments  Instalment[]
+  users              User[]
+  categories         Category[]
+  transactions       Transaction[]
+  locks              PeriodLock[]
+  parties            Party[]
+  projects           Project[]
+  plans              Plan[]
+  instalments        Instalment[]
+  // v1.2b
+  employees          Employee[]
+  employeeAllowances EmployeeAllowance[]
+  salaryPeriods      SalaryPeriod[]
+  salaryDeductions   SalaryDeduction[]
+  attendanceRecords  AttendanceRecord[]
 }
 
 model User {
@@ -75,11 +81,15 @@ model User {
   establishmentId String?
   createdAt       DateTime   @default(now())
 
-  establishment Establishment? @relation(fields: [establishmentId], references: [id])
-  transactions  Transaction[]
-  locks         PeriodLock[]
-  auditLogs     AuditLog[]
-  emailCodes    EmailCode[]
+  establishment      Establishment?     @relation(fields: [establishmentId], references: [id])
+  transactions       Transaction[]
+  locks              PeriodLock[]
+  auditLogs          AuditLog[]
+  emailCodes         EmailCode[]
+  // v1.2b
+  employee           Employee?          @relation("EmployeeLogin")
+  attendanceRecorded AttendanceRecord[] @relation("AttendanceRecorder")
+  deductionsCreated  SalaryDeduction[]
 
   @@index([establishmentId, role, status])
 }
@@ -118,6 +128,7 @@ model Category {
   establishment Establishment @relation(fields: [establishmentId], references: [id])
   transactions  Transaction[]
   plans         Plan[]
+  employees     Employee[]
 
   @@index([establishmentId, type])
 }
@@ -221,6 +232,7 @@ model Party {
   establishment Establishment @relation(fields: [establishmentId], references: [id])
   transactions  Transaction[]
   plans         Plan[]
+  employee      Employee?
 
   @@index([establishmentId, type])
 }
@@ -281,17 +293,23 @@ model Plan {
   /// `updateMany where revision = n`, so two concurrent payments cannot both
   /// allocate against the same remaining amount.
   revision        Int       @default(0)
+  /// v1.2b: SALARY plans are generated and managed from the employee profile
+  /// (docs/V12B-DESIGN.md D1); the plan pages cannot edit or cancel them.
+  kind            PlanKind  @default(STANDARD)
+  employeeId      String?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
   establishment Establishment @relation(fields: [establishmentId], references: [id])
   party         Party         @relation(fields: [partyId], references: [id])
   category      Category      @relation(fields: [categoryId], references: [id])
+  employee      Employee?     @relation(fields: [employeeId], references: [id], onDelete: Restrict)
   instalments   Instalment[]
 
   @@index([establishmentId, state])
   @@index([partyId])
   @@index([categoryId])
+  @@index([employeeId])
 }
 
 /// الدفعات. `paidHalalas` is a cache written only by the plan re-allocation
@@ -307,13 +325,168 @@ model Instalment {
   dueDate          DateTime @db.Date
   amountDueHalalas Int
   paidHalalas      Int      @default(0)
+  /// v1.2b: "YYYY-MM" for a SALARY plan's month; null on STANDARD plans.
+  /// Unique per plan so generation is idempotent (D2); Postgres allows many nulls.
+  periodYm         String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
   establishment Establishment @relation(fields: [establishmentId], references: [id])
   plan          Plan          @relation(fields: [planId], references: [id])
   transactions  Transaction[]
+  salaryPeriod  SalaryPeriod?
 
+  @@unique([planId, periodYm])
   @@index([establishmentId, dueDate])
   @@index([planId])
+}
+
+// ---------------------------------------------------------------- v1.2b
+// Employees, salaries, attendance — docs/V12B-DESIGN.md. Every model carries
+// establishmentId. No ID/iqama/IBAN fields (R8; later, only with encryption).
+
+enum PlanKind {
+  STANDARD
+  SALARY
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  ENDED
+}
+
+enum AllowanceType {
+  HOUSING
+  TRANSPORT
+  OTHER
+}
+
+enum AttendanceStatus {
+  PRESENT
+  LATE
+  ABSENT
+  LEAVE
+  REMOTE
+  HOLIDAY
+}
+
+/// Always exactly one Party of type EMPLOYEE (R1): the name lives there.
+model Employee {
+  id                 String         @id @default(cuid())
+  establishmentId    String
+  partyId            String         @unique
+  /// Optional STAFF login of the same establishment (R6): grants only
+  /// self check-in/out and the employee's own data.
+  userId             String?        @unique
+  jobTitle           String?
+  startDate          DateTime       @db.Date
+  endDate            DateTime?      @db.Date
+  status             EmployeeStatus @default(ACTIVE)
+  notes              String?
+  /// Work schedule (R3/R5): bitmask Sun=1, Mon=2, Tue=4, Wed=8, Thu=16,
+  /// Fri=32, Sat=64; 31 = Sunday–Thursday. Times are "HH:MM" Riyadh.
+  workDays           Int            @default(31)
+  workStart          String?
+  workEnd            String?
+  graceMinutes       Int?
+  /// Salary (R3). Null basic = no salary plan.
+  basicSalaryHalalas Int?
+  /// 1–31, clamped to the month's last day (D3).
+  payDay             Int?
+  salaryCategoryId   String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  establishment  Establishment       @relation(fields: [establishmentId], references: [id])
+  party          Party               @relation(fields: [partyId], references: [id], onDelete: Restrict)
+  user           User?               @relation("EmployeeLogin", fields: [userId], references: [id])
+  salaryCategory Category?           @relation(fields: [salaryCategoryId], references: [id])
+  allowances     EmployeeAllowance[]
+  plans          Plan[]
+  salaryPeriods  SalaryPeriod[]
+  attendance     AttendanceRecord[]
+
+  @@index([establishmentId, status])
+}
+
+/// The current allowances (R3). Past months keep theirs in SalaryPeriod (D4).
+model EmployeeAllowance {
+  id              String        @id @default(cuid())
+  establishmentId String
+  employeeId      String
+  type            AllowanceType
+  /// Required for OTHER, shown on the payslip.
+  label           String?
+  amountHalalas   Int
+  createdAt       DateTime      @default(now())
+
+  establishment Establishment @relation(fields: [establishmentId], references: [id])
+  employee      Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+}
+
+/// One salary month: the snapshot the payslip prints (D4). Its instalment's
+/// amountDue = grossHalalas − Σ deductions.
+model SalaryPeriod {
+  id              String   @id @default(cuid())
+  establishmentId String
+  employeeId      String
+  instalmentId    String   @unique
+  periodYm        String
+  basicHalalas    Int
+  /// [{ type, label, amountHalalas }] as they were for this month.
+  allowances      Json
+  grossHalalas    Int
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  establishment Establishment     @relation(fields: [establishmentId], references: [id])
+  employee      Employee          @relation(fields: [employeeId], references: [id])
+  instalment    Instalment        @relation(fields: [instalmentId], references: [id], onDelete: Restrict)
+  deductions    SalaryDeduction[]
+
+  @@unique([employeeId, periodYm])
+  @@index([establishmentId, periodYm])
+}
+
+/// A manual deduction with a reason (D9); reduces the month's instalment.
+model SalaryDeduction {
+  id              String   @id @default(cuid())
+  establishmentId String
+  salaryPeriodId  String
+  amountHalalas   Int
+  reason          String
+  createdById     String
+  createdAt       DateTime @default(now())
+
+  establishment Establishment @relation(fields: [establishmentId], references: [id])
+  salaryPeriod  SalaryPeriod  @relation(fields: [salaryPeriodId], references: [id])
+  createdBy     User          @relation(fields: [createdById], references: [id])
+
+  @@index([salaryPeriodId])
+}
+
+/// One row per employee per calendar day (D10). Hours are computed at read time.
+model AttendanceRecord {
+  id               String           @id @default(cuid())
+  establishmentId  String
+  employeeId       String
+  date             DateTime         @db.Date
+  status           AttendanceStatus
+  /// true once the owner set the status by hand: automatic late never overwrites it.
+  statusOverridden Boolean          @default(false)
+  checkIn          String?
+  checkOut         String?
+  note             String?
+  recordedById     String
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  establishment Establishment @relation(fields: [establishmentId], references: [id])
+  employee      Employee      @relation(fields: [employeeId], references: [id])
+  recordedBy    User          @relation("AttendanceRecorder", fields: [recordedById], references: [id])
+
+  @@unique([employeeId, date])
+  @@index([establishmentId, date])
 }

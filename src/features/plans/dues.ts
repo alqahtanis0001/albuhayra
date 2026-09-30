@@ -1,8 +1,11 @@
 import "server-only";
 
+import type { Prisma } from "@/generated/prisma";
+import { staffPlanFilter } from "@/features/payroll/privacy";
 import { dateToISO, isoToDate, todayISO } from "@/lib/dates";
 import { db } from "@/lib/db";
 import { dayOffset, instalmentStatus, type InstalmentStatus } from "@/lib/instalments";
+import { planTitleOf } from "@/lib/payroll";
 import type { DirectionValue } from "@/lib/validation";
 
 /**
@@ -24,6 +27,9 @@ export type DueRow = {
   remainingHalalas: number;
   status: InstalmentStatus;
   dayOffset: number;
+  /** v1.2b: SALARY rows carry their month — show it instead of `seq`. */
+  kind: "STANDARD" | "SALARY";
+  periodYm: string | null;
 };
 
 export type Dues = {
@@ -48,6 +54,8 @@ export type InstalmentForPayment = {
   categoryId: string;
   instalmentRemainingHalalas: number;
   planRemainingHalalas: number;
+  kind: "STANDARD" | "SALARY";
+  periodYm: string | null;
 };
 
 /** W2: the staff payment form sees exactly these six fields — no plan title or totals. */
@@ -66,23 +74,28 @@ export function weekEndOf(today: string): string {
 
 const STAFF_DUES_LIMIT = 20;
 
-/** Unpaid instalments of OPEN plans due on or before `until`, in (dueDate, seq, id) order. */
-async function unpaidUntil(establishmentId: string, until: string, take?: number) {
+/**
+ * Unpaid instalments of OPEN plans due on or before `until`, in (dueDate, seq,
+ * id) order. `staff` (the staff plan clause) leaves out every salary
+ * agreement (spec §3.5, ruling 2).
+ */
+async function unpaidUntil(establishmentId: string, until: string, take?: number, staff?: Prisma.PlanWhereInput) {
   return db.instalment.findMany({
     where: {
       establishmentId,
       dueDate: { lte: isoToDate(until) },
       paidHalalas: { lt: db.instalment.fields.amountDueHalalas },
-      plan: { state: "OPEN" },
+      plan: { state: "OPEN", ...(staff ? { AND: [staff] } : {}) },
     },
     select: {
       id: true,
       planId: true,
       seq: true,
+      periodYm: true,
       dueDate: true,
       amountDueHalalas: true,
       paidHalalas: true,
-      plan: { select: { title: true, direction: true, partyId: true, reminderDays: true, party: { select: { name: true } } } },
+      plan: { select: { title: true, kind: true, direction: true, partyId: true, reminderDays: true, party: { select: { name: true } } } },
     },
     orderBy: [{ dueDate: "asc" }, { seq: "asc" }, { id: "asc" }],
     ...(take ? { take } : {}),
@@ -96,7 +109,7 @@ export async function getDues(establishmentId: string, today: string = todayISO(
     return {
       instalmentId: r.id,
       planId: r.planId,
-      planTitle: r.plan.title,
+      planTitle: planTitleOf(r.plan, r.plan.party.name),
       partyId: r.plan.partyId,
       partyName: r.plan.party.name,
       direction: r.plan.direction,
@@ -105,6 +118,8 @@ export async function getDues(establishmentId: string, today: string = todayISO(
       remainingHalalas: r.amountDueHalalas - r.paidHalalas,
       status: instalmentStatus({ ...r, dueDate }, today, r.plan.reminderDays),
       dayOffset: dayOffset(dueDate, today),
+      kind: r.plan.kind,
+      periodYm: r.periodYm,
     };
   });
   const overdue = rows.filter((r) => r.dueDate < today);
@@ -139,7 +154,7 @@ export async function getOverdueCount(establishmentId: string, today: string = t
 
 /** Same window as `getDues`, at most 20 rows, and nothing beyond the four fields. */
 export async function getStaffDues(establishmentId: string, today: string = todayISO()): Promise<StaffDueRow[]> {
-  const rows = await unpaidUntil(establishmentId, weekEndOf(today), STAFF_DUES_LIMIT);
+  const rows = await unpaidUntil(establishmentId, weekEndOf(today), STAFF_DUES_LIMIT, await staffPlanFilter(establishmentId));
   return rows.map((r) => ({
     instalmentId: r.id,
     partyName: r.plan.party.name,
@@ -163,11 +178,12 @@ export async function getInstalmentForPayment(
       id: true,
       planId: true,
       seq: true,
+      periodYm: true,
       amountDueHalalas: true,
       paidHalalas: true,
       plan: {
         select: {
-          title: true, state: true, direction: true, partyId: true, categoryId: true, totalHalalas: true,
+          title: true, kind: true, state: true, direction: true, partyId: true, categoryId: true, totalHalalas: true,
           party: { select: { name: true } },
         },
       },
@@ -182,7 +198,7 @@ export async function getInstalmentForPayment(
   return {
     instalmentId: row.id,
     planId: row.planId,
-    planTitle: row.plan.title,
+    planTitle: planTitleOf(row.plan, row.plan.party.name),
     seq: row.seq,
     direction: row.plan.direction,
     partyId: row.plan.partyId,
@@ -190,6 +206,8 @@ export async function getInstalmentForPayment(
     categoryId: row.plan.categoryId,
     instalmentRemainingHalalas: row.amountDueHalalas - row.paidHalalas,
     planRemainingHalalas: row.plan.totalHalalas - Number(paid._sum.amountHalalas ?? 0),
+    kind: row.plan.kind,
+    periodYm: row.periodYm,
   };
 }
 
@@ -198,7 +216,12 @@ export async function getStaffPaymentPrefill(
   establishmentId: string,
   instalmentId: string,
 ): Promise<StaffPaymentPrefill | null> {
-  const full = await getInstalmentForPayment(establishmentId, instalmentId);
+  // v1.2b ruling 2: a salary agreement's instalment is not payable by STAFF — null, like a missing id.
+  const visible = await db.instalment.findFirst({
+    where: { establishmentId, id: instalmentId, plan: await staffPlanFilter(establishmentId) },
+    select: { id: true },
+  });
+  const full = visible ? await getInstalmentForPayment(establishmentId, instalmentId) : null;
   if (!full) return null;
   const { direction, partyId, partyName, categoryId, instalmentRemainingHalalas } = full;
   return { instalmentId: full.instalmentId, direction, partyId, partyName, categoryId, instalmentRemainingHalalas };
@@ -208,12 +231,12 @@ export async function getStaffPaymentPrefill(
 export async function getPaymentLink(establishmentId: string, instalmentId: string): Promise<PaymentLink | null> {
   const row = await db.instalment.findFirst({
     where: { establishmentId, id: instalmentId },
-    select: { planId: true, plan: { select: { title: true, direction: true, partyId: true, party: { select: { name: true } } } } },
+    select: { planId: true, plan: { select: { title: true, kind: true, direction: true, partyId: true, party: { select: { name: true } } } } },
   });
   if (!row) return null;
   return {
     planId: row.planId,
-    planTitle: row.plan.title,
+    planTitle: planTitleOf(row.plan, row.plan.party.name),
     direction: row.plan.direction,
     partyId: row.plan.partyId,
     partyName: row.plan.party.name,

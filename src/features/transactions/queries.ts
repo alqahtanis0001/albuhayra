@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { Prisma } from "@/generated/prisma";
+import { withSalaryHidden } from "@/features/payroll/privacy";
 import { dateToISO, isoToDate } from "@/lib/dates";
 import { db } from "@/lib/db";
 import { displayName, NAME_SELECT, type NameParts } from "@/lib/names";
@@ -180,11 +181,15 @@ async function sumByDirection(
   return { inHalalas, outHalalas, netHalalas: inHalalas - outHalalas };
 }
 
+/** v1.2b `hideSalary`: staff views (spec §3.5) — rows, count and totals alike. */
+export type StaffView = { hideSalary?: boolean };
+
 export async function listTransactions(
   establishmentId: string,
   filters: TransactionFilter,
+  view: StaffView = {},
 ): Promise<LedgerPage> {
-  const where = ledgerWhere(establishmentId, filters);
+  const where = await withSalaryHidden(establishmentId, ledgerWhere(establishmentId, filters), view.hideSalary);
   const page = filters.page ?? 1;
 
   const [rows, total, totals] = await Promise.all([
@@ -210,9 +215,10 @@ export async function listTransactions(
 export async function getTransaction(
   establishmentId: string,
   id: string,
+  view: StaffView = {},
 ): Promise<LedgerRow | null> {
   const row = await db.transaction.findFirst({
-    where: { establishmentId, id, deletedAt: null },
+    where: await withSalaryHidden(establishmentId, { establishmentId, id, deletedAt: null }, view.hideSalary),
     select: ROW_SELECT,
   });
   return row === null ? null : toRow(row);
@@ -227,9 +233,10 @@ export async function recentTransactions(
   establishmentId: string,
   take: number,
   extra: Prisma.TransactionWhereInput = {},
+  view: StaffView = {},
 ): Promise<LedgerRow[]> {
   const rows = await db.transaction.findMany({
-    where: { ...ledgerWhere(establishmentId), ...extra },
+    where: await withSalaryHidden(establishmentId, { ...ledgerWhere(establishmentId), ...extra }, view.hideSalary),
     select: ROW_SELECT,
     orderBy: [{ date: "desc" }, { createdAt: "desc" }],
     take,

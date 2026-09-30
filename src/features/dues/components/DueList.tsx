@@ -10,7 +10,7 @@ import Link from "next/link";
 import { DateText } from "@/components/DateText";
 import { LinkButton } from "@/components/LinkButton";
 import { MoneyText } from "@/components/MoneyText";
-import { Countdown } from "@/features/plans/components/PlanBits";
+import { Countdown, InstalmentName } from "@/features/plans/components/PlanBits";
 import type { DueRow } from "@/features/plans/dues";
 import { t } from "@/i18n/ar";
 
@@ -30,7 +30,7 @@ export function DueRows({ rows, limit }: { rows: DueRow[]; limit?: number }) {
               {row.partyName}
             </Link>
             <span className="truncate text-xs text-gray-600">
-              {row.planTitle} · {t.schedule.row} <bdi className="tabular-nums">{row.seq}</bdi>
+              {row.planTitle} · <InstalmentName seq={row.seq} periodYm={row.periodYm} />
             </span>
             <Countdown dayOffset={row.dayOffset} status={row.status} />
           </div>

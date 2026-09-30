@@ -29,7 +29,19 @@ export default async function EditPlanPage({ params }: { params: Promise<{ id: s
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-xl font-semibold text-gray-900">{t.plans.editTitle}</h1>
-      {closed ? (
+      {plan.kind === "SALARY" ? (
+        // D1: updatePlan refuses a salary plan; send the owner to the profile.
+        <Card>
+          <div className="flex flex-col items-start gap-3">
+            <p className="text-sm text-gray-700">{t.employees.managedFromProfile}</p>
+            {plan.employeeId ? (
+              <LinkButton href={`/owner/staff/${plan.employeeId}`} variant="secondary">
+                {t.employees.openProfile}
+              </LinkButton>
+            ) : null}
+          </div>
+        </Card>
+      ) : closed ? (
         // updatePlan refuses a closed plan (err.planClosed); say so up front.
         <Card>
           <div className="flex flex-col items-start gap-3">

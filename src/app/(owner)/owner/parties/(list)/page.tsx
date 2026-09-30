@@ -6,6 +6,7 @@ import { Tabs } from "@/components/Tabs";
 import { PlusIcon } from "@/components/icons";
 import { PartyList } from "@/features/parties/components/PartyList";
 import { listParties } from "@/features/parties/queries";
+import { ensureSalaryInstalments } from "@/features/payroll/generate";
 import { t } from "@/i18n/ar";
 import { requireOwner } from "@/lib/auth";
 import { PartyTypeEnum, type PartyTypeValue } from "@/lib/validation";
@@ -20,6 +21,8 @@ export default async function PartiesPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { establishmentId } = await requireOwner();
+  // D2: this month's salary rows exist before anything reads them (cached per request).
+  await ensureSalaryInstalments(establishmentId);
   // The URL only narrows the list; anything unrecognised shows them all.
   const parsed = PartyTypeEnum.safeParse((await searchParams).type);
   const type: PartyTypeValue | undefined = parsed.success ? parsed.data : undefined;

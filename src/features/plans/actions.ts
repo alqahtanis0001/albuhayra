@@ -130,7 +130,7 @@ export async function createPlan(_prev: PlanState, formData: FormData): Promise<
 
 const PLAN_READ = {
   id: true, state: true, revision: true, partyId: true, direction: true, categoryId: true,
-  title: true, totalHalalas: true, startDate: true, reminderDays: true, notes: true,
+  title: true, totalHalalas: true, startDate: true, reminderDays: true, notes: true, kind: true,
 } as const;
 
 export async function updatePlan(planId: string, _prev: PlanState, formData: FormData): Promise<ActionResult<null>> {
@@ -144,6 +144,7 @@ export async function updatePlan(planId: string, _prev: PlanState, formData: For
   // V4: revision in the same read as state/direction, before anything is summed.
   const plan = await db.plan.findFirst({ where: { establishmentId, id: parsedId.data }, select: PLAN_READ });
   if (!plan) return { ok: false, error: "err.notFound" };
+  if (plan.kind === "SALARY") return { ok: false, error: "err.salaryPlanManaged" }; // D1
   if (plan.state !== "OPEN") return { ok: false, error: "err.planClosed" };
 
   const schedule = await resolveSchedule(establishmentId, plan, input);
@@ -179,7 +180,7 @@ export async function updatePlan(planId: string, _prev: PlanState, formData: For
       }
       await tx.plan.updateMany({ where: { establishmentId, id: plan.id }, data: columns });
       await reallocatePlan(tx, establishmentId, plan.id, user.id);
-      const { id: _id, state: _s, revision: _r, ...before } = plan;
+      const { id: _id, state: _s, revision: _r, kind: _k, ...before } = plan;
       await writeAudit({
         establishmentId,
         userId: user.id,
@@ -221,9 +222,11 @@ async function closePlan(planId: string, state: "CANCELLED" | "ARCHIVED"): Promi
 
   const plan = await db.plan.findFirst({
     where: { establishmentId, id: parsedId.data },
-    select: { id: true, state: true, revision: true },
+    select: { id: true, state: true, revision: true, kind: true },
   });
   if (!plan) return { ok: false, error: "err.notFound" };
+  // D1/S1: a salary plan is ended or archived only through its employee.
+  if (plan.kind === "SALARY") return { ok: false, error: "err.salaryPlanManaged" };
   if (plan.state !== "OPEN") return { ok: false, error: "err.planClosed" };
 
   if (state === "CANCELLED") {

@@ -17,6 +17,9 @@ const h = vi.hoisted(() => ({
   transactionCount: 0,
   planCount: 0,
   deleteError: null as unknown,
+  /** v1.2b D14: the employee holding the party, if any. */
+  employee: null as Record<string, unknown> | null,
+  employeeWheres: [] as Array<Record<string, unknown>>,
 }));
 
 vi.mock("server-only", () => ({}));
@@ -54,6 +57,9 @@ vi.mock("@/lib/db", () => {
       },
     },
     transaction: { count: async () => h.transactionCount },
+    employee: {
+      findFirst: async (args: { where: Record<string, unknown> }) => (h.employeeWheres.push(args.where), h.employee),
+    },
     plan: { count: async () => h.planCount },
     $transaction: async (fn: (tx: unknown) => unknown) => fn(db),
   };
@@ -75,6 +81,7 @@ beforeEach(() => {
   Object.assign(h, {
     guards: [], refuse: null, writes: [], existing: PARTY, namesake: null,
     namesakeWheres: [], transactionCount: 0, planCount: 0, deleteError: null,
+    employee: null, employeeWheres: [],
   });
 });
 
@@ -153,5 +160,43 @@ describe("deleteParty refuses a party with history", () => {
   it("deletes and audits otherwise", async () => {
     expect(await deleteParty("party_1")).toEqual({ ok: true, data: null });
     expect(h.writes).toEqual(["party.deleteMany", "audit:PARTY_DELETE"]);
+  });
+});
+
+describe("v1.2b D14: an employee's party is managed from the profile", () => {
+  beforeEach(() => {
+    h.existing = { ...PARTY, type: "EMPLOYEE" };
+    h.employee = { id: "emp_1" };
+  });
+
+  it("refuses retyping it, looking the holder up in this establishment only", async () => {
+    expect(await updateParty("party_1", null, form())).toEqual({
+      ok: false, error: "err.partyIsEmployee", fieldErrors: { type: "err.partyIsEmployee" },
+    });
+    expect(h.employeeWheres[0]).toEqual({ establishmentId: "est_1", partyId: "party_1" });
+    expect(h.writes).toEqual([]);
+  });
+
+  it("still allows editing it without a type change", async () => {
+    const f = form();
+    f.set("type", "EMPLOYEE");
+    expect(await updateParty("party_1", null, f)).toEqual({ ok: true, data: null });
+  });
+
+  it("refuses deactivating it, but not reactivating", async () => {
+    expect(await setPartyActive("party_1", false)).toEqual({ ok: false, error: "err.partyIsEmployee" });
+    h.existing = { ...PARTY, type: "EMPLOYEE", active: false };
+    expect(await setPartyActive("party_1", true)).toEqual({ ok: true, data: null });
+  });
+
+  it("refuses deleting it before any history check", async () => {
+    expect(await deleteParty("party_1")).toEqual({ ok: false, error: "err.partyIsEmployee" });
+    expect(h.writes).toEqual([]);
+  });
+
+  it("a موظف party with no employee profile behaves as before", async () => {
+    h.employee = null;
+    expect(await setPartyActive("party_1", false)).toEqual({ ok: true, data: null });
+    expect(await deleteParty("party_1")).toEqual({ ok: true, data: null });
   });
 });

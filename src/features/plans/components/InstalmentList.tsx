@@ -13,7 +13,7 @@ import { MoneyText } from "@/components/MoneyText";
 import type { PlanInstalment } from "@/features/plans/queries";
 import { t } from "@/i18n/ar";
 
-import { Countdown, InstalmentStatusBadge } from "./PlanBits";
+import { Countdown, InstalmentName, InstalmentStatusBadge } from "./PlanBits";
 
 export function InstalmentList({
   instalments,
@@ -29,7 +29,7 @@ export function InstalmentList({
         <li key={row.id} className="report-card flex flex-col gap-2 border-b border-gray-200 p-3 last:border-b-0">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="font-semibold text-gray-900">
-              {t.schedule.row} <bdi className="tabular-nums">{row.seq}</bdi>
+              <InstalmentName seq={row.seq} periodYm={row.periodYm} />
             </span>
             <span className="flex flex-wrap items-center gap-2">
               <Countdown dayOffset={row.dayOffset} status={row.status} />

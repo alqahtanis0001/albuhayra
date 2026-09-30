@@ -9,6 +9,7 @@
 import { Badge, type BadgeTone } from "@/components/Badge";
 import { t } from "@/i18n/ar";
 import type { InstalmentStatus, PlanStatus } from "@/lib/instalments";
+import { monthNameAr } from "@/lib/dates";
 import { plural } from "@/lib/plural";
 import type { DirectionValue, PartyTypeValue } from "@/lib/validation";
 
@@ -85,3 +86,22 @@ export const DEFAULT_DIRECTION: Record<PartyTypeValue, DirectionValue | ""> = {
   EMPLOYEE: "OUT",
   OTHER: "",
 };
+
+/** «سبتمبر 2026» for a salary month (S-L2a); month names live in dates.ts only. */
+export function periodLabel(periodYm: string): string {
+  const [year, month] = periodYm.split("-");
+  return `${monthNameAr(Number(month))} ${year}`;
+}
+
+/**
+ * An instalment's name: its month on a salary plan (whose `seq` is derived
+ * from the month and means nothing to a reader), else «الدفعة {seq}».
+ */
+export function InstalmentName({ seq, periodYm }: { seq: number; periodYm?: string | null }) {
+  if (periodYm) return <>{periodLabel(periodYm)}</>;
+  return (
+    <>
+      {t.schedule.row} <bdi className="tabular-nums">{seq}</bdi>
+    </>
+  );
+}

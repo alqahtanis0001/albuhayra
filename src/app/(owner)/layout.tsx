@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 
 import { AppShell } from "@/components/chrome/AppShell";
 import { OWNER_NAV_GROUPS, OWNER_TAB_HREFS } from "@/components/chrome/nav";
+import { ensureSalaryInstalments } from "@/features/payroll/generate";
 import { getOverdueCount } from "@/features/plans/dues";
 import { requireOwner } from "@/lib/auth";
 
@@ -12,6 +13,8 @@ import { requireOwner } from "@/lib/auth";
  */
 export default async function OwnerLayout({ children }: { children: ReactNode }) {
   const { user, establishmentId } = await requireOwner();
+  // Salary months first (D2, cached per request), so the badge counts them.
+  await ensureSalaryInstalments(establishmentId);
   // The المستحقات badge: overdue instalments, from the server's today. Fresh on
   // every navigation; stale in between (accepted, V12).
   const badges = { "/owner/dues": await getOverdueCount(establishmentId) };

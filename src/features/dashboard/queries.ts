@@ -217,7 +217,9 @@ export async function getStaffDashboard(
   const [month, myRecent, self] = await Promise.all([
     // Establishment-wide, per docs/FRONTEND.md — staff see the whole month.
     sumByDirection({ ...allTime, date: { gte: from, lte: to } }),
-    recentTransactions(establishmentId, RECENT_COUNT, { createdById: userId }),
+    // Y4: even a staff member's own salary-linked entry leaves «حركاتي الأخيرة»;
+    // the month totals above may include it (spec §3.5 allows aggregates).
+    recentTransactions(establishmentId, RECENT_COUNT, { createdById: userId }, { hideSalary: true }),
     // Scoped by establishmentId as well as id. The session's user id is trusted,
     // but the query still states which establishment that user must belong to.
     db.user.findFirst({

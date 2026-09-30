@@ -1,0 +1,190 @@
+import "server-only";
+
+import { cache } from "react";
+
+import { Prisma } from "@/generated/prisma";
+import { bumpRevision, ConcurrentChangeError, reallocatePlan } from "@/features/plans/allocate";
+import { writeAudit } from "@/lib/audit";
+import { requireMember } from "@/lib/auth";
+import { dateToISO, isoToDate, todayISO } from "@/lib/dates";
+import { db } from "@/lib/db";
+import { grossOf, salaryMonthsToGenerate } from "@/lib/payroll";
+
+import {
+  archiveSalaryPlan,
+  currentAllowances,
+  deleteUnfixedMonthsAfter,
+  generateMonths,
+  recomputePlanTotal,
+  type SalaryTerms,
+} from "./core";
+
+/**
+ * Salary generation (docs/V12B-DESIGN.md D2, D6, Y1, Y11). There is no cron on
+ * this stack, so months are created on demand: on profile save inside the
+ * action, and by `ensureSalaryInstalments` awaited first in every page that
+ * reads salary data. `server-only`, never `"use server"` (S8): it is not a
+ * callable action.
+ */
+
+type Tx = Prisma.TransactionClient;
+
+/**
+ * One plan's generation pass, inside the caller's transaction after its
+ * revision bump: months → total (D8) → re-allocation (an earlier overpayment
+ * rolls into a new month) → one `SALARY_GENERATE` audit when rows were made.
+ */
+export async function syncSalaryPlan(
+  tx: Tx,
+  establishmentId: string,
+  userId: string,
+  plan: { id: string; startDate: string },
+  terms: SalaryTerms,
+  today: string,
+): Promise<number> {
+  const months = await generateMonths(tx, establishmentId, plan, terms, today);
+  if (months.length === 0) return 0;
+  await recomputePlanTotal(tx, establishmentId, plan.id);
+  await reallocatePlan(tx, establishmentId, plan.id, userId);
+  await writeAudit({
+    establishmentId,
+    userId,
+    action: "SALARY_GENERATE",
+    entity: "Plan",
+    entityId: plan.id,
+    after: {
+      employeeId: terms.employeeId,
+      grossHalalas: grossOf(terms.basicSalaryHalalas, terms.allowances),
+      months: months.map((m) => ({ periodYm: m.periodYm, dueDate: m.dueDate })),
+    },
+    client: tx,
+  });
+  return months.length;
+}
+
+/** A lost race with another generation run: the other run did the work. */
+function isBenignRace(error: unknown): boolean {
+  return (
+    error instanceof ConcurrentChangeError ||
+    (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002")
+  );
+}
+
+/**
+ * S5 + S-L4a: an end date that has passed makes the employee ENDED — read the
+ * ids, then compare-and-set each (a concurrent reactivation wins) with its own
+ * `EMPLOYEE_END` audit (spec §0: every mutation is audited).
+ */
+async function endPassedEmployments(establishmentId: string, userId: string, today: string, employeeId?: string) {
+  const due = await db.employee.findMany({
+    where: { establishmentId, ...(employeeId ? { id: employeeId } : {}), status: "ACTIVE", endDate: { lt: isoToDate(today) } },
+    select: { id: true, endDate: true },
+  });
+  for (const employee of due) {
+    await db.$transaction(async (tx) => {
+      const { count } = await tx.employee.updateMany({
+        where: { establishmentId, id: employee.id, status: "ACTIVE", endDate: employee.endDate },
+        data: { status: "ENDED" },
+      });
+      if (count === 0) return;
+      await writeAudit({
+        establishmentId, userId, action: "EMPLOYEE_END", entity: "Employee", entityId: employee.id,
+        before: { status: "ACTIVE" },
+        after: { status: "ENDED", endDate: employee.endDate ? dateToISO(employee.endDate) : null, auto: true },
+        client: tx,
+      });
+    });
+  }
+}
+
+/**
+ * The whole pass for an establishment (or one employee — Y11): end
+ * employments whose end date passed (compare-and-set, S5), archive their open
+ * salary plans after deleting unfixed months beyond the end (D6), and generate
+ * what is due for the rest. Each plan is its own transaction, so one lost race
+ * never blocks another plan.
+ */
+export async function runSalaryGeneration(
+  establishmentId: string,
+  userId: string,
+  today: string,
+  employeeId?: string,
+): Promise<void> {
+  await endPassedEmployments(establishmentId, userId, today, employeeId);
+
+  const plans = await db.plan.findMany({
+    where: { establishmentId, kind: "SALARY", state: "OPEN", ...(employeeId ? { employeeId } : {}) },
+    select: { id: true, revision: true, startDate: true, employeeId: true },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+  });
+  if (plans.length === 0) return;
+  const employeeIds = plans.map((p) => p.employeeId).filter((id): id is string => id !== null);
+  const [employees, periods] = await Promise.all([
+    db.employee.findMany({
+      where: { establishmentId, id: { in: employeeIds } },
+      select: { id: true, status: true, endDate: true, basicSalaryHalalas: true, payDay: true },
+    }),
+    db.salaryPeriod.findMany({
+      where: { establishmentId, employeeId: { in: employeeIds } },
+      select: { employeeId: true, periodYm: true },
+    }),
+  ]);
+
+  for (const plan of plans) {
+    const employee = employees.find((e) => e.id === plan.employeeId);
+    if (!employee) continue;
+    const endDate = employee.endDate ? dateToISO(employee.endDate) : null;
+    const startDate = dateToISO(plan.startDate);
+    const ended = endDate !== null && endDate < today;
+    const salaried = employee.status === "ACTIVE" && employee.basicSalaryHalalas !== null && employee.payDay !== null;
+    if (!ended && !salaried) continue;
+    // Cheap pre-check outside any transaction: most page loads have nothing to do.
+    if (!ended) {
+      const due = salaryMonthsToGenerate({
+        startDate,
+        endDate,
+        payDay: employee.payDay!,
+        todayISO: today,
+        existing: periods.filter((p) => p.employeeId === employee.id).map((p) => p.periodYm),
+      });
+      if (due.length === 0) continue;
+    }
+
+    try {
+      await db.$transaction(async (tx) => {
+        await bumpRevision(tx, establishmentId, plan.id, plan.revision);
+        if (ended) {
+          await deleteUnfixedMonthsAfter(tx, establishmentId, plan.id, endDate!);
+          await recomputePlanTotal(tx, establishmentId, plan.id);
+          await reallocatePlan(tx, establishmentId, plan.id, userId);
+          await archiveSalaryPlan(tx, establishmentId, plan.id, userId, "EMPLOYMENT_ENDED");
+          return;
+        }
+        const terms: SalaryTerms = {
+          employeeId: employee.id,
+          basicSalaryHalalas: employee.basicSalaryHalalas!,
+          payDay: employee.payDay!,
+          endDate,
+          allowances: await currentAllowances(tx, establishmentId, employee.id),
+        };
+        await syncSalaryPlan(tx, establishmentId, userId, { id: plan.id, startDate }, terms, today);
+      });
+    } catch (error) {
+      if (!isBenignRace(error)) throw error;
+    }
+  }
+}
+
+/**
+ * D2 trigger, once per request (React `cache()`): awaited first by every page
+ * that reads salary data and by the owner layout before the overdue badge.
+ * The establishment must be the session's own; the audit names the session's
+ * user. Fails safe on a lost race — never breaks the render.
+ */
+export const ensureSalaryInstalments = cache(
+  async (establishmentId: string, employeeId?: string): Promise<void> => {
+    const session = await requireMember();
+    if (session.establishmentId !== establishmentId) return;
+    await runSalaryGeneration(establishmentId, session.user.id, todayISO(), employeeId);
+  },
+);

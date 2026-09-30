@@ -48,6 +48,9 @@ const contactEmail = z
   .transform((v) => (v === "" ? undefined : v))
   .optional();
 
+/** Shared with the employee profile (v1.2b), whose phone/email live on its Party. */
+export { phone as partyPhoneField, contactEmail as partyEmailField };
+
 export const PartyInputSchema = z.object({
   name: entityName,
   type: PartyTypeEnum,

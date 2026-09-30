@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { Prisma } from "@/generated/prisma";
+import { isStaffHiddenPlan } from "@/features/payroll/privacy";
 import { bumpRevision, ConcurrentChangeError, reallocatePlan } from "@/features/plans/allocate";
 import type { AuthedUser } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -72,6 +73,8 @@ export async function resolveEntry(
     select: { id: true, state: true, revision: true, totalHalalas: true, direction: true, partyId: true },
   });
   if (!plan) return refuse("err.instalmentInvalid", "instalmentId");
+  // v1.2b ruling 2: STAFF never pay a salary agreement — answered exactly like a missing id (N2).
+  if (user.role === "STAFF" && (await isStaffHiddenPlan(establishmentId, plan.id))) return refuse("err.instalmentInvalid", "instalmentId");
   // Confirmed reading 2: an ARCHIVED plan's payments may be corrected, never added.
   if (plan.state === "CANCELLED" || (plan.state === "ARCHIVED" && !existing)) return refuse("err.planClosed");
   // Read before the revision, so a payment racing in can make it stale (N-P3b).

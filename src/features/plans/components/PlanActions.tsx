@@ -80,4 +80,21 @@ export function PlanActions({ planId, canCancel }: { planId: string; canCancel: 
   );
 }
 
+/**
+ * A «راتب شهري» plan instead of the controls above (D1): تعديل/أرشفة/إلغاء are
+ * refused on it (err.salaryPlanManaged), so the page says where it is managed.
+ */
+export function SalaryPlanNotice({ employeeId }: { employeeId: string | null }) {
+  return (
+    <div className="no-print flex flex-col items-start gap-2">
+      <p className="text-sm text-gray-700">{t.employees.managedFromProfile}</p>
+      {employeeId ? (
+        <LinkButton href={`/owner/staff/${employeeId}`} variant="secondary">
+          {t.employees.openProfile}
+        </LinkButton>
+      ) : null}
+    </div>
+  );
+}
+
 export default PlanActions;

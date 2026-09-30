@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import type { PGlite } from "@electric-sql/pglite";
@@ -81,7 +81,10 @@ async function balanceInvariant(): Promise<number> {
 }
 
 beforeAll(async () => {
-  for (const dir of ["20260929000000_init", "20260930000000_v1_1e_email_names", "20261001000000_v1_2a_parties_projects_plans"]) {
+  // Every migration in name order, so the generated client (always the current
+  // schema) finds every column it writes — v1.2b added Plan.kind.
+  const dirs = readdirSync(MIGRATIONS, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name).sort();
+  for (const dir of dirs) {
     await h.lite!.exec(readFileSync(join(MIGRATIONS, dir, "migration.sql"), "utf8"));
   }
   await h.lite!.exec(`
