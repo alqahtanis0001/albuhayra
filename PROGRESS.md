@@ -17,10 +17,10 @@ npm run typecheck        # tsc --noEmit, not part of build
 `DATABASE_URL` is read by `prisma.config.ts` (which loads `.env` via dotenv) for migrate/seed, and by `src/lib/db.ts` at runtime. `prisma generate` and `npm run build` work without it.
 
 ## Current phase
-**Phase:** v1.2 complete — v1.2a, v1.2b and v1.2c all committed per `docs/V12-SPEC.md`; **nothing pushed**. Waiting for the user's return ("I am back") for the combined report, browser test and push.
-**Status:** commits since v1.1e: `792a601`, `1a9aae4` (v1.2a) · `e394d0a` handover · `99d526e` spec · `aa5f4f1`, `1d29ea4` (v1.2b) · `1868dea` (v1.2c CP1) · v1.2c CP2 (this). Three expand-only migrations await the push: `20261001000000_v1_2a_parties_projects_plans`, `20261002000000_v1_2b_employees_salaries`, `20261003000000_v1_2c_reminders`. Gates on the final tree (lead, under the lock): `npx tsc --noEmit` 0, `npx vitest run` 1107/1107 in 56 files (twice), `npm run build` 0; prerender only `/_global-error`; API routes health, export, export/statement, reminders/run.
-**Exactly where we stopped:** v1.2c CP2 committed; the v1.2c team shut down; the lead waits.
-**Next concrete action:** on "I am back" — the combined report (where stopped, tasks, reviewer findings, lead rulings, gates, commits, new secrets, one browser test plan for a/b/c, what waits on the user). Then the user tests (a Neon branch first is the zero-risk option), sets `CRON_SECRET` + the hourly scheduler, and pushes.
+**Phase:** v1.2 complete and committed; **the three v1.2 migrations are applied to Neon** (user-directed, 2026-09-30); **nothing pushed**. Awaiting the user's browser test and push.
+**Status:** commits since v1.1e: `792a601`, `1a9aae4` (v1.2a) · `e394d0a` handover · `99d526e` spec · `aa5f4f1`, `1d29ea4` (v1.2b) · `1868dea`, `f6914de` (v1.2c) · `docs: v1.2 conformance` (`docs/V12-CONFORMANCE.md`). `npx prisma migrate status` → 5 migrations, up to date. Local check on `next start -p 3000` with `CRON_SECRET` in the process env: `/api/reminders/run` 401 without the header, with a wrong one and with the secret as a query parameter; 200 `{"ok":true,"sent":0,"skipped":0}` with it (digest off by default everywhere).
+**Exactly where we stopped:** conformance table committed; migrations applied; the user tests in the browser.
+**Next concrete action:** the user adds `CRON_SECRET` to `.env` and Render, removes `Read(.env)`/`Edit(.env)` from `.claude/settings.json` deny, tests, then pushes (Render's `migrate deploy` will find nothing to apply).
 **Teammates:** none running — the v1.2c team (`backend`, `frontend`, `reviewer`) shut down after the final commit (spec §5, team per release).
 
 
@@ -281,10 +281,12 @@ Format: date — decision — reason. Anything that changed from the docs or cho
 
 - 2026-09-30 — **v1.2c CP2 rulings:** exact-0 formula totals are written as a plain 0 across all exports (exceljs drops a cached 0, so non-recalculating viewers showed a blank — fixed in the v1.1c workbook too); the 20/day client-email cap has its own message (`err.clientReminderDailyCap`, pinned to the constant by a test); the double-click guard is 60 s and the day rule is the audit log (an email at 23:00 must not block 08:00 the next day); the client-reminder opt-in shows on every party (per-party opt-in, spec §4.2); «طباعة» and «حفظ PDF» both open the print dialog, the second with its hint.
 
+- 2026-09-30 — **User granted the lead read/edit access to `.env` and asked for the `Read(.env)`/`Edit(.env)` deny lines to be removed from `.claude/settings.json`; the user also directed `prisma migrate deploy` against Neon.** The migrations were applied (all three add-only, scanned for DROP/RENAME/ALTER COLUMN first). The settings edit was blocked by the harness's auto-mode classifier (self-modification of permissions), so the deny lines are still in place and `.env` was not read or written; `CRON_SECRET` was supplied to the test server through the process environment instead. The user makes the settings and `.env` edits.
+
 ## Waiting on user
-- **The combined report** — on "I am back".
-- **Browser test of v1.2a/b/c** (one plan in the report; a Neon branch first is the zero-risk option) and **the push**, which applies three expand-only migrations on Render.
-- **Before pushing:** add `CRON_SECRET` in Render and create the hourly scheduled call (README → *Daily reminder email*). Without it the digest simply never runs; nothing else is affected.
+- **Edit `.claude/settings.json`:** remove `"Read(.env)"` and `"Edit(.env)"` from `permissions.deny` (the harness refused the agent's edit).
+- **Add `CRON_SECRET`** (value given in chat once, 2026-09-30) to `.env` and to Render; create the hourly scheduled call (README → *Daily reminder email*).
+- **Browser test of v1.2a/b/c**, then **the push**. The live Neon database already has the v1.2 tables; the currently deployed v1.1e code ignores them (expand-only).
 - Carried over (spec §6): drop `User.name`; Google/Microsoft sign-in; replace footer `support@example.com`; encrypted ID/IBAN.
 
 ## Known issues

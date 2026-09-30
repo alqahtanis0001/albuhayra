@@ -1385,3 +1385,6 @@ first) → P2 → P3 → P4 → P5, gates after each.
   transaction) accepted by the lead as a known issue. Mutants: day window back, sequential fill, unknown keys
   dropped — all killed.
 - Gates: tsc 0 · vitest 1107/1107 in 56 files · build 0 (lock). Mutations CP2 total: 66, 0 survivors.
+- Lead's ruling on the reviewer's optional note: `client.test.ts` pins that `t.err.clientReminderDailyCap`
+  contains `String(CLIENT_EMAILS_PER_DAY)` (message/constant drift). Mutant "(20 رسالة)" → "(25 رسالة)" killed,
+  restored byte-identical. Gates: tsc 0 · vitest 1107/1107 · build 0. CP2 backend complete (67 mutants, 0 survivors).
