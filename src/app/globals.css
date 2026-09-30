@@ -53,6 +53,36 @@ body {
   color: var(--color-gray-900);
 }
 
+/* Page backgrounds (v1.3). Same-origin files from public/brand, so the CSP's
+   img-src 'self' already covers them. Only the page surface changes: cards,
+   tables, inputs, the side nav, top bar and footer keep their own solid white
+   or green fills. `fixed` keeps the art still while the page scrolls; iOS
+   Safari ignores or stutters on fixed backgrounds (and scales `cover` to the
+   whole element), so touch-callout browsers (iOS/iPadOS WebKit) get `scroll`
+   with the art one viewport tall at the top — the same first screen as
+   `cover`, then the plain base colour below. Hidden in print (see @media print). */
+.auth-bg {
+  background: #f4f6f5 url(/brand/zakham-bg-v3/auth-bg.svg) center / cover no-repeat fixed;
+}
+/* The app art gets a 50% veil of its own base colour: form hints (gray-500)
+   and field errors (money-out) sit straight on it, and at full strength its
+   darkest pixels under the content column took gray-500 to 4.0:1. With the
+   veil the darkest pixel keeps gray-500 ≥ 4.66:1 and money-out ≥ 5.25:1
+   (measured at 390–1920 px widths). */
+.app-bg {
+  background:
+    linear-gradient(rgb(244 246 245 / 0.5), rgb(244 246 245 / 0.5)) center top / cover no-repeat fixed,
+    #f4f6f5 url(/brand/zakham-bg-v3/app-bg.svg) center top / cover no-repeat fixed;
+}
+@supports (-webkit-touch-callout: none) {
+  .auth-bg,
+  .app-bg {
+    background-attachment: scroll;
+    background-position: center top;
+    background-size: auto 100vh;
+  }
+}
+
 /* One visible focus ring for the whole app (docs/FRONTEND.md, Accessibility).
    A green surface sets --focus-ring (the top bar uses #fff), because this rule
    is unlayered and a Tailwind outline utility could never override it. */
@@ -300,6 +330,10 @@ dialog::backdrop {
   body {
     background: #fff;
     color: var(--color-gray-900);
+  }
+  .auth-bg,
+  .app-bg {
+    background: #fff;
   }
   /* AppShell's min-h-dvh would stretch the empty flex column to a full page. */
   .min-h-dvh {

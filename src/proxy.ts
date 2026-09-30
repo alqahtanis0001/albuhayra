@@ -175,10 +175,12 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
 
 export const config = {
   // Skip static assets and the build output: they need no nonce, and hashing a
-  // CSP for every chunk would only slow the response down.
+  // CSP for every chunk would only slow the response down. `.svg` joined `.png`
+  // in v1.3: the page backgrounds are CSS images, and a signed-out visitor on
+  // /login must get the file, not a redirect to /login.
   matcher: [
     {
-      source: "/((?!_next/static|_next/image|icons|favicon.ico|.*\\.png$).*)",
+      source: "/((?!_next/static|_next/image|icons|favicon.ico|.*\\.png$|.*\\.svg$).*)",
       missing: [
         { type: "header", key: "next-router-prefetch" },
         { type: "header", key: "purpose", value: "prefetch" },

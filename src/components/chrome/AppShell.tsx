@@ -58,7 +58,9 @@ export function AppShell({
         <div className="flex flex-1">
           <SideNav groups={groups} badges={badges} label={t.nav.menu} />
 
-          <div className="flex min-w-0 flex-1 flex-col">
+          {/* The page art (v1.3) sits behind this column only; the side nav,
+              top bar, footer and every card keep their own solid fills. */}
+          <div className="app-bg flex min-w-0 flex-1 flex-col">
             <main id="main" className="mx-auto w-full max-w-3xl flex-1 p-4 md:pb-6">
               <RouteTransition>{children}</RouteTransition>
             </main>

@@ -1,6 +1,6 @@
 /**
- * The auth screens' skeleton, shaped like AuthCard: the wordmark above a card
- * with the green top rule, its title, then the variant's body.
+ * The auth screens' skeleton, shaped like AuthCard: a card with the green top
+ * rule holding the wordmark, its title, then the variant's body.
  */
 import { Bone, SkeletonField, SkeletonPage } from "./Skeleton";
 
@@ -9,11 +9,10 @@ type Variant = "login" | "signup" | "pending" | "verify" | "forgot" | "reset";
 export function AuthSkeleton({ variant }: { variant: Variant }) {
   return (
     <SkeletonPage>
-      <div className="mb-2 flex justify-center">
-        <Bone onBody className="h-16 w-64 max-w-full" />
-      </div>
-
-      <div className="rounded-lg border border-t-4 border-gray-300 border-t-accent bg-white p-5">
+      <div className="rounded-lg border border-t-4 border-gray-300 border-t-accent bg-white p-5 shadow-lg">
+        <div className="mb-5 flex justify-center">
+          <Bone className="h-16 w-64 max-w-full" />
+        </div>
         <div className="border-b border-gray-200 pb-3">
           <Bone className="h-6 w-40" />
         </div>

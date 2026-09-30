@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1200" viewBox="0 0 1920 1200" preserveAspectRatio="xMidYMin slice">
+  <!--
+    زخم — app background v2 (owner / staff / admin pages).
+    Layers: warm off-white base · large ghost star at the reading corner for depth ·
+    fine girih lattice (stars + interlaced bands) · vignette under the content column ·
+    green wash top-right, gold wash bottom-left · paper grain · gold momentum rules.
+    Usage: body { background: #f5f6f4 url(/brand/app-bg.svg) center top / cover no-repeat fixed; }
+  -->
+  <defs>
+    <radialGradient id="glowGreen" cx="1" cy="0" r="1.15">
+      <stop offset="0"    stop-color="#006C35" stop-opacity="0.18"/>
+      <stop offset="0.3"  stop-color="#006C35" stop-opacity="0.07"/>
+      <stop offset="1"    stop-color="#006C35" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowGold" cx="0" cy="1" r="0.9">
+      <stop offset="0"   stop-color="#C9A227" stop-opacity="0.09"/>
+      <stop offset="1"   stop-color="#C9A227" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="vignette" cx="0.5" cy="0.42" r="0.85">
+      <stop offset="0.2" stop-color="#f5f6f4" stop-opacity="0.6"/>
+      <stop offset="1"   stop-color="#f5f6f4" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- girih lattice: eight-point stars joined by double bands, 240px period -->
+    <pattern id="girih" width="240" height="240" patternUnits="userSpaceOnUse">
+      <g fill="none" stroke-linejoin="round" stroke-linecap="round">
+        <!-- outer band (green) -->
+        <g stroke="#006C35" stroke-width="1.2" stroke-opacity="0.08">
+          <rect x="80" y="80" width="80" height="80"/>
+          <rect x="80" y="80" width="80" height="80" transform="rotate(45 120 120)"/>
+          <g transform="translate(-120 -120)"><rect x="80" y="80" width="80" height="80"/><rect x="80" y="80" width="80" height="80" transform="rotate(45 120 120)"/></g>
+          <g transform="translate(120 -120)"><rect x="80" y="80" width="80" height="80"/><rect x="80" y="80" width="80" height="80" transform="rotate(45 120 120)"/></g>
+          <g transform="translate(-120 120)"><rect x="80" y="80" width="80" height="80"/><rect x="80" y="80" width="80" height="80" transform="rotate(45 120 120)"/></g>
+          <g transform="translate(120 120)"><rect x="80" y="80" width="80" height="80"/><rect x="80" y="80" width="80" height="80" transform="rotate(45 120 120)"/></g>
+        </g>
+        <!-- inner echo (gold), slightly smaller, gives the interlaced feel -->
+        <g stroke="#C9A227" stroke-width="0.8" stroke-opacity="0.09">
+          <rect x="92" y="92" width="56" height="56"/>
+          <rect x="92" y="92" width="56" height="56" transform="rotate(45 120 120)"/>
+          <g transform="translate(-120 -120)"><rect x="92" y="92" width="56" height="56"/><rect x="92" y="92" width="56" height="56" transform="rotate(45 120 120)"/></g>
+          <g transform="translate(120 -120)"><rect x="92" y="92" width="56" height="56"/><rect x="92" y="92" width="56" height="56" transform="rotate(45 120 120)"/></g>
+          <g transform="translate(-120 120)"><rect x="92" y="92" width="56" height="56"/><rect x="92" y="92" width="56" height="56" transform="rotate(45 120 120)"/></g>
+          <g transform="translate(120 120)"><rect x="92" y="92" width="56" height="56"/><rect x="92" y="92" width="56" height="56" transform="rotate(45 120 120)"/></g>
+        </g>
+        <!-- connecting bands between stars (double line) -->
+        <g stroke="#006C35" stroke-width="1" stroke-opacity="0.06">
+          <line x1="160" y1="114" x2="200" y2="114"/><line x1="160" y1="126" x2="200" y2="126"/>
+          <line x1="40"  y1="114" x2="80"  y2="114"/><line x1="40"  y1="126" x2="80"  y2="126"/>
+          <line x1="114" y1="160" x2="114" y2="200"/><line x1="126" y1="160" x2="126" y2="200"/>
+          <line x1="114" y1="40"  x2="114" y2="80"/> <line x1="126" y1="40"  x2="126" y2="80"/>
+        </g>
+      </g>
+      <!-- small rosette at each star centre -->
+      <g fill="#C9A227" fill-opacity="0.14">
+        <circle cx="120" cy="120" r="2.2"/>
+        <circle cx="0" cy="0" r="2.2"/><circle cx="240" cy="0" r="2.2"/>
+        <circle cx="0" cy="240" r="2.2"/><circle cx="240" cy="240" r="2.2"/>
+      </g>
+    </pattern>
+
+    <!-- one large ghost star for depth -->
+    <g id="bigstar">
+      <rect x="-260" y="-260" width="520" height="520"/>
+      <rect x="-260" y="-260" width="520" height="520" transform="rotate(45)"/>
+      <rect x="-170" y="-170" width="340" height="340"/>
+      <rect x="-170" y="-170" width="340" height="340" transform="rotate(45)"/>
+    </g>
+
+    <filter id="grain" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/>
+      <feColorMatrix type="saturate" values="0"/>
+      <feComponentTransfer><feFuncA type="table" tableValues="0 0.045"/></feComponentTransfer>
+    </filter>
+  </defs>
+
+  <rect width="1920" height="1200" fill="#f5f6f4"/>
+
+  <!-- ghost star, top-right, cut by the edge -->
+  <g transform="translate(1760 140)" fill="none" stroke="#006C35" stroke-width="2" stroke-opacity="0.05" stroke-linejoin="round">
+    <use href="#bigstar"/>
+  </g>
+
+  <rect width="1920" height="1200" fill="url(#girih)"/>
+  <rect width="1920" height="1200" fill="url(#vignette)"/>
+  <rect width="1920" height="1200" fill="url(#glowGreen)"/>
+  <rect width="1920" height="1200" fill="url(#glowGold)"/>
+  <rect width="1920" height="1200" fill="none" filter="url(#grain)"/>
+
+  <!-- gold momentum rules, bottom-left -->
+  <g fill="#C9A227">
+    <rect x="0" y="1086" width="560" height="8" rx="4" fill-opacity="0.20"/>
+    <rect x="0" y="1112" width="380" height="8" rx="4" fill-opacity="0.12"/>
+    <rect x="0" y="1138" width="210" height="8" rx="4" fill-opacity="0.06"/>
+  </g>
+</svg>
