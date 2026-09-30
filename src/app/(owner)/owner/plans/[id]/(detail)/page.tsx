@@ -6,7 +6,9 @@ import { Card } from "@/components/Card";
 import { DateText } from "@/components/DateText";
 import { MoneyText } from "@/components/MoneyText";
 import { ensureSalaryInstalments } from "@/features/payroll/generate";
+import { InstalmentBarDetail } from "@/features/plans/components/InstalmentBar";
 import { InstalmentList } from "@/features/plans/components/InstalmentList";
+import { PaymentRecorded } from "@/features/plans/components/PaymentRecorded";
 import { PlanActions, SalaryPlanNotice } from "@/features/plans/components/PlanActions";
 import {
   PlanStatusBadge,
@@ -24,7 +26,13 @@ export const metadata: Metadata = { title: t.plans.title };
  * instalment. Statuses and countdowns arrive computed from the server's today
  * (W8). An unknown id and another establishment's id both reach notFound().
  */
-export default async function PlanPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function PlanPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { establishmentId } = await requireOwner();
   // D2: this month's salary rows exist before anything reads them (cached per request).
   await ensureSalaryInstalments(establishmentId);
@@ -32,6 +40,10 @@ export default async function PlanPage({ params }: { params: Promise<{ id: strin
   const plan = await getPlan(establishmentId, id);
   if (!plan) notFound();
   const open = plan.status !== "ARCHIVED" && plan.status !== "CANCELLED";
+  // v1.3 item 8: «تسجيل دفعة» returns here with ?paid=<instalmentId>; an id
+  // that is not one of this plan's instalments is ignored.
+  const { paid } = await searchParams;
+  const paidId = plan.instalments.find((i) => i.id === paid)?.id;
   // v1.2c (C10): «تذكير» only when the party owes us and opted in; the actions re-check.
   const remind =
     open && plan.direction === "IN" && plan.partyRemindersOptIn
@@ -64,7 +76,7 @@ export default async function PlanPage({ params }: { params: Promise<{ id: strin
           <dt className="text-gray-600">{t.plans.paid}</dt>
           <dd>
             <MoneyText halalas={plan.paidHalalas} />{" "}
-            <span className="text-xs text-gray-600">
+            <span className="sr-only-screen text-xs text-gray-600">
               ({progressText(plan.paidCount, plan.instalmentCount)})
             </span>
           </dd>
@@ -89,7 +101,12 @@ export default async function PlanPage({ params }: { params: Promise<{ id: strin
             </>
           ) : null}
         </dl>
+        <div className="mt-4 border-t border-gray-200 pt-3">
+          <InstalmentBarDetail instalments={plan.instalments} paidId={paidId} />
+        </div>
       </Card>
+
+      {paidId ? <PaymentRecorded message={t.planBar.paymentRecorded} /> : null}
 
       {plan.kind === "SALARY" ? (
         // D1: a salary plan is system-managed; its controls live on the profile.
@@ -113,7 +130,7 @@ export default async function PlanPage({ params }: { params: Promise<{ id: strin
       ) : null}
 
       <Card title={t.plans.instalments} bodyClassName="">
-        <InstalmentList instalments={plan.instalments} open={open} remind={remind} />
+        <InstalmentList instalments={plan.instalments} open={open} remind={remind} paidId={paidId} />
       </Card>
     </div>
   );

@@ -3,7 +3,8 @@
  * beneath), amount, paid, remaining, status as a word, the countdown, and the
  * payments recorded against it (each linking to its entry). «تسجيل دفعة» sits
  * on every unpaid row while the agreement is open, and «تذكير» beside it when
- * `remind` is set (v1.2c). One card per row at every
+ * `remind` is set (v1.2c). A row just paid (v1.3, `paidId`) gets the green
+ * wash and its badge fades in. One card per row at every
  * width: seven values plus nested payments do not survive a 360px table.
  */
 import Link from "next/link";
@@ -21,6 +22,7 @@ export function InstalmentList({
   instalments,
   open,
   remind = null,
+  paidId,
 }: {
   instalments: PlanInstalment[];
   /** The agreement is OPEN: unpaid rows offer «تسجيل دفعة». */
@@ -30,18 +32,27 @@ export function InstalmentList({
    * opted in; unpaid rows of an open agreement then offer «تذكير».
    */
   remind?: { partyName: string; hasEmail: boolean } | null;
+  /** v1.3 item 8: the row a payment was just recorded on (`?paid=`) — washed green once. */
+  paidId?: string;
 }) {
   return (
     <ol className="flex flex-col">
       {instalments.map((row) => (
-        <li key={row.id} className="report-card flex flex-col gap-2 border-b border-gray-200 p-3 last:border-b-0">
+        <li
+          key={row.id}
+          className={`report-card flex flex-col gap-2 border-b border-gray-200 p-3 last:border-b-0 ${
+            row.id === paidId ? "v13-paid" : ""
+          }`}
+        >
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="font-semibold text-gray-900">
               <InstalmentName seq={row.seq} periodYm={row.periodYm} />
             </span>
             <span className="flex flex-wrap items-center gap-2">
               <Countdown dayOffset={row.dayOffset} status={row.status} />
-              <InstalmentStatusBadge status={row.status} />
+              <span className={row.id === paidId ? "v13-fade-in" : undefined}>
+                <InstalmentStatusBadge status={row.status} />
+              </span>
             </span>
           </div>
 

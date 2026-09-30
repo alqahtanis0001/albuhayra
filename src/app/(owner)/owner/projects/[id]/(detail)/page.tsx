@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { EmptyState } from "@/components/EmptyState";
 import { Pagination } from "@/components/Pagination";
 import { listLocks } from "@/features/locks/queries";
+import { CategoryRing } from "@/features/projects/components/CategoryRing";
 import { ProjectActions } from "@/features/projects/components/ProjectActions";
 import { ProjectDates, ProjectStatusBadge } from "@/features/projects/components/ProjectBits";
 import {
@@ -81,6 +82,7 @@ export default async function ProjectPage({
       />
 
       <ProjectTotals project={project} />
+      <CategoryRing rows={project.byCategory} />
       <ProjectByCategory project={project} />
 
       <section className="no-print flex flex-col gap-2">

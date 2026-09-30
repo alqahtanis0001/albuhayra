@@ -150,7 +150,6 @@ export const v12aSections = {
     budgetRemaining: "المتبقي من الميزانية",
     overBudget: "تجاوز الميزانية بمقدار",
     noBudget: "بدون ميزانية",
-    spentOfBudget: "{spent} من {budget}",
     recordCost: "تسجيل تكلفة",
     byCategory: "حسب التصنيف",
     transactions: "حركات الإضافة",

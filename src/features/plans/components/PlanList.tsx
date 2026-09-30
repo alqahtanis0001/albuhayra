@@ -1,6 +1,7 @@
 /**
  * الاتفاقيات: one card per agreement — title and status, the party with the
- * direction worded from its side, total / paid / remaining, «سُدّد X من N»,
+ * direction worded from its side, total / paid / remaining, the instalment bar
+ * (v1.3; «سُدّد X من N» as its text equivalent),
  * and the next instalment with its countdown. The card leads to the plan.
  * Amounts are neutral (no sign): the direction is stated in words beside them.
  */
@@ -11,6 +12,7 @@ import { MoneyText } from "@/components/MoneyText";
 import type { PlanRow } from "@/features/plans/queries";
 import { t } from "@/i18n/ar";
 
+import { InstalmentBar } from "./InstalmentBar";
 import {
   Countdown,
   PlanStatusBadge,
@@ -54,7 +56,9 @@ export function PlanList({ rows }: { rows: PlanRow[] }) {
                 </dd>
               </div>
             </dl>
-            <p className="text-xs text-gray-600">{progressText(row.paidCount, row.instalmentCount)}</p>
+            {/* v1.3 item 7: the bar is decorative here; the line stays for screen readers and print. */}
+            <InstalmentBar statuses={row.instalmentStatuses} />
+            <p className="sr-only-screen text-xs text-gray-600">{progressText(row.paidCount, row.instalmentCount)}</p>
             {row.nextDue ? (
               <div className="flex flex-wrap items-start gap-x-3 gap-y-1 border-t border-gray-200 pt-2 text-sm">
                 <span className="text-gray-600">{t.plans.nextDue}:</span>

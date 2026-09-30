@@ -45,6 +45,8 @@ export type PlanRow = {
   instalmentCount: number;
   paidCount: number;
   nextDue: NextDue | null;
+  /** v1.3 item 7: each instalment's derived status, in schedule order (the list card's bar). */
+  instalmentStatuses: InstalmentStatus[];
   /** v1.2b: SALARY plans are managed from the employee profile (D1); title derived (X13). */
   kind: "STANDARD" | "SALARY";
   employeeId: string | null;
@@ -162,6 +164,9 @@ function toRow(plan: PlanRead, rows: InstalmentRead[], today: string): PlanRow {
             dayOffset: dayOffset(nextDueDate, today),
           }
         : null,
+    instalmentStatuses: rows.map((r) =>
+      instalmentStatus({ ...r, dueDate: dateToISO(r.dueDate) }, today, plan.reminderDays),
+    ),
     kind: plan.kind,
     employeeId: plan.employeeId,
   };

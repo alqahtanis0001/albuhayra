@@ -51,6 +51,7 @@ export default async function ProjectsPage({
           <EmptyState
             title={status ? t.projects.emptyFiltered : t.projects.empty}
             hint={status ? undefined : t.projects.emptyHint}
+            kind={status ? undefined : "projects"}
           />
         </div>
       ) : (

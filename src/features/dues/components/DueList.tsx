@@ -4,7 +4,8 @@
  * a row per instalment: party, agreement, instalment no., due date, remaining,
  * countdown and a quick «تسجيل دفعة» — plus «تذكير» (v1.2c, C10) when `remind`
  * is on, for IN rows of an opted-in party. The word says the direction; the amount
- * stays neutral. Statuses and countdowns are the server's (W8).
+ * stays neutral. Statuses and countdowns are the server's (W8). Each row carries
+ * `data-due-date` for the week ribbon's jump (v1.3 item 6).
  */
 import Link from "next/link";
 
@@ -31,6 +32,7 @@ export function DueRows({
       {rows.slice(0, limit).map((row) => (
         <li
           key={row.instalmentId}
+          data-due-date={row.dueDate}
           className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 p-3 last:border-b-0"
         >
           <div className="flex min-w-0 flex-col gap-0.5">

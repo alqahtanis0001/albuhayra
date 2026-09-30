@@ -44,7 +44,7 @@ export default async function OwnerNewTransactionPage({
       : null;
   const notice = sp.instalmentId !== undefined && !pay ? "err.instalmentInvalid" : undefined;
   const doneHref = pay
-    ? `/owner/plans/${pay.planId}`
+    ? `/owner/plans/${pay.planId}?paid=${encodeURIComponent(pay.instalmentId)}`
     : presetProjectId
       ? `/owner/projects/${presetProjectId}`
       : "/owner/transactions";

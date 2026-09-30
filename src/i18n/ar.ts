@@ -6,6 +6,7 @@
 import { v12aSections } from "./ar.v12a";
 import { v12bSections } from "./ar.v12b";
 import { v12cSections } from "./ar.v12c";
+import { v13Sections } from "./ar.v13";
 
 const { errV12a, ...v12a } = v12aSections;
 const { errV12b, ...v12b } = v12bSections;
@@ -469,6 +470,9 @@ export const t = {
 
   // v1.2c sections (reminderSettings, digestMail, clientReminder, aging, …)
   ...v12c,
+
+  // v1.3 sections (dashVisual, duesRibbon, planBar, budgetMeter, liveClock, …)
+  ...v13Sections,
 
   a11y: {
     skipToContent: "تجاوز إلى المحتوى",

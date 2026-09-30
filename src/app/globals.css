@@ -37,6 +37,21 @@
 
   /* Squared corners: every `rounded-*` step collapses to 2px, which reaches the
      page files too without editing them. `rounded-full` is not overridden. */
+  /* v1.3 tints (docs/V13-SPEC.md): HTML cells and tiles use these as classes
+     (bg-tint-in, bg-heat-3, …) — never inline styles — so the print hook
+     .print-plain can override them. Text on any tint is gray-900. The hexes
+     match PALETTE in src/components/visualPalette.ts. */
+  --color-tint-in: #dcfce7;
+  --color-tint-out: #fee2e2;
+  --color-tint-amber: #fef3c7;
+  --color-tint-blue: #dbeafe;
+  --color-tint-teal: #ccfbf1;
+  --color-tint-grey: #e5e5e5;
+  --color-heat-1: #e8f3ec;
+  --color-heat-2: #c9e7d3;
+  --color-heat-3: #9fd3b1;
+  --color-heat-4: #6fbb8b;
+
   --radius-sm: 0.125rem;
   --radius-md: 0.125rem;
   --radius-lg: 0.125rem;
@@ -281,6 +296,102 @@ dialog::backdrop {
   }
 }
 
+/* v1.3 visual pass (docs/V13-SPEC.md) — the shared motion hooks. Every one is
+   ≤ 800 ms, ease-out, screen-only and off under reduced motion; the base state
+   (no animation) is always the end state, so no fill modes are needed and
+   reduced motion simply shows the result. The app is RTL, so "grows from the
+   inline start" means from the right; the origin is set from `dir`.
+   - .v13-grow-inline  a bar/segment/meter fill grows in along the inline axis
+   - .v13-grow-block   a column/step grows up from its baseline
+   - .v13-fade-in      a cross-fade in (the new status badge)
+   - .v13-paid         the row a payment just landed on: a green wash that
+                       fades out; reduced motion keeps a static light-green row
+   - .v13-draw         an SVG stroke draws in (pathLength="1") — FULL paths only
+                       (lines, sparklines): its dasharray overrides a value arc's
+                       own stroke-dasharray, so rings/arcs must not use it
+   - .sr-only-screen   hidden on screen like sr-only, shown in print (a table
+                       that is the text equivalent of a chart)
+   The time axis runs right → left in RTL: the oldest point sits at the right
+   (inline start), as SixMonthChart already does. */
+@keyframes v13-grow-x {
+  from {
+    scale: 0 1;
+  }
+}
+@keyframes v13-grow-y {
+  from {
+    scale: 1 0;
+  }
+}
+@keyframes v13-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes v13-paid-wash {
+  from {
+    background-color: #c9e7d3;
+  }
+}
+@keyframes v13-draw-in {
+  from {
+    stroke-dashoffset: 1;
+  }
+}
+.v13-grow-inline {
+  transform-origin: right center;
+  /* SVG rects otherwise scale from the viewport's edge. */
+  transform-box: fill-box;
+}
+[dir="ltr"] .v13-grow-inline {
+  transform-origin: left center;
+}
+.v13-grow-block {
+  transform-origin: center bottom;
+  transform-box: fill-box;
+}
+.v13-draw {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+}
+@media screen and (prefers-reduced-motion: no-preference) {
+  .v13-grow-inline {
+    animation: v13-grow-x 600ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .v13-grow-block {
+    animation: v13-grow-y 600ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .v13-fade-in {
+    animation: v13-fade 300ms ease-out;
+  }
+  .v13-paid {
+    animation: v13-paid-wash 800ms ease-out;
+  }
+  .v13-draw {
+    animation: v13-draw-in 700ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+}
+@media screen and (prefers-reduced-motion: reduce) {
+  /* Static and visible: a light green row with a green bar on the inline-start
+     edge (right, in RTL). money-in-soft alone is 1.04:1 on white. */
+  .v13-paid {
+    background-color: #dcf3e4;
+    /* Physical right = inline start: the UI is RTL-only (no English UI, CLAUDE.md). */
+    box-shadow: inset -4px 0 0 var(--color-money-in);
+  }
+}
+.sr-only-screen {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border-width: 0;
+}
+
 /* Print: the report sheet (docs/FRONTEND.md, /owner/reports, v1.1c). A colour
    sheet: green header rows, IN green and OUT red with the +/- sign kept (colour
    is never the only signal — a greyscale printer or a photocopy still loses
@@ -334,6 +445,22 @@ dialog::backdrop {
   .auth-bg,
   .app-bg {
     background: #fff;
+  }
+  .sr-only-screen {
+    position: static;
+    width: auto;
+    height: auto;
+    margin: 0;
+    overflow: visible;
+    clip-path: none;
+    white-space: normal;
+  }
+  /* v1.3: tinted cells (attendance grid, heat strips, bucket tiles) print as
+     plain text on white — the letter or number is the signal on paper. */
+  .print-plain {
+    background: #fff;
+    color: var(--color-gray-900);
+    border-color: var(--color-gray-300);
   }
   /* AppShell's min-h-dvh would stretch the empty flex column to a full page. */
   .min-h-dvh {

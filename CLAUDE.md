@@ -26,6 +26,7 @@ Priorities in order: **simple → secure → Arabic UI → correct numbers**. Wh
 | `docs/BACKEND.md` | lead | Schema, auth, server actions, security, Render |
 | `docs/FRONTEND.md` | lead | Screens, Arabic/RTL, components, PWA |
 | `docs/V12-SPEC.md` | product owner (the user) | **Authoritative v1.2 (a/b/c) specification.** Outranks `docs/V12B-DESIGN.md`, `docs/BACKEND.md` / `docs/FRONTEND.md` v1.2 sections, `progress/*.md`, briefs, earlier chat rulings and any summary; where it conflicts with *Out of scope* below (e.g. the v1.2c reminder emails), the spec wins. Code, docs or a brief that disagree with it are changed to match, with a Decision logged. |
+| `docs/V13-SPEC.md` | product owner (the user) | **Authoritative v1.3 visual-pass specification** (agents `dash`, `flow`, `people`; recordings in `progress/v13/`). Outranks `docs/FRONTEND.md` — notably its "no decorative animation" rule, for the motion V13 lists — and any brief or chat summary. |
 | `.claude/settings.json` | lead | Team env var, permissions, quality-gate hook |
 
 Precedence: `CLAUDE.md` > `docs/*` > code — except that for v1.2 `docs/V12-SPEC.md` (the product owner's) outranks every other doc and brief, as its row above says. If code disagrees with docs, fix the code, or change the doc and record a Decision in `PROGRESS.md`.

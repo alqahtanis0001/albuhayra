@@ -43,6 +43,7 @@ export default async function PlansPage({
           <EmptyState
             title={filtered ? t.plans.emptyFiltered : t.plans.empty}
             hint={filtered ? undefined : t.plans.emptyHint}
+            kind={filtered ? undefined : "reminders"}
           />
         </div>
       ) : (

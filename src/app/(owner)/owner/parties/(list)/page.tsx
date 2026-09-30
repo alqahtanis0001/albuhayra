@@ -53,6 +53,7 @@ export default async function PartiesPage({
           <EmptyState
             title={type ? t.parties.emptyFiltered : t.parties.empty}
             hint={type ? undefined : t.parties.emptyHint}
+            kind={type ? undefined : "parties"}
           />
         ) : (
           <PartyList rows={rows} />

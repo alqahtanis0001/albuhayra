@@ -73,6 +73,7 @@ export default async function StaffLedgerPage({
           <EmptyState
             title={hasAnyFilter(filters) ? t.ledger.emptyFiltered : t.ledger.emptyTitle}
             hint={hasAnyFilter(filters) ? undefined : t.ledger.emptyHint}
+            kind={hasAnyFilter(filters) ? undefined : "ledger"}
           />
         ) : (
           <LedgerList

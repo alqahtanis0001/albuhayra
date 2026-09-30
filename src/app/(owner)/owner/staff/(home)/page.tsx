@@ -45,7 +45,7 @@ export default async function EmployeesPage({
       <div className="rounded-xl border border-gray-200 bg-white">
         {rows.length === 0 ? (
           status === "ACTIVE" ? (
-            <EmptyState title={t.employees.empty} hint={t.employees.emptyHint} />
+            <EmptyState kind="employees" title={t.employees.empty} hint={t.employees.emptyHint} />
           ) : (
             <EmptyState title={t.employees.emptyEnded} />
           )
