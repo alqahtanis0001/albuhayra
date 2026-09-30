@@ -24,7 +24,7 @@ export function OwnerDashboardSkeleton() {
         <Bone onBody className="h-16" />
         <Bone onBody className="h-16" />
       </div>
-      <SkeletonStatCards count={4} />
+      <SkeletonStatCards count={4} spark />
       <SkeletonCard title>
         <SkeletonRows count={3} />
       </SkeletonCard>

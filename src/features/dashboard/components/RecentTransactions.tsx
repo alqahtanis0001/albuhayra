@@ -24,7 +24,7 @@ export function RecentTransactions({
   return (
     <Card title={title} bodyClassName="">
       {rows.length === 0 ? (
-        <EmptyState title={t.ledger.emptyTitle} hint={t.ledger.emptyHint} />
+        <EmptyState kind="ledger" title={t.ledger.emptyTitle} hint={t.ledger.emptyHint} />
       ) : (
         <ul>
           {rows.map((row) => (

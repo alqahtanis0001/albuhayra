@@ -2,10 +2,11 @@ import "server-only";
 
 import {
   currentMonthKey,
+  dateToISO,
   lastMonths,
   monthEnd,
-  monthKey,
   monthStart,
+  todayISO,
   ymString,
 } from "@/lib/dates";
 import { db } from "@/lib/db";
@@ -17,6 +18,14 @@ import {
   sumByDirection,
   type LedgerRow,
 } from "@/features/transactions/queries";
+
+import {
+  bucketByMonth,
+  dailySeries,
+  monthOpenings,
+  prevMonthToDateNet,
+  type DayPoint,
+} from "./series";
 
 /**
  * Dashboard reads. Every `where` starts from `ledgerWhere(establishmentId)`, so
@@ -45,7 +54,15 @@ export type CategoryTotal = {
   totalHalalas: number;
 };
 
-export type MonthTotals = { ym: string; inHalalas: number; outHalalas: number };
+export type MonthTotals = {
+  ym: string;
+  inHalalas: number;
+  outHalalas: number;
+  /** v1.3: the all-time balance before the month's first day (waterfall). */
+  openingBalanceHalalas: number;
+};
+
+export type { DayPoint };
 
 export type OwnerDashboard = {
   balanceTotalHalalas: number;
@@ -61,6 +78,13 @@ export type OwnerDashboard = {
   topOutCategories: CategoryTotal[];
   last6Months: MonthTotals[];
   recent: LedgerRow[];
+  /** v1.3: the last 30 days including today (Riyadh), every day present. */
+  daily30: DayPoint[];
+  /**
+   * v1.3 momentum (lead ruling S9): last month's net from its 1st to the same
+   * day-of-month as today, clamped to its last day.
+   */
+  prevMonthToDateNetHalalas: number;
 };
 
 export type StaffDashboard = {
@@ -131,37 +155,6 @@ async function namedCategoryTotals(
   }));
 }
 
-/**
- * Buckets rows into the chart's months in JS. A SQL `date_trunc` would need
- * `$queryRaw`, which carries no `where` object for the scoping test to inspect,
- * and this window is a few thousand rows for a business this size.
- */
-function bucketByMonth(
-  rows: Array<{ date: Date; direction: DirectionValue; amountHalalas: number }>,
-  months: Array<{ year: number; month: number }>,
-): MonthTotals[] {
-  const buckets = new Map(
-    months.map((m) => [
-      ymString(m.year, m.month),
-      { inHalalas: 0, outHalalas: 0 },
-    ]),
-  );
-
-  for (const row of rows) {
-    const { year, month } = monthKey(row.date);
-    const bucket = buckets.get(ymString(year, month));
-    if (!bucket) continue;
-    if (row.direction === "IN") bucket.inHalalas += row.amountHalalas;
-    else bucket.outHalalas += row.amountHalalas;
-  }
-
-  return months.map((m) => {
-    const ym = ymString(m.year, m.month);
-    const bucket = buckets.get(ym) ?? { inHalalas: 0, outHalalas: 0 };
-    return { ym, inHalalas: bucket.inHalalas, outHalalas: bucket.outHalalas };
-  });
-}
-
 export async function getOwnerDashboard(
   establishmentId: string,
 ): Promise<OwnerDashboard> {
@@ -172,7 +165,7 @@ export async function getOwnerDashboard(
   const allTime = ledgerWhere(establishmentId);
   const thisMonth = { ...allTime, date: { gte: from, lte: to } };
 
-  const [balance, month, byMethod, topOut, windowRows, recent] =
+  const [balance, month, byMethod, topOut, windowRows, recent, beforeWindow] =
     await Promise.all([
       sumByDirection(allTime),
       sumByDirection(thisMonth),
@@ -193,7 +186,23 @@ export async function getOwnerDashboard(
         select: { date: true, direction: true, amountHalalas: true },
       }),
       recentTransactions(establishmentId, RECENT_COUNT),
+      // v1.3: the balance the six-month window opens with. The 30-day series,
+      // each month's opening and last month's to-date net are all derived
+      // from this and `windowRows` in pure, tested code (./series.ts).
+      sumByDirection({ ...allTime, date: { lt: windowStart } }),
     ]);
+
+  const today = todayISO();
+  const seriesRows = windowRows.map((r) => ({
+    date: dateToISO(r.date),
+    direction: r.direction,
+    amountHalalas: r.amountHalalas,
+  }));
+  const buckets = bucketByMonth(
+    seriesRows,
+    months.map((m) => ymString(m.year, m.month)),
+  );
+  const openings = monthOpenings(buckets, beforeWindow.netHalalas);
 
   return {
     balanceTotalHalalas: balance.netHalalas,
@@ -202,8 +211,10 @@ export async function getOwnerDashboard(
     monthOutHalalas: month.outHalalas,
     monthNetHalalas: month.netHalalas,
     topOutCategories: await namedCategoryTotals(establishmentId, topOut),
-    last6Months: bucketByMonth(windowRows, months),
+    last6Months: buckets.map((m, i) => ({ ...m, openingBalanceHalalas: openings[i]! })),
     recent,
+    daily30: dailySeries(seriesRows, beforeWindow.netHalalas, today),
+    prevMonthToDateNetHalalas: prevMonthToDateNet(seriesRows, today),
   };
 }
 

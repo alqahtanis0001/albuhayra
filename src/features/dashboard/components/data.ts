@@ -11,6 +11,7 @@
  */
 export type {
   CategoryTotal,
+  DayPoint,
   MethodBalance,
   MonthTotals,
   OwnerDashboard,

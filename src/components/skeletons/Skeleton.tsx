@@ -62,13 +62,15 @@ export function SkeletonCard({
   );
 }
 
-export function SkeletonStatCards({ count }: { count: number }) {
+/** `spark` (v1.3): reserve the owner cards' 30-day sparkline, so the swap moves nothing. */
+export function SkeletonStatCards({ count, spark = false }: { count: number; spark?: boolean }) {
   return (
     <div className="grid grid-cols-2 gap-3">
       {Array.from({ length: count }, (_, i) => (
         <div key={i} className="rounded-xl border border-gray-200 bg-white p-4">
           <Bone className="h-4 w-24" />
           <Bone className="mt-2 h-7 w-32 max-w-full" />
+          {spark ? <Bone className="mt-2 h-8 w-full" /> : null}
         </div>
       ))}
     </div>

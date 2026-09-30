@@ -1,7 +1,8 @@
 /**
  * Owner home: «الإضافات الجارية» — the three ACTIVE إضافات with the highest
- * spend (Decision 8), each «{spent} من {budget}» with its bar, or the spend
- * alone without a budget. Hidden when there are none.
+ * spend (Decision 8), each with flow's v1.3 `BudgetMeter` (fill coloured by
+ * how much of the budget is spent, amounts under the bar), or the spend alone
+ * without a budget. Hidden when there are none.
  */
 import Link from "next/link";
 

@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
 
 import { Card } from "@/components/Card";
-import { MoneyText } from "@/components/MoneyText";
-import { StatCard } from "@/components/StatCard";
 import { BalanceByMethod } from "@/features/dashboard/components/BalanceByMethod";
 import { RecentTransactions } from "@/features/dashboard/components/RecentTransactions";
-import { SixMonthChart } from "@/features/dashboard/components/SixMonthChart";
+import { OwnerStatCards } from "@/features/dashboard/components/OwnerStatCards";
+import { SixMonthCard } from "@/features/dashboard/components/SixMonthCard";
 import { TopOutCategories } from "@/features/dashboard/components/TopOutCategories";
 import { ActiveProjects } from "@/features/dashboard/components/ActiveProjects";
 import { OverdueStrip, WeekDues } from "@/features/dashboard/components/WeekDues";
@@ -41,26 +40,14 @@ export default async function OwnerHomePage() {
 
       <QuickActions />
 
-      <div className="grid grid-cols-2 gap-3">
-        <StatCard
-          label={t.dashboard.balanceTotal}
-          value={<MoneyText halalas={data.balanceTotalHalalas} signed />}
-        />
-        <StatCard
-          label={t.dashboard.monthNet}
-          value={<MoneyText halalas={data.monthNetHalalas} signed />}
-        />
-        <StatCard
-          label={t.dashboard.monthIn}
-          tone="in"
-          value={<MoneyText halalas={data.monthInHalalas} direction="IN" />}
-        />
-        <StatCard
-          label={t.dashboard.monthOut}
-          tone="out"
-          value={<MoneyText halalas={data.monthOutHalalas} direction="OUT" />}
-        />
-      </div>
+      <OwnerStatCards
+        balanceTotalHalalas={data.balanceTotalHalalas}
+        monthNetHalalas={data.monthNetHalalas}
+        monthInHalalas={data.monthInHalalas}
+        monthOutHalalas={data.monthOutHalalas}
+        daily30={data.daily30}
+        prevMonthToDateNetHalalas={data.prevMonthToDateNetHalalas}
+      />
 
       <OverdueStrip dues={dues} />
       <WeekDues dues={dues} />
@@ -70,7 +57,7 @@ export default async function OwnerHomePage() {
       <BalanceByMethod rows={data.balanceByMethod} />
 
       <Card title={t.dashboard.last6Months} bodyClassName="">
-        <SixMonthChart months={data.last6Months} />
+        <SixMonthCard months={data.last6Months} />
       </Card>
 
       <TopOutCategories rows={data.topOutCategories} monthOutHalalas={data.monthOutHalalas} />

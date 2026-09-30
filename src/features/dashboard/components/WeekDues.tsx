@@ -76,7 +76,7 @@ export function WeekDues({ dues }: { dues: Dues }) {
         <Totals inHalalas={dues.totals.weekInHalalas} outHalalas={dues.totals.weekOutHalalas} />
       </div>
       {dues.thisWeek.length === 0 ? (
-        <EmptyState title={t.dues.empty} />
+        <EmptyState kind="dues" title={t.dues.empty} />
       ) : (
         <DueRows rows={dues.thisWeek} limit={5} />
       )}

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { MoneyText } from "@/components/MoneyText";
+import { CountUp } from "@/components/CountUp";
 import { StatCard } from "@/components/StatCard";
 import { PlusIcon } from "@/components/icons";
 import { RecentTransactions } from "@/features/dashboard/components/RecentTransactions";
@@ -62,12 +62,12 @@ export default async function StaffHomePage() {
           <StatCard
             label={t.dashboard.monthIn}
             tone="in"
-            value={<MoneyText halalas={data.monthInHalalas} direction="IN" />}
+            value={<CountUp halalas={data.monthInHalalas} direction="IN" />}
           />
           <StatCard
             label={t.dashboard.monthOut}
             tone="out"
-            value={<MoneyText halalas={data.monthOutHalalas} direction="OUT" />}
+            value={<CountUp halalas={data.monthOutHalalas} direction="OUT" />}
           />
         </div>
         <p className="text-xs text-gray-600">{t.dashboard.establishmentWideHint}</p>
