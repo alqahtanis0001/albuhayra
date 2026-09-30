@@ -37,7 +37,7 @@ export const OPEN_PATHS = [
   // bounce a still-signed-in visitor either — it only reads the flow cookie.
   "/verify",
   "/api/health",
-  // v1.2c (docs/V12C-DESIGN.md C3): the external scheduler has no session; the
+  // v1.2c (docs/V12C-DESIGN.md C3, C17): the in-process scheduler has no session; the
   // route's own CRON_SECRET check is its gate.
   "/api/reminders/run",
   "/manifest.json",

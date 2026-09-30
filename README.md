@@ -82,12 +82,13 @@ Copy the 64-character result. This is your **`SESSION_SECRET`**. Keep it private
 The first build takes a few minutes. It installs packages, applies any pending database changes, and builds the app. When the status turns **Live**, Render shows your address, for example `https://ledger-xxxx.onrender.com`. The suffix is added if the name `ledger` is taken.
 
 ### 4. Check it
-1. Open `https://<your-address>/api/health`. You should see `{"ok":true}`.
+1. Open `https://<your-address>/api/health`. You should see `{"ok":true,…}`.
 2. Open `https://<your-address>` and sign in as the admin, using the same email and password as on your computer. It is the same database.
 3. Install the app on a phone (browser menu → *Add to Home Screen*) if you want. This works on the Render address because it uses https.
 
 ### What "free" means here
-- **The service sleeps after 15 minutes without visitors.** The next visit wakes it. That first page can take **up to about a minute**, showing a blank or loading page. Everything after that is fast again until the next quiet spell.
+- **Render's free plan puts a service to sleep after 15 minutes without visitors.** The app keeps itself awake: while it runs on Render, it visits its own `/api/health` address about every 4 minutes (Render sets `RENDER_EXTERNAL_URL` automatically, so there is nothing to configure). Open `/api/health` to see the last visit under `keepAlive`.
+- **It can still be asleep sometimes.** Render may stop or restart a free service for other reasons (redeploys, platform maintenance, or running out of the monthly free-instance hours — an always-awake service uses about 744 of them, so keep only one free service awake per account). The next visit then wakes it, and that first page can take **up to about a minute**. Everything after that is fast again.
 - Neon's free database also pauses when idle, which adds a moment to that first request.
 - No data is lost while sleeping. Everything is stored in Neon, not on Render.
 - To remove the wait, change the plan to a paid instance in the Render dashboard. No code change is needed.
@@ -98,7 +99,7 @@ The first build takes a few minutes. It installs packages, applies any pending d
 - Backups are handled by **Neon**, not Render. Set the history or retention window in the Neon console.
 
 ### Daily reminder email (v1.2c)
-Owners can switch on a **daily summary email** in **الإعدادات › التذكيرات**. It lists overdue payments and those coming due soon. Render's free plan has no built-in scheduler, so a free outside service has to visit one address once an hour to trigger the sending. Until you set this up, nothing is sent and nothing else in the app is affected.
+Owners can switch on a **daily summary email** in **الإعدادات › التذكيرات**. It lists overdue payments and those coming due soon. The app sends them itself: the same timer that keeps it awake (see *What "free" means here*) also triggers the sending about every 4 minutes. Each owner receives the email at the hour they chose, at most once a day. The only setup is a secret. Until you add it, nothing is sent and nothing else in the app is affected.
 
 1. **Create a secret.** Generate one the same way as the `SESSION_SECRET` above:
 
@@ -107,15 +108,10 @@ Owners can switch on a **daily summary email** in **الإعدادات › ال�
    ```
 
    In Render: the `ledger` service → **Environment** → add **`CRON_SECRET`** with that value → **Save**. Render redeploys.
-2. **Create the scheduled call** with a free service such as [cron-job.org](https://cron-job.org). Create a job with:
-   - **URL:** `https://<your-address>/api/reminders/run`
-   - **Method:** `GET`
-   - **Schedule:** **every hour.** Each owner receives the email at the hour they chose, at most once a day. Do **not** use a once-a-day job. A job that runs once a day at, say, 07:00 only reaches owners who chose 07:00 or earlier. Owners who picked a later hour would never get the email.
-   - **Header:** `Authorization` with the value `Bearer <your CRON_SECRET>`. Never put the secret in the URL.
-   - **Timeout:** 60 seconds or more. A sleeping free service can take close to a minute to wake up.
-3. **Check it.** The job's first run should show status **200**.
-   - **503** means `CRON_SECRET` is not set on Render.
-   - **401** means the header is wrong.
+2. **Check it.** A few minutes after the redeploy, open `https://<your-address>/api/health`. `keepAlive.lastStatus` should read `health=200 reminders=200`.
+   - `reminders=401` or `reminders=503` should not happen (the app sends its own secret); redeploy and check again.
+   - No `reminders=` part means the running service started without `CRON_SECRET`; redeploy after saving it.
+   - `lastTick` is `null` for the first few minutes after every start. The Render **Logs** tab shows one `[keepalive]` line per visit.
 
 The emails are sent through Brevo, like the sign-up codes, and share its free daily limit.
 

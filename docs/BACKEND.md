@@ -196,7 +196,7 @@ Exports zod schemas and inferred types: `SignupOwnerSchema`, `SignupStaffSchema`
 - counterparty ≤ 200, note ≤ 500, trimmed
 
 ## API routes (the only ones)
-- `GET /api/health` → `{ ok: true }` (no auth)
+- `GET /api/health` → `{ ok: true, keepAlive: { lastTick, lastStatus } }` (no auth; `keepAlive` is the in-process scheduler's last tick — an ISO time and HTTP status codes only, both `null` until the first tick; see `src/lib/keepAlive.ts`)
 - `GET /api/export?from=&to=` → OWNER only; `ReportRangeSchema` on the params; exceljs; **three sheets (v1.1c)** — «الحركات», «الملخص», «معلومات» — specified in *Export workbook* below; filename `ledger_<from>_<to>.xlsx` via `Content-Disposition: attachment`; `Cache-Control: private, no-store`.
   - **It must reuse `listTransactions` / `getReport` rather than querying Prisma directly**, so it inherits `ledgerWhere` and is covered by the B3 scoping gate by construction. The export writes *every matching row* to a file the owner keeps and forwards, so a soft-deleted entry reappearing there is the undetectable-wrong-number class in the format most likely to be treated as authoritative. Add `src/app/api/export/route.ts` to the gate's `FILES` list either way.
   - `ReportRangeSchema` caps the span at `MAX_REPORT_SPAN_DAYS` (366) with `err.rangeTooLong` — exceljs holds the whole workbook in memory, and an unbounded range on a free-tier database is a timeout rather than a slow download.
