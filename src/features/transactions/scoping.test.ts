@@ -243,7 +243,7 @@ const {
 const { getPayslip } = await import("@/features/employees/payslip");
 const { ensureSalaryInstalments } = await import("@/features/payroll/generate");
 // v1.2b CP2
-const { getDaySheet, getMonthGrid, getLastRecordedDate } = await import("@/features/attendance/queries");
+const { getDaySheet, getMonthGrid, getLastRecordedDate, getAttendanceYear } = await import("@/features/attendance/queries");
 const { getEmployeeMonth } = await import("@/features/attendance/month");
 const { saveAttendanceDay } = await import("@/features/attendance/actions");
 const { checkIn, checkOut } = await import("@/features/attendance/self");
@@ -1991,6 +1991,15 @@ describe("v1.2b CP2: attendance reads and the day save scope every call", () => 
     expect((await getEmployeeMonth(EST, "emp_1", "2026-09"))?.salary).toMatchObject({ editable: true });
     harness.responses.set("attendanceRecord.findFirst", { date: day("2026-09-14") });
     expect(await getLastRecordedDate(EST, "2026-09-15")).toBe("2026-09-14");
+    expect(failures()).toEqual([]);
+    record();
+  });
+
+  it("v1.3: getAttendanceYear (the employee heat strip) scopes its one read", async () => {
+    populateAttendance();
+    await getAttendanceYear(EST, "emp_1", "2026-09");
+    const read = harness.calls.find((c) => c.model === "attendanceRecord" && c.method === "findMany")!;
+    expect(read.args.where).toMatchObject({ establishmentId: EST, employeeId: "emp_1" });
     expect(failures()).toEqual([]);
     record();
   });

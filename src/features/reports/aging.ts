@@ -19,7 +19,12 @@ export type AgingBuckets = {
   totalHalalas: number;
 };
 export type AgingRow = AgingBuckets & { partyId: string; partyName: string };
-export type AgingSide = { rows: AgingRow[]; totals: AgingBuckets };
+/**
+ * v1.3 item 14: how many overdue instalments fall in each bucket, per side
+ * (a sibling of `totals`, never summed across لنا and علينا).
+ */
+export type AgingCounts = { upTo30: number; upTo60: number; upTo90: number; over90: number; total: number };
+export type AgingSide = { rows: AgingRow[]; totals: AgingBuckets; counts: AgingCounts };
 export type AgingReport = { today: string; toUs: AgingSide; fromUs: AgingSide };
 
 type BucketKey = Exclude<keyof AgingBuckets, "totalHalalas">;
@@ -39,7 +44,16 @@ function add(into: AgingBuckets, key: BucketKey, amount: number): void {
   into.totalHalalas += amount;
 }
 
-function side(byParty: Map<string, AgingRow>): AgingSide {
+const COUNT_KEY: Record<BucketKey, Exclude<keyof AgingCounts, "total">> = {
+  upTo30Halalas: "upTo30",
+  upTo60Halalas: "upTo60",
+  upTo90Halalas: "upTo90",
+  over90Halalas: "over90",
+};
+
+const zeroCounts = (): AgingCounts => ({ upTo30: 0, upTo60: 0, upTo90: 0, over90: 0, total: 0 });
+
+function side(byParty: Map<string, AgingRow>, counts: AgingCounts): AgingSide {
   const rows = [...byParty.values()].sort(
     (a, b) => b.totalHalalas - a.totalHalalas || a.partyName.localeCompare(b.partyName, "ar") || a.partyId.localeCompare(b.partyId),
   );
@@ -47,7 +61,7 @@ function side(byParty: Map<string, AgingRow>): AgingSide {
   for (const row of rows) {
     for (const key of ["upTo30Halalas", "upTo60Halalas", "upTo90Halalas", "over90Halalas"] as const) add(totals, key, row[key]);
   }
-  return { rows, totals };
+  return { rows, totals, counts };
 }
 
 export async function getAgingReport(establishmentId: string, today: string = todayISO()): Promise<AgingReport> {
@@ -68,11 +82,18 @@ export async function getAgingReport(establishmentId: string, today: string = to
 
   const toUs = new Map<string, AgingRow>();
   const fromUs = new Map<string, AgingRow>();
+  const toUsCounts = zeroCounts();
+  const fromUsCounts = zeroCounts();
   for (const r of rows) {
-    const map = r.plan.direction === "IN" ? toUs : fromUs;
+    const inbound = r.plan.direction === "IN";
+    const map = inbound ? toUs : fromUs;
+    const counts = inbound ? toUsCounts : fromUsCounts;
     const row = map.get(r.plan.partyId) ?? { partyId: r.plan.partyId, partyName: r.plan.party.name, ...zero() };
-    add(row, agingBucketOf(-dayOffset(dateToISO(r.dueDate), today)), r.amountDueHalalas - r.paidHalalas);
+    const bucket = agingBucketOf(-dayOffset(dateToISO(r.dueDate), today));
+    add(row, bucket, r.amountDueHalalas - r.paidHalalas);
+    counts[COUNT_KEY[bucket]] += 1;
+    counts.total += 1;
     map.set(r.plan.partyId, row);
   }
-  return { today, toUs: side(toUs), fromUs: side(fromUs) };
+  return { today, toUs: side(toUs, toUsCounts), fromUs: side(fromUs, fromUsCounts) };
 }

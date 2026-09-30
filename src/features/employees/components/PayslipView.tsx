@@ -5,6 +5,7 @@
  * payment, or «لم يُسدَّد بعد». Amounts are neutral: every line is named in words.
  * Built from report-card / report-net, so the existing print block styles it;
  * the not-a-legal-document line prints on the sheet as well as on screen.
+ * v1.3 item 12: opens with the hero (net large, gross → deductions → net).
  */
 import { Card } from "@/components/Card";
 import { DateText } from "@/components/DateText";
@@ -15,6 +16,7 @@ import { periodLabel } from "@/features/plans/components/PlanBits";
 import { t } from "@/i18n/ar";
 
 import { allowanceName } from "./EmployeeProfile";
+import { PayslipHero } from "./PayslipHero";
 
 function Line({ label, halalas, strong = false }: { label: string; halalas: number; strong?: boolean }) {
   return (
@@ -30,6 +32,7 @@ function Line({ label, halalas, strong = false }: { label: string; halalas: numb
 export function PayslipView({ slip }: { slip: Payslip }) {
   return (
     <div className="flex flex-col gap-4">
+      <PayslipHero slip={slip} />
       <Card className="report-card">
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
           <dt className="text-gray-600">{t.payslip.establishment}</dt>

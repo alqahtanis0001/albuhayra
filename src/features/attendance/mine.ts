@@ -22,8 +22,10 @@ export type MySelf = {
   today: string;
   /** Server clock at render, for the "recorded from the system clock" note. */
   now: string;
+  /** v1.3 item 11: the same instant as epoch ms — the live clock starts from it. */
+  nowMs: number;
   workDay: boolean;
-  schedule: { workStart: string | null; workEnd: string | null };
+  schedule: { workStart: string | null; workEnd: string | null; graceMinutes: number | null };
   record: AttendanceRecordView | null;
   derived: "PRESENT" | "LATE" | null;
   canClock: boolean;
@@ -42,8 +44,9 @@ export async function getMySelf(): Promise<MySelf | null> {
     name: employee.name,
     today,
     now: nowRiyadhHHMM(at),
+    nowMs: at.getTime(),
     workDay: isWorkDay(employee.workDays, today),
-    schedule: { workStart: employee.workStart, workEnd: employee.workEnd },
+    schedule: { workStart: employee.workStart, workEnd: employee.workEnd, graceMinutes: employee.graceMinutes },
     record: record ? toRecordView({ ...record, note: null }) : null,
     derived: derivedStatus(record?.checkIn, employee, today),
     canClock: canClock(employee, today),

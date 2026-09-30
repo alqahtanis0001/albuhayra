@@ -17,6 +17,17 @@ import type { MySelf } from "@/features/attendance/mine";
 import { checkIn, checkOut } from "@/features/attendance/self";
 import { errorMessage, t } from "@/i18n/ar";
 
+import { LiveClock, type ClockRing } from "./LiveClock";
+
+/** Which ring: the check once checked in; the grace ring only on a clockable work day with a start and a grace. */
+function ringOf(self: MySelf): ClockRing {
+  if (self.record?.checkIn) return { kind: "checked", at: self.record.checkIn };
+  if (!self.canClock || !self.workDay) return { kind: "none", note: false };
+  const { workStart, graceMinutes } = self.schedule;
+  if (!workStart || graceMinutes === null) return { kind: "none", note: true };
+  return { kind: "grace", workStart, graceMinutes };
+}
+
 export function ClockCard({ self }: { self: MySelf }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -35,18 +46,11 @@ export function ClockCard({ self }: { self: MySelf }) {
     <Card title={t.myAttendance.today}>
       <div className="flex flex-col gap-3 text-sm">
         <DateText date={self.today} className="items-start" />
+        <LiveClock serverNowMs={self.nowMs} ring={ringOf(self)} />
         {self.workDay ? null : <p className="text-gray-600">{t.myAttendance.notWorkDay}</p>}
         <p className="font-medium text-gray-900">
           {status ? t.attendanceStatus[status] : t.attendance.notRecorded}
         </p>
-        {record?.checkIn ? (
-          <p>
-            {t.myAttendance.checkedInAt}{" "}
-            <bdi dir="ltr" className="font-semibold tabular-nums">
-              {record.checkIn}
-            </bdi>
-          </p>
-        ) : null}
         {record?.checkOut ? (
           <p>
             {t.myAttendance.checkedOutAt}{" "}

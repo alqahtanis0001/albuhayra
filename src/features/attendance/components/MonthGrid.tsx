@@ -5,6 +5,8 @@
  * employment is blank; an employed work day with no record shows «—», an
  * unrecorded non-work day a muted «ع» (GridCellText). Printable
  * through the existing print block (`attendance-grid` only tightens cells).
+ * v1.3 item 10: a recorded cell is tinted by its status (the letter stays);
+ * `.print-plain` prints it as the letter on white.
  */
 import Link from "next/link";
 
@@ -12,6 +14,7 @@ import type { GridCell, GridRow } from "@/features/attendance/queries";
 import { t } from "@/i18n/ar";
 import { AttendanceStatusEnum } from "@/lib/validation";
 
+import { STATUS_TINT } from "./attendanceVisual";
 import { hoursText } from "./sheetDraft";
 
 const STATUSES = AttendanceStatusEnum.options;
@@ -19,11 +22,15 @@ const STATUSES = AttendanceStatusEnum.options;
 export function AttendanceLegend() {
   return (
     <div className="report-card rounded-xl border border-gray-200 bg-white p-3 text-sm">
-      <p className="mb-2 font-semibold text-gray-900">{t.attendance.legend}</p>
+      <p className="mb-2 font-semibold text-gray-900">{t.attendanceVisual.legend}</p>
       <dl className="flex flex-wrap gap-x-4 gap-y-1">
         {STATUSES.map((s) => (
-          <div key={s} className="flex gap-1">
-            <dt className="font-semibold">{t.attendanceCode[s]}</dt>
+          <div key={s} className="flex items-center gap-1">
+            <dt
+              className={`print-plain inline-flex h-6 min-w-6 items-center justify-center rounded border border-gray-300 px-1 font-semibold text-gray-900 ${STATUS_TINT[s]}`}
+            >
+              {t.attendanceCode[s]}
+            </dt>
             <dd>= {t.attendanceStatus[s]}</dd>
           </div>
         ))}
@@ -43,6 +50,12 @@ function GridCellText({ cell }: { cell: GridCell }) {
   if (cell.status) return <>{t.attendanceCode[cell.status]}</>;
   if (!cell.workDay) return <span className="text-gray-600">{t.attendanceCode.HOLIDAY}</span>;
   return <>—</>;
+}
+
+/** A recorded status's tint (print-plain on paper); else the non-work-day grey. */
+function cellTint(c: GridCell): string {
+  if (c.employed && c.status) return `print-plain text-gray-900 ${STATUS_TINT[c.status]}`;
+  return c.workDay ? "" : "bg-gray-50";
 }
 
 /** Plain cells: the shared Th/Td carry px-3, too wide for 31 day columns. */
@@ -87,7 +100,7 @@ export function MonthGrid({ ym, days, rows }: { ym: string; days: string[]; rows
                 </Link>
               </th>
               {row.cells.map((c) => (
-                <td key={c.date} className={`${CELL} ${c.workDay ? "" : "bg-gray-50"}`}>
+                <td key={c.date} className={`${CELL} ${cellTint(c)}`}>
                   <GridCellText cell={c} />
                 </td>
               ))}

@@ -13,6 +13,8 @@ import { dateToISO, isoToDate } from "@/lib/dates";
 import { db } from "@/lib/db";
 import type { AttendanceStatusValue } from "@/lib/validation";
 
+import { lastMonths } from "./components/attendanceVisual";
+
 /**
  * الحضور — the owner's reads (spec §3.3; D10, Z1, Z2). Pages call these after
  * `requireOwner()` with the session's establishment; every query is scoped by
@@ -180,4 +182,25 @@ export async function getMonthGrid(
       return { employeeId: e.id, name: e.party.name, cells, totals, minutes };
     }),
   };
+}
+
+/**
+ * v1.3 item 10: one employee's recorded statuses over the 12 months ending at
+ * `endYm` — the input of the employee page's heat strip (grouped and rated by
+ * the pure `heatCells`). Scoped by the establishment: another establishment's
+ * employee id reads nothing.
+ */
+export async function getAttendanceYear(
+  establishmentId: string,
+  employeeId: string,
+  endYm: string,
+): Promise<{ date: string; status: AttendanceStatusValue }[]> {
+  const from = `${lastMonths(endYm)[0]!}-01`;
+  const to = daysOfMonth(endYm).at(-1)!;
+  const rows = await db.attendanceRecord.findMany({
+    where: { establishmentId, employeeId, date: { gte: isoToDate(from), lte: isoToDate(to) } },
+    select: { date: true, status: true },
+    orderBy: { date: "asc" },
+  });
+  return rows.map((r) => ({ date: dateToISO(r.date), status: r.status }));
 }

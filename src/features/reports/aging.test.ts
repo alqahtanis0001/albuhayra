@@ -89,6 +89,8 @@ describe("getAgingReport (C13, N2)", () => {
           { partyId: "pA", partyName: "ألف", ...buckets(300, 1200, 4800, 19200) },
         ],
         totals: buckets(50300, 1200, 4800, 19200),
+        // v1.3 item 14: instalments per bucket, this side only.
+        counts: { upTo30: 3, upTo60: 2, upTo90: 2, over90: 2, total: 9 },
       },
       fromUs: {
         rows: [
@@ -96,6 +98,7 @@ describe("getAgingReport (C13, N2)", () => {
           { partyId: "pA", partyName: "ألف", ...buckets(700, 0, 0, 0) },
         ],
         totals: buckets(300700, 0, 0, 0),
+        counts: { upTo30: 2, upTo60: 0, upTo90: 0, over90: 0, total: 2 },
       },
     });
   });

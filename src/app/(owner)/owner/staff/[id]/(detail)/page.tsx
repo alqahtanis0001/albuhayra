@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import { AttendanceHeatStrip } from "@/features/attendance/components/AttendanceHeatStrip";
+import { heatCells } from "@/features/attendance/components/attendanceVisual";
+import { getAttendanceYear } from "@/features/attendance/queries";
 import { EmployeeActions } from "@/features/employees/components/EmployeeActions";
 import {
   MonthsCard,
@@ -31,6 +34,8 @@ export default async function EmployeePage({ params }: { params: Promise<{ id: s
   const canEnd = employee.status === "ACTIVE" && employee.endDate === null;
   const unpaid = canEnd ? await getUnpaidSalaryMonths(establishmentId, employee.id) : [];
   const pay = employee.thisMonth?.payable ? employee.thisMonth.instalmentId : null;
+  const thisYm = today.slice(0, 7);
+  const year = heatCells(await getAttendanceYear(establishmentId, employee.id, thisYm), thisYm, employee.startDate);
 
   return (
     <div className="flex flex-col gap-4">
@@ -46,12 +51,13 @@ export default async function EmployeePage({ params }: { params: Promise<{ id: s
         payInstalmentId={pay}
         startDate={employee.startDate}
         today={today}
-        thisYm={today.slice(0, 7)}
+        thisYm={thisYm}
         unpaid={unpaid}
       />
 
       <ProfileCard e={employee} />
       <SalaryCard e={employee} />
+      <AttendanceHeatStrip cells={year} />
       {employee.thisMonth ? <ThisMonthCard employeeId={employee.id} m={employee.thisMonth} /> : null}
       <MonthsCard employeeId={employee.id} months={employee.months} />
     </div>
