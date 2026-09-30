@@ -30,6 +30,9 @@ export type DueRow = {
   /** v1.2b: SALARY rows carry their month — show it instead of `seq`. */
   kind: "STANDARD" | "SALARY";
   periodYm: string | null;
+  /** v1.2c C10 (N4): what the owner's «تذكير» button needs — never the address itself. */
+  partyRemindersOptIn: boolean;
+  partyHasEmail: boolean;
 };
 
 export type Dues = {
@@ -95,7 +98,12 @@ async function unpaidUntil(establishmentId: string, until: string, take?: number
       dueDate: true,
       amountDueHalalas: true,
       paidHalalas: true,
-      plan: { select: { title: true, kind: true, direction: true, partyId: true, reminderDays: true, party: { select: { name: true } } } },
+      plan: {
+        select: {
+          title: true, kind: true, direction: true, partyId: true, reminderDays: true,
+          party: { select: { name: true, remindersOptIn: true, email: true } },
+        },
+      },
     },
     orderBy: [{ dueDate: "asc" }, { seq: "asc" }, { id: "asc" }],
     ...(take ? { take } : {}),
@@ -120,6 +128,8 @@ export async function getDues(establishmentId: string, today: string = todayISO(
       dayOffset: dayOffset(dueDate, today),
       kind: r.plan.kind,
       periodYm: r.periodYm,
+      partyRemindersOptIn: r.plan.party.remindersOptIn,
+      partyHasEmail: Boolean(r.plan.party.email),
     };
   });
   const overdue = rows.filter((r) => r.dueDate < today);

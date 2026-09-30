@@ -3,13 +3,14 @@ import { NextResponse } from "next/server";
 import { getReport } from "@/features/reports/queries";
 import { listTransactions } from "@/features/transactions/queries";
 import { requireOwner } from "@/lib/auth";
-import { PAGE_SIZE, ReportRangeSchema } from "@/lib/validation";
+import { PAGE_SIZE, ReportPartyFilterSchema, ReportRangeSchema } from "@/lib/validation";
 
 import packageJson from "../../../../package.json";
 import { buildWorkbook } from "./workbook";
 
 /**
- * The only route besides `/api/health`, per docs/BACKEND.md.
+ * The ledger export (docs/BACKEND.md; v1.2c adds `./statement` beside it and
+ * `/api/reminders/run` elsewhere).
  *
  * A route handler sits outside the server-action path, so nothing here inherits
  * the checks a Server Action gets: `requireOwner()` is the gate, and the
@@ -20,15 +21,19 @@ import { buildWorkbook } from "./workbook";
  *
  * The workbook itself is built by `./workbook`, which is pure: everything it
  * shows arrives from here, fetched with the session's establishment.
+ *
+ * v1.2c C16 + E10: an optional `partyId` narrows the summary AND the ledger
+ * rows; the info sheet names the party. An unknown or foreign party is a 400,
+ * never the unfiltered workbook.
  */
 
 export const dynamic = "force-dynamic";
 
 /** Every page of the range. The ledger is small; an owner expects the lot. */
-async function allRows(establishmentId: string, from: string, to: string) {
+async function allRows(establishmentId: string, from: string, to: string, partyId: string | undefined) {
   const rows = [];
   for (let page = 1; ; page++) {
-    const result = await listTransactions(establishmentId, { from, to, page });
+    const result = await listTransactions(establishmentId, { from, to, page, ...(partyId ? { partyId } : {}) });
     rows.push(...result.rows);
     if (rows.length >= result.total || result.rows.length < PAGE_SIZE) break;
   }
@@ -55,10 +60,15 @@ export async function GET(request: Request): Promise<Response> {
   }
   const { from, to } = parsed.data;
 
-  const [rows, report] = await Promise.all([
-    allRows(establishmentId, from, to),
-    getReport(establishmentId, from, to),
-  ]);
+  // E10: `get()` answers null for an absent key; the schema wants undefined.
+  const party = ReportPartyFilterSchema.safeParse({ partyId: params.get("partyId") ?? undefined });
+  if (!party.success) return NextResponse.json({ error: "err.partyInvalid" }, { status: 400 });
+  const { partyId } = party.data;
+
+  // The report first: it is what resolves the party in this establishment.
+  const report = await getReport(establishmentId, from, to, partyId);
+  if (report === null) return NextResponse.json({ error: "err.partyInvalid" }, { status: 400 });
+  const rows = await allRows(establishmentId, from, to, partyId);
 
   const book = buildWorkbook({
     rows,
@@ -67,6 +77,7 @@ export async function GET(request: Request): Promise<Response> {
       establishmentName: user.establishmentName ?? "",
       from,
       to,
+      partyName: report.party?.name ?? null,
       generatedBy: user.displayName,
       generatedAt: new Date(),
       appVersion: packageJson.version,

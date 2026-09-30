@@ -1296,3 +1296,92 @@ first) → P2 → P3 → P4 → P5, gates after each.
   neighbour. Mutations: no BREVO / no MAIL_FROM / no trim, form establishmentId in the write / in the audit,
   session read before the OPEN_PATHS check — all 6 killed.
 - Gates: tsc 0 · vitest 1046/1046 in 53 files · build 0 (lock). CP1 backend closed.
+
+## v1.2c CP2 — client reminders and reports (G6–G8), after CP1 commit 1868dea
+
+### G6 — client reminders (done)
+- `reminders/clientRules.ts` (server-only): `reminderTarget(estId, instalmentId)` → one scoped `instalment.findFirst`
+  (nested plan + party email/opt-in) → `err.notFound` (missing/foreign) · `err.reminderNotApplicable` (not IN, not
+  OPEN, or paid) · `err.remindersNotOptedIn`; `riyadhDayStart(now)` (`<todayISO(now)>T00:00:00+03:00`);
+  `emailedToday` (scoped `auditLog.findFirst` CLIENT_REMINDER_EMAIL / Instalment / entityId since midnight) and
+  `emailsToday` (scoped `auditLog.count`) — E8 durable; `CLIENT_EMAILS_PER_DAY = 20`.
+- `reminders/client.ts` ("use server", `requireOwner()` first): `setPartyRemindersOptIn(partyId, on)` (zod,
+  scoped read + `updateMany`, PARTY_REMINDERS before/after, revalidates `/owner` layout);
+  `sendClientReminder(instalmentId)`: target → `partyNoEmail` → daily audit check (`reminderTooSoon`) →
+  establishment cap (`mailFailed`) → in-memory `remind:{id}` (LIMITS.remindInstalment 1/day; `reminderTooSoon`)
+  → `mailto:` cap + awaited `sendMail` (E9); failure → key cleared, `mailFailed`, no audit; success →
+  CLIENT_REMINDER_EMAIL audit `{ planId, partyId, remainingHalalas, dueDate }`.
+  `prepareWhatsAppReminder(instalmentId)` → same target checks, text, CLIENT_REMINDER_WHATSAPP audit.
+- `templates.ts`: `clientReminderText` (body lines, values via `plainLine`) and `clientReminderMail` (HTML lines
+  with values via `escapeHtml`, footer with `{establishment}` ×2 through `fill()`, text = body + footer). No
+  reply-to anywhere (sendMail never sets one; pinned on the Brevo body's keys).
+- Read side (N4): `PartyRow.remindersOptIn`; `DueRow` and `PlanDetail` gain `partyRemindersOptIn` +
+  `partyHasEmail` (a boolean — the address never leaves the query). `StaffDueRow` unchanged.
+
+### G7 — reports (done)
+- `reports/aging.ts`: `agingBucketOf(days)` and `getAgingReport(estId, today)` — one scoped `instalment.findMany`
+  (due < today, unpaid, OPEN), remainder per party per direction into 1–30/31–60/61–90/>90, rows by total desc
+  then name, totals; `toUs` (IN) and `fromUs` (OUT, salary included).
+- `reports/queries.ts`: `getReport` overloads — `(est, from, to)` → `Report`; `(est, from, to, partyId)` →
+  `Report | null`; the party is resolved in scope first (`party.findFirst`), unknown/foreign → null before any
+  transaction read; `Report.party` = `{ id, name } | null`.
+- `/api/export`: `partyId` via `ReportPartyFilterSchema` with `get() ?? undefined` (E10); report first (resolves
+  the party) → 400 `err.partyInvalid` → then every ledger page with `partyId`; info sheet line «الجهة».
+- `/api/export/statement` (`statement/route.ts` + pure `statementSheet.ts` + `statementFilename.ts` — a route
+  module may export only handlers): `requireOwner()`, `{ partyId: cuid }` → 400 key; `getPartyStatement` null →
+  404; one RTL sheet (title block rows 1–3, header row 5 frozen, rows with `SUM(C6:Cn)` running balances, the
+  closing balance, «حركات أخرى» listed below without formulas, the capped line); `private, no-store`;
+  `filename="statement_<id>_<date>.xlsx"; filename*=UTF-8''<RFC 5987>`.
+- **Found:** exceljs drops a cached formula result of exactly 0 on write, so a zero cell with a formula shows
+  blank in a viewer that doesn't recalculate. The statement writes a zero balance as the plain 0. The v1.1c
+  `totalValue()` has the same latent gap (e.g. SUMIF <0 over a period with only IN entries) — reported to the
+  lead, not changed.
+
+### G8 — gates (done)
+- `reminders/client.test.ts` (27, PGlite): opt-in (scoped, audited, non-boolean refused, foreign → notFound);
+  the email (Brevo body keys exactly sender/to/subject/htmlContent/textContent — no reply-to, no owner address;
+  escaping of establishment + title; no leftover placeholder; footer's two `{establishment}`; amount/date;
+  audit); durable once-a-day (refused again after `resetAllAttempts`, i.e. a restart); an audit before Riyadh
+  midnight doesn't count; the 20/day cap (19 today + another tenant's 20 + yesterday's 20 + a WhatsApp → one
+  more allowed, then mailFailed); seven refusal keys, none sending or auditing; Brevo failure → retry at once;
+  mailto: cap → retry after it clears; double click → one send; WhatsApp text (raw, no link/phone/placeholder,
+  audited, refusals); DueRow/PlanDetail/PartyRow flags; STAFF refused by all three; `riyadhDayStart` at 20:59Z /
+  21:00Z; static import graph (client actions only from owner pages/components; clientRules only from client.ts).
+- `reports/aging.test.ts` (11, PGlite): exact report with boundaries 1/30/31/60/61/90/91/218, due-today and
+  future excluded, paid / paid-only party / archived / other tenant excluded, same party both directions, salary
+  under علينا, order by total; next-day shift; the bucket table.
+- `api/export/statement.test.ts` (10): owner + session scope, 400/404, headers + both filenames, sheet shape,
+  every row / running balance / closing = the statement with formulas evaluated strictly (4 formulas + a plain 0),
+  a non-zero closing formula, descriptions incl. `$&`, «حركات أخرى» without formulas + capped line, filename
+  sanitising (Arabic, quote, CR/LF).
+- `api/export/export.test.ts` (+4): party narrows summary and every ledger page and is named on the info sheet;
+  absent / empty → all parties; foreign / over-long → 400 `err.partyInvalid` with nothing listed.
+- `scoping.test.ts`: drivers for opt-in / email / WhatsApp / foreign ids / aging / getReport by party (foreign →
+  only `party.findFirst`, no transaction read); FILES += client, clientRules, aging, statement route; S8 +=
+  clientRules, aging; nested-transactions scan += reminders, reports. Gotcha: W5's `data:` scanner flagged
+  `clientRules.ts` (a returned `data:` object computing a remainder from paidHalalas) — remainder computed first;
+  then my own explanatory comment containing "`data:` … paidHalalas" tripped it again. Reworded.
+- **Mutations: 61 run, 0 survivors.** One survived the first pass (aging without the unpaid filter — equivalent
+  unless a party's only overdue rows are paid) → a paid-only party fixture now kills it.
+- Gates: tsc 0 · vitest 1102/1102 in 56 files · build 0 (lock); route.ts files: export, export/statement, health,
+  reminders/run; prerender manifest only `/_global-error`.
+- Sizes: `plans/queries.ts` 266 and `plans/dues.ts` 254 (both already over ~250 before; +8/+10 for the two
+  button flags). Test files 206–286.
+- **Lead rulings closed:** (1) `totalValue()` (style.ts, v1.1c) now writes an exact-0 total as the plain 0 —
+  exceljs drops a cached result of 0, which left a blank in viewers that don't recalculate; the statement reuses
+  `totalValue` (its own helper removed). New export cases: an IN-only period's «صادر» loads back as 0 on the
+  ledger and summary, and no formula anywhere is left without a cached result. The formula-count pin (9) is
+  unchanged — the main fixture has no zero totals. (2) The 20/day establishment cap answers
+  `err.clientReminderDailyCap` (lead's new key); `err.mailFailed` stays for Brevo failures and the mailto: cap.
+  Both mutants killed. W5: confirmed a read (a returned `data:` object), restructured in the code; the W5 block
+  is byte-identical to 1868dea (cmp).
+- Gates: tsc 0 · vitest 1104/1104 in 56 files · build 0 (lock).
+- **R-G6..G8 PASS (0 BLOCKER, 1 SHOULD, 2 NOTE); closed before the CP2 commit:** S-G6a — `LIMITS.remindInstalment`
+  window 60 s (was a day: an email at 23:00 made the in-memory key refuse at 08:00 the next Riyadh day, against E8);
+  test with fake Date: 23:00 ok → 23:30 reminderTooSoon (audit) → next day 08:00 ok with memory NOT reset.
+  Note 1 — `fill(template, values)` is single-pass (`/\{(\w+)\}/g`, function replacer, unknown keys kept): a
+  `{title}` inside the establishment name is never expanded; tests for the helper and for a name
+  «{title} {amount} {date}» in the client reminder text/subject/html. Note 2 (audit after the send, outside a
+  transaction) accepted by the lead as a known issue. Mutants: day window back, sequential fill, unknown keys
+  dropped — all killed.
+- Gates: tsc 0 · vitest 1107/1107 in 56 files · build 0 (lock). Mutations CP2 total: 66, 0 survivors.

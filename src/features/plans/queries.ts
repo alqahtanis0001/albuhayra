@@ -79,6 +79,9 @@ export type PlanDetail = PlanRow & {
   canCancel: boolean;
   overpaidHalalas: number;
   instalments: PlanInstalment[];
+  /** v1.2c C10: what the owner's «تذكير» button needs — never the address itself. */
+  partyRemindersOptIn: boolean;
+  partyHasEmail: boolean;
 };
 
 export type PlanFilter = { direction?: DirectionValue; status?: PlanStatus; partyId?: string };
@@ -192,7 +195,10 @@ export async function getPlan(
 ): Promise<PlanDetail | null> {
   const plan = await db.plan.findFirst({
     where: { establishmentId, id },
-    select: { ...PLAN_SELECT, categoryId: true, notes: true, closedAt: true, category: { select: { nameAr: true } } },
+    select: {
+      ...PLAN_SELECT, categoryId: true, notes: true, closedAt: true, category: { select: { nameAr: true } },
+      party: { select: { name: true, type: true, remindersOptIn: true, email: true } },
+    },
   });
   if (!plan) return null;
 
@@ -231,6 +237,8 @@ export async function getPlan(
     closedAt: plan.closedAt ? todayISO(plan.closedAt) : null,
     canCancel: plan.kind === "STANDARD" && plan.state === "OPEN" && payments.length === 0,
     overpaidHalalas,
+    partyRemindersOptIn: plan.party.remindersOptIn,
+    partyHasEmail: Boolean(plan.party.email),
     instalments: rows.map((r) => {
       const dueDate = dateToISO(r.dueDate);
       return {

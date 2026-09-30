@@ -15,6 +15,7 @@ import { ensureSalaryInstalments } from "@/features/payroll/generate";
 import { PrintButton } from "@/features/reports/components/PrintButton";
 import { PrintFooter } from "@/features/reports/components/PrintFooter";
 import { PrintHeader } from "@/features/reports/components/PrintHeader";
+import { RemindersOptIn } from "@/features/reminders/components/RemindersOptIn";
 import { t } from "@/i18n/ar";
 import { requireOwner } from "@/lib/auth";
 import { todayISO } from "@/lib/dates";
@@ -103,9 +104,28 @@ export default async function PartyPage({ params }: { params: Promise<{ id: stri
         <PartyActions partyId={party.id} active={party.active} hasHistory={party.hasHistory} />
       )}
 
+      {/* C9: the opt-in is about reminding this party, not its record, so it
+          shows for an employee's party too. */}
+      <Card className="no-print">
+        <RemindersOptIn partyId={party.id} optIn={party.remindersOptIn} />
+      </Card>
+
       <PartyStatementView statement={statement} />
-      <div className="no-print">
-        <PrintButton label={t.statement.print} />
+      {/* C14/C15: the same statement as a workbook, or saved as PDF through the
+          browser's print dialog (no PDF library). A plain link: the route
+          streams a file. */}
+      <div className="no-print flex flex-col gap-2">
+        <div className="flex flex-wrap gap-2">
+          <PrintButton label={t.statement.print} />
+          <a
+            href={`/api/export/statement?partyId=${encodeURIComponent(party.id)}`}
+            className="inline-flex min-h-11 items-center rounded-lg border border-gray-300 bg-white px-4 text-sm font-medium text-gray-900 hover:bg-gray-50"
+          >
+            {t.statementExport.excel}
+          </a>
+          <PrintButton label={t.statementExport.pdf} />
+        </div>
+        <p className="text-xs text-gray-600">{t.statementExport.pdfHint}</p>
       </div>
       <PrintFooter />
     </div>

@@ -252,7 +252,24 @@ describe("digestMail (C6, C7, E7)", () => {
 
   it("fill replaces every placeholder, and never expands $ patterns in the value", async () => {
     const { fill } = await load();
-    expect(fill("{e} — {e}", "e", "$& $' $$ $`")).toBe("$& $' $$ $` — $& $' $$ $`");
+    expect(fill("{e} — {e}", { e: "$& $' $$ $`" })).toBe("$& $' $$ $` — $& $' $$ $`");
+  });
+
+  it("fill is one pass: a placeholder inside a value is never expanded; unknown keys stay", async () => {
+    const { fill } = await load();
+    expect(fill("{e} / {t} / {x}", { e: "{t} {e}", t: "T" })).toBe("{t} {e} / T / {x}");
+  });
+
+  it("an establishment named «{title} {amount} {date}» reads literally in the client reminder", async () => {
+    const { clientReminderText, clientReminderMail } = await load();
+    const input = { establishmentName: "{title} {amount} {date}", planTitle: "عقد", remainingHalalas: 12345, dueDate: "2026-10-01" };
+    const text = clientReminderText(input);
+    expect(text).toContain("{title} {amount} {date}");
+    expect(text.split("عقد").length - 1).toBe(1);
+    expect(text.split("123.45 ر.س").length - 1).toBe(1);
+    const mail = clientReminderMail(TO, input);
+    expect(mail.subject).toContain("{title} {amount} {date}");
+    expect(mail.html.split("عقد").length - 1).toBe(1);
   });
 
   it("no placeholder brace survives in any part, whatever the name", async () => {

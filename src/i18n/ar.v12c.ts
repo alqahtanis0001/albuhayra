@@ -57,6 +57,7 @@ export const v12cSections = {
     sent: "تم إرسال التذكير",
     copyText: "نسخ النص",
     copied: "تم نسخ النص",
+    copyFailed: "تعذّر النسخ تلقائيًا، حدّد النص وانسخه يدويًا",
     whatsAppHelp: "انسخ النص وأرسله من واتساب بنفسك.",
     /** The email and WhatsApp text sent to the party. */
     subject: "تذكير بدفعة مستحقة — {establishment}",
@@ -106,5 +107,6 @@ export const v12cSections = {
     reminderTooSoon: "أُرسل تذكير بهذه الدفعة اليوم، حاول غدًا",
     partyNoEmail: "لا يوجد بريد إلكتروني لهذه الجهة",
     mailFailed: "تعذّر إرسال البريد الآن، حاول لاحقًا",
+    clientReminderDailyCap: "بلغت منشأتك الحد اليومي لرسائل التذكير (20 رسالة)، حاول غدًا",
   },
 } as const;

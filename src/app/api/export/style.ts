@@ -43,12 +43,16 @@ export function moneyText(halalas: number): string {
  * A total over `range`: a formula with its cached result, so a viewer that
  * never recalculates still shows the number. With nothing to sum it is a plain
  * 0 — a formula over an empty range sitting next to it would be circular.
+ *
+ * v1.2c: a total of exactly 0 is the plain 0 too. exceljs drops a cached result
+ * of 0 when it writes the file, so the formula form would show a blank there
+ * (e.g. «صادر» of a period with only وارد) in any viewer that doesn't recalculate.
  */
 export function totalValue(
   formula: string | null,
   halalas: number,
 ): ExcelJS.CellValue {
-  return formula === null ? 0 : { formula, result: riyals(halalas) };
+  return formula === null || halalas === 0 ? 0 : { formula, result: riyals(halalas) };
 }
 
 function thinBorder(): Partial<ExcelJS.Borders> {

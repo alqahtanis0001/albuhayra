@@ -21,8 +21,8 @@ import { riyadhStamp } from "./workbook";
  */
 
 const spy = vi.hoisted(() => ({
-  listedWith: [] as Array<{ establishmentId: string; from?: string; to?: string }>,
-  reportedWith: [] as Array<{ establishmentId: string; from: string; to: string }>,
+  listedWith: [] as Array<{ establishmentId: string; from?: string; to?: string; partyId?: string }>,
+  reportedWith: [] as Array<{ establishmentId: string; from: string; to: string; partyId?: string }>,
   requireOwnerCalls: 0,
 }));
 
@@ -121,9 +121,9 @@ vi.mock("@/lib/auth", () => ({
 vi.mock("@/features/transactions/queries", () => ({
   listTransactions: async (
     establishmentId: string,
-    filters: { from?: string; to?: string; page: number },
+    filters: { from?: string; to?: string; page: number; partyId?: string },
   ) => {
-    spy.listedWith.push({ establishmentId, from: filters.from, to: filters.to });
+    spy.listedWith.push({ establishmentId, from: filters.from, to: filters.to, partyId: filters.partyId });
     return {
       rows: fixture.rows,
       total: fixture.rows.length,
@@ -132,9 +132,11 @@ vi.mock("@/features/transactions/queries", () => ({
   },
 }));
 vi.mock("@/features/reports/queries", () => ({
-  getReport: async (establishmentId: string, from: string, to: string) => {
-    spy.reportedWith.push({ establishmentId, from, to });
-    return fixture.reportOf(fixture.rows);
+  // v1.2c C16: an unknown or foreign party answers null, like the real one.
+  getReport: async (establishmentId: string, from: string, to: string, partyId?: string) => {
+    spy.reportedWith.push({ establishmentId, from, to, partyId });
+    if (partyId === "party_foreign") return null;
+    return { ...fixture.reportOf(fixture.rows), party: partyId ? { id: partyId, name: "مؤسسة الأمل" } : null };
   },
 }));
 
@@ -505,5 +507,78 @@ describe("the exported workbook", () => {
       expect(source, file).not.toMatch(/lib\/db\b|generated\/prisma|@prisma\//);
       expect(source, file).not.toMatch(/\b(?:db|tx|client)\./);
     }
+  });
+});
+
+/* -------------------------------- v1.2c: a zero total is a number, not a blank */
+
+describe("a total of exactly 0 (exceljs drops a cached 0)", () => {
+  /**
+   * A period with only وارد: «صادر» is 0. Written as a formula, exceljs would
+   * save it without its cached result, and a viewer that does not recalculate
+   * (a preview, a phone) shows a blank. Loaded back here WITHOUT recalculation.
+   */
+  it("«صادر» of an IN-only period reads 0 when loaded back, on the ledger and in the summary", async () => {
+    fixture.rows = fixture.ROWS.filter((r) => r.direction === "IN");
+    const book = await exportedBook();
+    const ledgerOut = rowLabelled(book.worksheets[0]!, t.reports.totalOut).getCell(3).value;
+    expect(ledgerOut).toBe(0);
+    const summary = book.worksheets[1]!;
+    let zeros = 0;
+    let blanksWithFormula = 0;
+    summary.eachRow((row) => row.eachCell((cell) => {
+      const v = cell.value as { formula?: string; result?: unknown } | number | null;
+      if (v === 0) zeros++;
+      if (v && typeof v === "object" && "formula" in v && v.result === undefined) blanksWithFormula++;
+    }));
+    expect(zeros).toBeGreaterThan(0);
+    expect(blanksWithFormula).toBe(0);
+  });
+
+  it("no formula anywhere in the workbook is left without its cached result", async () => {
+    fixture.rows = fixture.ROWS.filter((r) => r.direction === "IN");
+    const book = await exportedBook();
+    for (const sheet of book.worksheets) {
+      sheet.eachRow((row) => row.eachCell((cell) => {
+        const v = cell.value as { formula?: string; result?: unknown } | null;
+        if (v && typeof v === "object" && "formula" in v) expect(v.result, `${sheet.name}!${cell.address}`).not.toBeUndefined();
+      }));
+    }
+  });
+});
+
+/* ------------------------------------------- v1.2c «بحسب الجهة» (C16, E10) */
+
+describe("GET /api/export with a party", () => {
+  async function infoParty(query: string): Promise<unknown> {
+    const response = await GET(request(query));
+    expect(response.status).toBe(200);
+    const book = new ExcelJS.Workbook();
+    await book.xlsx.load(new Uint8Array(await response.arrayBuffer()) as unknown as ArrayBuffer);
+    return rowLabelled(book.worksheets[2]!, t.reportFilter.exportParty).getCell(2).value;
+  }
+
+  it("narrows the summary AND every page of ledger rows, and names the party (E10)", async () => {
+    expect(await infoParty("?from=2026-09-01&to=2026-09-30&partyId=party_1")).toBe("مؤسسة الأمل");
+    expect(spy.reportedWith).toEqual([{ establishmentId: SESSION_EST, from: "2026-09-01", to: "2026-09-30", partyId: "party_1" }]);
+    expect(spy.listedWith.length).toBeGreaterThan(0);
+    expect(spy.listedWith.every((c) => c.partyId === "party_1" && c.establishmentId === SESSION_EST)).toBe(true);
+  });
+
+  it("without a party (absent or empty) it is every party, and says so", async () => {
+    for (const query of ["?from=2026-09-01&to=2026-09-30", "?from=2026-09-01&to=2026-09-30&partyId="]) {
+      spy.reportedWith = [];
+      spy.listedWith = [];
+      expect(await infoParty(query)).toBe(t.reportFilter.exportAllParties);
+      expect(spy.reportedWith[0]!.partyId).toBeUndefined();
+      expect(spy.listedWith.every((c) => c.partyId === undefined)).toBe(true);
+    }
+  });
+
+  it.each(["party_foreign", "x".repeat(65)])("partyId=%s → 400 err.partyInvalid, and nothing is listed", async (partyId) => {
+    const response = await GET(request(`?from=2026-09-01&to=2026-09-30&partyId=${partyId}`));
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "err.partyInvalid" });
+    expect(spy.listedWith).toEqual([]);
   });
 });

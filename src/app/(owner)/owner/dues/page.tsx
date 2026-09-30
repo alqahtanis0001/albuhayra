@@ -42,6 +42,7 @@ export default async function DuesPage() {
           <EmptyState title={t.dues.noOverdue} />
         ) : (
           <DueSplit
+            remind
             rows={dues.overdue}
             inHalalas={totals.overdueInHalalas}
             outHalalas={totals.overdueOutHalalas}
@@ -62,6 +63,7 @@ export default async function DuesPage() {
           <EmptyState title={t.dues.empty} />
         ) : (
           <DueSplit
+            remind
             rows={dues.thisWeek}
             inHalalas={totals.weekInHalalas}
             outHalalas={totals.weekOutHalalas}

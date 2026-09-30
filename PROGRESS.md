@@ -17,11 +17,11 @@ npm run typecheck        # tsc --noEmit, not part of build
 `DATABASE_URL` is read by `prisma.config.ts` (which loads `.env` via dotenv) for migrate/seed, and by `src/lib/db.ts` at runtime. `prisma generate` and `npm run build` work without it.
 
 ## Current phase
-**Phase:** v1.2c checkpoint 1 committed (owner digest); checkpoint 2 (client reminders, reports) next.
-**Status:** commits since v1.1e: `792a601`, `1a9aae4` (v1.2a) · `e394d0a` · `99d526e` (spec) · `aa5f4f1`, `1d29ea4` (v1.2b) · v1.2c CP1 (this). **Nothing pushed.** Three migrations await the user's push: `20261001000000_v1_2a_parties_projects_plans`, `20261002000000_v1_2b_employees_salaries`, `20261003000000_v1_2c_reminders` (all expand-only). **New secret before pushing: `CRON_SECRET`** (plus the hourly scheduler, README). Gates on the v1.2c CP1 tree (lead, under the lock): `npx tsc --noEmit` 0, `npx vitest run` 1046/1046 in 53 files (twice), `npm run build` 0; prerender only `/_global-error`; API routes health, export, reminders/run.
-**Exactly where we stopped:** v1.2c CP1 committed; CP2 (G6–G8, H2–H3) about to start.
-**Next concrete action:** CP2 build → review → commit "v1.2c: checkpoint 2 — client reminders and reports" → the combined report for the user.
-**Teammates:** fresh v1.2c team `backend`, `frontend`, `reviewer` (the v1.2b team was shut down after `1d29ea4`, spec §5 "team per release").
+**Phase:** v1.2 complete — v1.2a, v1.2b and v1.2c all committed per `docs/V12-SPEC.md`; **nothing pushed**. Waiting for the user's return ("I am back") for the combined report, browser test and push.
+**Status:** commits since v1.1e: `792a601`, `1a9aae4` (v1.2a) · `e394d0a` handover · `99d526e` spec · `aa5f4f1`, `1d29ea4` (v1.2b) · `1868dea` (v1.2c CP1) · v1.2c CP2 (this). Three expand-only migrations await the push: `20261001000000_v1_2a_parties_projects_plans`, `20261002000000_v1_2b_employees_salaries`, `20261003000000_v1_2c_reminders`. Gates on the final tree (lead, under the lock): `npx tsc --noEmit` 0, `npx vitest run` 1107/1107 in 56 files (twice), `npm run build` 0; prerender only `/_global-error`; API routes health, export, export/statement, reminders/run.
+**Exactly where we stopped:** v1.2c CP2 committed; the v1.2c team shut down; the lead waits.
+**Next concrete action:** on "I am back" — the combined report (where stopped, tasks, reviewer findings, lead rulings, gates, commits, new secrets, one browser test plan for a/b/c, what waits on the user). Then the user tests (a Neon branch first is the zero-risk option), sets `CRON_SECRET` + the hourly scheduler, and pushes.
+**Teammates:** none running — the v1.2c team (`backend`, `frontend`, `reviewer`) shut down after the final commit (spec §5, team per release).
 
 
 ## v1.2 release plan (user's instruction, 2026-09-30)
@@ -125,6 +125,9 @@ Closed the two gaps no test in this repo can reach: server actions submitted end
 | v1.2c CP1 | G1 expand-only migration + PGlite · G2 digest (`select.ts` routing-only under its own static gate, `digest.ts` groups, `run.ts` claim-first with PENDING, salary generation first, 150/day + `mailto:` caps, escaping, every outcome audited) · G3 `GET /api/reminders/run` (503/401, sha256 + timingSafeEqual, header only) + one `OPEN_PATHS` entry · G4 settings (getter server-only, action in "use server", one shared owner rule) · G5 gates — 76 mutations, 0 survivors | backend | 2026-09-30 |
 | v1.2c CP1 | H1 Settings › التذكيرات (nav item, switch + hour, recipient, not-configured notice) | frontend | 2026-09-30 |
 | v1.2c CP1 | R-brief-c, R-G1..G5, R-H1 — nothing open (N3 cap order accepted) | reviewer | 2026-09-30 |
+| v1.2c CP2 | G6 client reminders (opt-in, email + WhatsApp text, owner-only, IN/OPEN/unpaid, audited, durable day rule from the audit log, 20/day per establishment, no reply-to, single-pass `fill()`) · G7 aging report (days past due 1–30/31–60/61–90/>90, لنا first), `/api/export/statement` (formulas evaluated against `getPartyStatement`, ASCII + RFC 5987 filename), «بحسب الجهة» on report + Excel (ledger rows filtered, party named, invalid id never unfiltered) · exact-0 totals written as plain 0 (fixes v1.1c too) · G8 gates — 66 mutations, 0 survivors | backend | 2026-09-30 |
+| v1.2c CP2 | H2 opt-in switch + «تذكير» dialog (plan detail, المستحقات; owner only) · H3 تقارير tabs (حسب التصنيف / أعمار المستحقات), party filter, statement Excel + «حفظ PDF» | frontend | 2026-09-30 |
+| v1.2c CP2 | R-H2/H3, R-G6..G8 (S-G6a next-morning block fixed) — nothing open | reviewer | 2026-09-30 |
 
 ## v1.1 plan
 (a) done; (b) not started. In this order.
@@ -276,12 +279,18 @@ Format: date — decision — reason. Anything that changed from the docs or cho
 
 - 2026-09-30 — **v1.2c CP1 rulings during the build:** the digest-settings getter is server-only and the action lives in a separate "use server" file (a getter with an establishment id in a "use server" module would be a client-callable cross-tenant read of the owner's email — `backend`'s catch); the settings page and the digest share one recipient rule (exactly one ACTIVE verified OWNER, else no address shown); the "not configured" notice also covers missing mail settings; salary generation runs before the day's claim so a generation failure is retried next hour; README requires an hourly job (a daily one would never reach owners with a later hour).
 
+- 2026-09-30 — **v1.2c CP2 rulings:** exact-0 formula totals are written as a plain 0 across all exports (exceljs drops a cached 0, so non-recalculating viewers showed a blank — fixed in the v1.1c workbook too); the 20/day client-email cap has its own message (`err.clientReminderDailyCap`, pinned to the constant by a test); the double-click guard is 60 s and the day rule is the audit log (an email at 23:00 must not block 08:00 the next day); the client-reminder opt-in shows on every party (per-party opt-in, spec §4.2); «طباعة» and «حفظ PDF» both open the print dialog, the second with its hint.
+
 ## Waiting on user
-- **Browser test + push of v1.2a** (test plan in the CP2 report; a Neon branch first is the zero-risk option). Push applies the v1.2a migration on Render.
-- Carried over: the contract migration dropping `User.name`, Google sign-in, and the placeholder `support@example.com` in the footer.
+- **The combined report** — on "I am back".
+- **Browser test of v1.2a/b/c** (one plan in the report; a Neon branch first is the zero-risk option) and **the push**, which applies three expand-only migrations on Render.
+- **Before pushing:** add `CRON_SECRET` in Render and create the hourly scheduled call (README → *Daily reminder email*). Without it the digest simply never runs; nothing else is affected.
+- Carried over (spec §6): drop `User.name`; Google/Microsoft sign-in; replace footer `support@example.com`; encrypted ID/IBAN.
 
 ## Known issues
 Failing builds, bugs, must-not-forget TODOs. Remove when fixed.
+- **v1.2c: a client-reminder email's audit row is written after Brevo accepts it, outside a transaction** (an external send cannot share one). A rare DB error there leaves that email unaudited and invisible to the once-a-day rule (accepted).
+- **v1.2c: the aging bucket labelled «0–30» holds days 1–30** (a payment on its due day is not overdue). The label is the spec's wording; do not move the boundaries to match it.
 - **v1.2c: the digest's 150/day cap is in memory** (resets on restart, like every limiter); the per-day claim is durable, so a restart can never cause a duplicate — at worst the cap is exceeded that day.
 - **v1.2c: with `BREVO_API_KEY` unset a digest is recorded FAILED and not retried that day** (at-most-once); the settings page warns when the scheduler or mail is not configured.
 - **v1.2b: a saved attendance day cannot be cleared back to «غير مسجل»** (accepted, Z6 — the owner corrects it to the right status).

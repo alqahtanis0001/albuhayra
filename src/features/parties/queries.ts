@@ -27,6 +27,8 @@ export type PartyRow = {
   hasHistory: boolean;
   /** v1.2b D14: the employee profile that manages this party, if any. */
   employeeId: string | null;
+  /** v1.2c C9: the owner opted this party in to client reminders. */
+  remindersOptIn: boolean;
 };
 
 export type PartyDetail = PartyRow & {
@@ -51,6 +53,7 @@ const PARTY_SELECT = {
   phone: true,
   email: true,
   active: true,
+  remindersOptIn: true,
   // v1.2b D14. A nested read the scoping harness cannot see; it is bounded by
   // the scoped party row it hangs off and returns only the id (R-L5 note 5).
   employee: { select: { id: true } },
@@ -124,6 +127,7 @@ type SelectedParty = {
   phone: string | null;
   email: string | null;
   active: boolean;
+  remindersOptIn: boolean;
   employee: { id: string } | null;
 };
 

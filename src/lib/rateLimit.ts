@@ -33,6 +33,13 @@ export const LIMITS = {
    * restart resets it.
    */
   digestDay: { max: 150, windowMs: DAY_MS },
+  /**
+   * v1.2c (E8, S-G6a): double-click protection only — one client email per
+   * instalment per minute. The once-a-day rule is the audit log, by Riyadh
+   * day; a day-long window here would refuse the next morning. Cleared on a
+   * failed send.
+   */
+  remindInstalment: { max: 1, windowMs: 60 * 1000 },
 } as const;
 
 type Entry = { count: number; resetAt: number };

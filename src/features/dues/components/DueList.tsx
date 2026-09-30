@@ -2,7 +2,8 @@
  * المستحقات rows (docs/FRONTEND.md, /owner/dues): one section per direction —
  * لنا (IN: they pay us) and علينا (OUT: we pay them) — each with its total, then
  * a row per instalment: party, agreement, instalment no., due date, remaining,
- * countdown and a quick «تسجيل دفعة». The word says the direction; the amount
+ * countdown and a quick «تسجيل دفعة» — plus «تذكير» (v1.2c, C10) when `remind`
+ * is on, for IN rows of an opted-in party. The word says the direction; the amount
  * stays neutral. Statuses and countdowns are the server's (W8).
  */
 import Link from "next/link";
@@ -12,9 +13,19 @@ import { LinkButton } from "@/components/LinkButton";
 import { MoneyText } from "@/components/MoneyText";
 import { Countdown, InstalmentName } from "@/features/plans/components/PlanBits";
 import type { DueRow } from "@/features/plans/dues";
+import { RemindButton } from "@/features/reminders/components/RemindButton";
 import { t } from "@/i18n/ar";
 
-export function DueRows({ rows, limit }: { rows: DueRow[]; limit?: number }) {
+export function DueRows({
+  rows,
+  limit,
+  remind = false,
+}: {
+  rows: DueRow[];
+  limit?: number;
+  /** v1.2c: the المستحقات page only (not the home widget). */
+  remind?: boolean;
+}) {
   return (
     <ul className="flex flex-col">
       {rows.slice(0, limit).map((row) => (
@@ -34,7 +45,7 @@ export function DueRows({ rows, limit }: { rows: DueRow[]; limit?: number }) {
             </span>
             <Countdown dayOffset={row.dayOffset} status={row.status} />
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <div className="flex flex-col items-end gap-0.5 text-end">
               <MoneyText halalas={row.remainingHalalas} />
               <DateText date={row.dueDate} className="items-end text-xs" />
@@ -45,6 +56,13 @@ export function DueRows({ rows, limit }: { rows: DueRow[]; limit?: number }) {
             >
               {t.plans.recordPayment}
             </LinkButton>
+            {remind && row.direction === "IN" && row.partyRemindersOptIn ? (
+              <RemindButton
+                instalmentId={row.instalmentId}
+                partyName={row.partyName}
+                hasEmail={row.partyHasEmail}
+              />
+            ) : null}
           </div>
         </li>
       ))}
@@ -57,10 +75,12 @@ export function DueGroup({
   label,
   totalHalalas,
   rows,
+  remind,
 }: {
   label: string;
   totalHalalas: number;
   rows: DueRow[];
+  remind?: boolean;
 }) {
   if (rows.length === 0) return null;
   return (
@@ -71,7 +91,7 @@ export function DueGroup({
           {t.common.total}: <MoneyText halalas={totalHalalas} />
         </span>
       </div>
-      <DueRows rows={rows} />
+      <DueRows rows={rows} remind={remind} />
     </div>
   );
 }
@@ -81,14 +101,16 @@ export function DueSplit({
   rows,
   inHalalas,
   outHalalas,
+  remind,
 }: {
   rows: DueRow[];
   inHalalas: number;
   outHalalas: number;
+  remind?: boolean;
 }) {
   return (
     <>
-      <DueGroup label={t.dues.toUs} totalHalalas={inHalalas} rows={rows.filter((r) => r.direction === "IN")} />
+      <DueGroup label={t.dues.toUs} totalHalalas={inHalalas} rows={rows.filter((r) => r.direction === "IN")} remind={remind} />
       <DueGroup label={t.dues.fromUs} totalHalalas={outHalalas} rows={rows.filter((r) => r.direction === "OUT")} />
     </>
   );

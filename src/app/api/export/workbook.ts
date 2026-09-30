@@ -22,6 +22,8 @@ export type WorkbookMeta = {
   establishmentName: string;
   from: string;
   to: string;
+  /** v1.2c E10: the party a filtered export covers; null = all parties. */
+  partyName: string | null;
   /** The owner's name, from `requireOwner()`. */
   generatedBy: string;
   generatedAt: Date;
@@ -86,6 +88,7 @@ function addInfoSheet(book: ExcelJS.Workbook, meta: WorkbookMeta, stamp: string)
     [t.export.infoItem, t.export.infoValue],
     [t.export.establishment, meta.establishmentName],
     [t.export.period, periodText(meta.from, meta.to)],
+    [t.reportFilter.exportParty, meta.partyName ?? t.reportFilter.exportAllParties],
     [t.export.generatedBy, meta.generatedBy],
     [t.export.generatedAt, stamp],
     [t.export.appVersion, meta.appVersion],

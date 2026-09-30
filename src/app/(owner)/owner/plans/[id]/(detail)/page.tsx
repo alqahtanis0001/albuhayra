@@ -32,6 +32,11 @@ export default async function PlanPage({ params }: { params: Promise<{ id: strin
   const plan = await getPlan(establishmentId, id);
   if (!plan) notFound();
   const open = plan.status !== "ARCHIVED" && plan.status !== "CANCELLED";
+  // v1.2c (C10): «تذكير» only when the party owes us and opted in; the actions re-check.
+  const remind =
+    open && plan.direction === "IN" && plan.partyRemindersOptIn
+      ? { partyName: plan.partyName, hasEmail: plan.partyHasEmail }
+      : null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -108,7 +113,7 @@ export default async function PlanPage({ params }: { params: Promise<{ id: strin
       ) : null}
 
       <Card title={t.plans.instalments} bodyClassName="">
-        <InstalmentList instalments={plan.instalments} open={open} />
+        <InstalmentList instalments={plan.instalments} open={open} remind={remind} />
       </Card>
     </div>
   );

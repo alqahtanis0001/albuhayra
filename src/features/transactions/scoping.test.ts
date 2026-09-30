@@ -257,6 +257,9 @@ const { getDigestSettings } = await import("@/features/reminders/settings");
 const { updateDigestSettings } = await import("@/features/reminders/actions");
 const { buildDigest } = await import("@/features/reminders/digest");
 const { runDigests } = await import("@/features/reminders/run");
+// v1.2c CP2
+const { setPartyRemindersOptIn, sendClientReminder, prepareWhatsAppReminder } = await import("@/features/reminders/client");
+const { getAgingReport } = await import("@/features/reports/aging");
 
 /* ------------------------------------------------------------ the scope rule */
 
@@ -2130,6 +2133,62 @@ describe("v1.2c: the digest settings and the per-establishment run scope every c
   });
 });
 
+/* ------------------------------------ v1.2c CP2: client reminders and reports */
+
+/** An unpaid instalment of an OPEN IN plan whose party opted in and has an email. */
+const REMIND_INST = {
+  id: "inst_1", planId: "plan_1", dueDate: day("2026-09-01"), amountDueHalalas: 5000, paidHalalas: 0,
+  plan: { title: "عقد", direction: "IN", state: "OPEN", partyId: "party_1", party: { email: "c@example.com", remindersOptIn: true } },
+};
+
+describe("v1.2c CP2: client reminders, aging and the party filter scope every call", () => {
+  it("opt-in, email reminder (durable daily check, establishment cap), WhatsApp text", async () => {
+    harness.responses.set("party.findFirst", { id: "party_1", remindersOptIn: false });
+    expect(await setPartyRemindersOptIn("party_1", true)).toEqual({ ok: true, data: null });
+    harness.responses.set("instalment.findFirst", REMIND_INST);
+    expect(await sendClientReminder("inst_1")).toEqual({ ok: true, data: null });
+    expect(await prepareWhatsAppReminder("inst_1")).toMatchObject({ ok: true });
+    for (const pair of ["party.updateMany", "auditLog.findFirst", "auditLog.count", "auditLog.create"]) {
+      expect(observedPairs()).toContain(pair);
+    }
+    expect(failures()).toEqual([]);
+    record();
+  });
+
+  it("rule 11: a foreign instalment or party reads as missing", async () => {
+    harness.responses.set("instalment.findFirst", null);
+    harness.responses.set("party.findFirst", null);
+    expect(await sendClientReminder("inst_foreign")).toEqual({ ok: false, error: "err.notFound" });
+    expect(await prepareWhatsAppReminder("inst_foreign")).toEqual({ ok: false, error: "err.notFound" });
+    expect(await setPartyRemindersOptIn("party_foreign", true)).toEqual({ ok: false, error: "err.notFound" });
+    expect(failures()).toEqual([]);
+  });
+
+  it("aging: empty, then with rows", async () => {
+    expect((await getAgingReport(EST, "2026-10-05")).toUs.rows).toEqual([]);
+    harness.responses.set("instalment.findMany", [
+      { dueDate: day("2026-09-01"), amountDueHalalas: 5000, paidHalalas: 0, plan: { direction: "IN", partyId: "party_1", party: { name: "عميل" } } },
+    ]);
+    expect((await getAgingReport(EST, "2026-10-05")).toUs.totals.totalHalalas).toBe(5000);
+    expect(failures()).toEqual([]);
+    record();
+  });
+
+  it("getReport by party: the party is looked up in scope and narrows the group; a foreign one reads nothing more", async () => {
+    harness.responses.set("party.findFirst", { id: "party_1", name: "عميل" });
+    const report = await getReport(EST, "2026-01-01", "2026-03-31", "party_1");
+    expect(report?.party).toEqual({ id: "party_1", name: "عميل" });
+    const group = harness.calls.find((c) => c.method === "groupBy")!;
+    expect((group.args.where as Record<string, unknown>).partyId).toBe("party_1");
+    expect(failures()).toEqual([]);
+    record();
+    harness.calls.length = 0;
+    harness.responses.set("party.findFirst", null);
+    expect(await getReport(EST, "2026-01-01", "2026-03-31", "party_foreign")).toBeNull();
+    expect(harness.calls.map((c) => `${c.model}.${c.method}`)).toEqual(["party.findFirst"]);
+  });
+});
+
 /* --------------------------------------------------------- the static sweep */
 
 describe("static sweep: no call site escapes the runtime net", () => {
@@ -2207,6 +2266,12 @@ describe("static sweep: no call site escapes the runtime net", () => {
     "src/features/reminders/run.ts",
     // Reaches data only through runDigests: listed so a direct call fails here.
     "src/app/api/reminders/run/route.ts",
+    // v1.2c CP2
+    "src/features/reminders/client.ts",
+    "src/features/reminders/clientRules.ts",
+    "src/features/reports/aging.ts",
+    // Reads only through getPartyStatement (C14); listed like the ledger export.
+    "src/app/api/export/statement/route.ts",
   ];
 
   it("every (model, method) pair in the source was exercised above", () => {
@@ -2260,6 +2325,8 @@ describe("static sweep: no call site escapes the runtime net", () => {
       "src/features/parties", "src/features/projects", "src/features/plans",
       // v1.2b
       "src/features/employees", "src/features/payroll", "src/features/attendance",
+      // v1.2c
+      "src/features/reminders", "src/features/reports",
     ];
     let scanned = 0;
     for (const dir of dirs) {
@@ -2339,6 +2406,7 @@ describe("static sweep: no call site escapes the runtime net", () => {
       // v1.2c: the digest modules — settings.ts's reader takes an establishment id.
       "src/features/reminders/settings.ts", "src/features/reminders/select.ts",
       "src/features/reminders/digest.ts", "src/features/reminders/run.ts",
+      "src/features/reminders/clientRules.ts", "src/features/reports/aging.ts",
     ];
     for (const file of serverOnly) {
       const source = readFileSync(file, "utf8");

@@ -2819,3 +2819,47 @@ NOTE
   - N4: schedulerConfigured requires the secret and both mail settings.
   - N3 (cap order) is accepted as is.
   - My run: reminders, proxy and scoping, 232/232.
+  - **Correction (N1):** the file-level beforeEach already set an OWNER session, so the original test was signed in, just implicitly. My note overstated it; the new explicit version is better either way. backend killed 6 mutants on the new pins.
+
+# v1.2c CP2
+- CP1 committed as 1868dea. CP2 has started: backend G6–G8, frontend H2–H3. Binding for it: E8 (the durable daily rule and 20/day), E9, E10, E11, E13, N2 and N4.
+
+## 2026-09-30 — R-H2 + R-H3 (client-reminder UI, reports UI) — PASS, 2 NOTE
+- **H2:**
+  - RemindButton, InstalmentList(remind) and DueRows(remind) appear on /owner pages only. WeekDues and the staff pages have none (grep).
+  - Gates: open && IN && opted-in && remaining > 0. Both sends are explicit buttons, nothing fires on open; the email button is disabled without an email and while pending.
+  - The opt-in Switch is optimistic and snaps back when refused.
+- **H3:**
+  - The aging page shows لنا then علينا, after ensureSalaryInstalments; neutral amounts; tfoot last; empty state; printable.
+  - The party filter is a GET form that keeps the range. An invalid, unknown or foreign party → invalidParty, with no report, Excel or print.
+  - The Excel link carries partyId. The statement has Excel (a link) and PDF (print plus pdfHint).
+  - The (summary) group keeps the loading.tsx off the aging page.
+- **RTL and copy:** no physical utilities, and no Arabic outside comments (grep).
+- **NOTEs:**
+  1. copy() failure → err.unexpected; a softer message would be better.
+  2. The label "0–30" vs the 1–30 bucket (N2): accepted, don't change the boundaries.
+- **H2 NOTE 1 closed:** copyFailed (gray, role=status), plus the textarea is focused and selected; err.unexpected is gone. H2/H3 have nothing open.
+
+## 2026-09-30 — R-G6..G8 (CP2 backend) — PASS, 1 SHOULD, 2 NOTE
+- **My run:** reminders, reports, api/export, scoping and mail: 9 files, 301/301.
+- **Client reminders:**
+  - requireOwner() comes first. reminderTarget is scoped and checks IN, OPEN, unpaid and opted-in.
+  - WhatsApp has the same checks and no email requirement.
+  - Never called from run/digest (grep).
+  - Audited: the email after Brevo accepts it, the WhatsApp text on prepare. No reply-to; the footer is filled twice.
+- **E8:** the audit log since Riyadh midnight; 20 per establishment per day.
+- **N4:** the reminder fields are booleans only; StaffDueRow is unchanged.
+- **Aging:** N2 boundaries, OPEN only, scoped.
+- **C16/E10:** unknown or foreign → null / 400, never unfiltered; the ledger rows are filtered too; the info sheet names the party.
+- **C14/E11:** requireOwner() plus getPartyStatement only, with no db in the export folder. ASCII plus RFC 5987 filenames. The numbers equal getPartyStatement.
+- **Backend's readings, accepted:** establishment cap → mailFailed; WhatsApp needs opt-in; IN plans are never SALARY; the 0 cached result.
+- **SHOULD S-G6a:** remindInstalment {1, DAY_MS} is not cleared on success, so it blocks the next Riyadh day's legitimate send (23:00 → 08:00). Fix: a window of about 60 s plus a cross-midnight test.
+- **NOTEs:**
+  1. The sequential fill() re-expands placeholders inside the establishment name. Single pass.
+  2. The audit is written after the send, outside a transaction.
+- **Rulings verified:** totalValue writes an exact 0 as a plain value (style.ts; the statement sheet uses it); the cap answers err.clientReminderDailyCap. S-G6a is still open (rateLimit.ts:40 is still DAY_MS). Optional: the cap message hard-codes 20; use {n}.
+- **S-G6a closed:** remindInstalment is {1, 60 s}. A fake-clock test (23:00 ok → 23:30 refused via the audit → 08:00 next day ok, with no memory reset) kills the DAY_MS mutant.
+- **NOTE 1 closed:** fill() is single-pass with own-key lookup and keeps unknown keys; tested with an establishment named «{title} {amount} {date}».
+- **NOTE 2:** accepted by the lead as a known issue.
+- **My run:** reminders, mail and api/export, 164/164.
+- **CP2 verdict: CLEAR. v1.2c: nothing open from the reviewer.**

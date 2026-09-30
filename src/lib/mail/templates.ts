@@ -101,12 +101,14 @@ export type DigestMailInput = {
 };
 
 /**
- * Every `{key}` (a string may hold one twice), with a function replacer so a
- * `$&`, `$'` or `$$` in owner text is never a pattern. Callers pass the
- * value already escaped for the HTML part, raw (`plainLine`) otherwise.
+ * Every `{key}` of the template in ONE pass (a string may hold one twice), with
+ * a function replacer: a `$&`, `$'` or `$$` in owner text is never a pattern,
+ * and a `{title}` inside an owner-entered name is never expanded, because
+ * inserted text is not scanned again. Unknown keys stay as written. Callers
+ * pass values already escaped for the HTML part, raw (`plainLine`) otherwise.
  */
-export function fill(template: string, key: string, value: string): string {
-  return template.replaceAll(`{${key}}`, () => value);
+export function fill(template: string, values: Readonly<Record<string, string>>): string {
+  return template.replace(/\{(\w+)\}/g, (match, key: string) => (Object.hasOwn(values, key) ? values[key]! : match));
 }
 
 const DIGEST_LABELS = {
@@ -160,19 +162,63 @@ function digestGroupText(label: string, group: DigestMailGroup): string[] {
 export function digestMail(to: string, input: DigestMailInput): MailMessage {
   const keys = (["overdue", "today", "tomorrow", "upcoming"] as const).filter((k) => input.groups[k].rows.length > 0);
   const link = appUrl("/owner/dues");
-  const html = page(`<p style="margin:0 0 8px;font-size:16px">${fill(t.digestMail.intro, "establishment", escapeHtml(input.establishmentName))}</p>
+  const html = page(`<p style="margin:0 0 8px;font-size:16px">${fill(t.digestMail.intro, { establishment: escapeHtml(input.establishmentName) })}</p>
 ${keys.map((k) => digestGroupHtml(DIGEST_LABELS[k], input.groups[k])).join("\n")}
 ${link ? `<p style="margin:24px 0 0"><a href="${escapeHtml(link)}" style="color:${GREEN};font-weight:700">${t.digestMail.openDues}</a></p>` : ""}
 <p style="margin:24px 0 0;font-size:12px;color:#525252">${t.digestMail.footer}</p>`);
   const text = [
     t.mail.senderName,
     "",
-    fill(t.digestMail.intro, "establishment", plainLine(input.establishmentName)),
+    fill(t.digestMail.intro, { establishment: plainLine(input.establishmentName) }),
     "",
     ...keys.flatMap((k) => digestGroupText(DIGEST_LABELS[k], input.groups[k])),
     ...(link ? [`${t.digestMail.openDues}: ${link}`, ""] : []),
     t.digestMail.footer,
   ].join("\n");
-  const subject = fill(t.digestMail.subject, "establishment", plainLine(input.establishmentName));
+  const subject = fill(t.digestMail.subject, { establishment: plainLine(input.establishmentName) });
+  return { to, subject, html, text };
+}
+
+/* --------------------------------------------------- v1.2c client reminder */
+
+export type ClientReminderInput = {
+  establishmentName: string;
+  planTitle: string;
+  remainingHalalas: number;
+  dueDate: string;
+};
+
+/** The body, line by line, with every value passed through `wrap` first (C11, C12, E7). */
+function reminderLines(input: ClientReminderInput, wrap: (value: string) => string): string[] {
+  return t.clientReminder.body.split("\n").map((line) => {
+    return fill(line, {
+      establishment: wrap(input.establishmentName),
+      amount: formatSAR(input.remainingHalalas),
+      date: input.dueDate,
+      title: wrap(input.planTitle),
+    });
+  });
+}
+
+/** The copy-ready WhatsApp text (C12): plain, owner text on one line each. */
+export function clientReminderText(input: ClientReminderInput): string {
+  return reminderLines(input, plainLine).join("\n");
+}
+
+/**
+ * The email to the party (C11, E13). No reply-to — `sendMail` never sets one,
+ * so the owner's login address is not exposed — and the footer says so.
+ */
+export function clientReminderMail(to: string, input: ClientReminderInput): MailMessage {
+  const html = page(`${reminderLines(input, escapeHtml)
+    .map((line) => `<p style="margin:0 0 12px;font-size:16px">${line}</p>`)
+    .join("\n")}
+<p style="margin:24px 0 0;font-size:12px;color:#525252">${fill(t.clientReminder.mailFooter, { establishment: escapeHtml(input.establishmentName) })}</p>`);
+  const text = [
+    clientReminderText(input),
+    "",
+    fill(t.clientReminder.mailFooter, { establishment: plainLine(input.establishmentName) }),
+  ].join("\n");
+  const subject = fill(t.clientReminder.subject, { establishment: plainLine(input.establishmentName) });
   return { to, subject, html, text };
 }

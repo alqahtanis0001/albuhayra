@@ -9,6 +9,10 @@ import { ledgerWhere, sumByDirection } from "@/features/transactions/queries";
  * The by-category report for a date range. Two `groupBy` calls' worth of work in
  * one: grouping by category *and* direction lets a single query fill both tables.
  * Both the group and the name lookup carry `establishmentId`.
+ *
+ * v1.2c C16 «بحسب الجهة»: an optional party narrows every figure. The party is
+ * looked up in this establishment first; an unknown or foreign id answers
+ * `null` — never the unfiltered report — and the page says it is invalid.
  */
 
 export type ReportCategoryRow = {
@@ -23,6 +27,8 @@ export type Report = {
   totalInHalalas: number;
   totalOutHalalas: number;
   netHalalas: number;
+  /** v1.2c C16: the party the figures are narrowed to; null = all parties. */
+  party: { id: string; name: string } | null;
 };
 
 type Group = {
@@ -31,12 +37,22 @@ type Group = {
   _sum: { amountHalalas: number | null };
 };
 
+export async function getReport(establishmentId: string, from: string, to: string): Promise<Report>;
 export async function getReport(
   establishmentId: string,
   from: string,
   to: string,
-): Promise<Report> {
-  const where = ledgerWhere(establishmentId, { from, to });
+  partyId: string | undefined,
+): Promise<Report | null>;
+export async function getReport(
+  establishmentId: string,
+  from: string,
+  to: string,
+  partyId?: string,
+): Promise<Report | null> {
+  const party = partyId === undefined ? null : await reportParty(establishmentId, partyId);
+  if (partyId !== undefined && party === null) return null;
+  const where = ledgerWhere(establishmentId, { from, to, ...(party ? { partyId: party.id } : {}) });
 
   const [grouped, totals] = await Promise.all([
     db.transaction.groupBy({
@@ -68,7 +84,13 @@ export async function getReport(
     totalInHalalas: totals.inHalalas,
     totalOutHalalas: totals.outHalalas,
     netHalalas: totals.netHalalas,
+    party,
   };
+}
+
+/** Rule 11: another establishment's party reads exactly like a missing one. */
+async function reportParty(establishmentId: string, partyId: string): Promise<{ id: string; name: string } | null> {
+  return db.party.findFirst({ where: { establishmentId, id: partyId }, select: { id: true, name: true } });
 }
 
 async function categoryNames(

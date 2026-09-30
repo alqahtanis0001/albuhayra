@@ -1834,3 +1834,43 @@ Q1–Q6 + the Q2 overpaid follow-up all passed review (R-Q1…R-Q6, no open find
   client-callable action. `ownerEmail` is `string | null`, so the «يُرسل إلى» line is omitted when it is null.
 - Gates: build 0 (`ƒ /owner/settings/reminders`), tsc 0, vitest 950/950; no Arabic outside comments, no
   physical utilities.
+
+### H2 — client reminders UI (built; final gates wait on backend G6/G7 landing)
+- `components/Switch.tsx` (new, shared): native checkbox `role="switch"` named by its label, hint tied by
+  `useId`, knob by logical margin; DigestSettingsForm now uses it (no behaviour change).
+- `reminders/components/RemindersOptIn.tsx`: party page card (no-print), immediate `setPartyRemindersOptIn`,
+  optimistic with snap-back + Toast on refusal, `router.refresh()` on success. Shown for every party, an
+  employee's included (C9 is about reminding, not the record).
+- `reminders/components/RemindButton.tsx`: «تذكير» → native modal `<dialog>` (as ConfirmDialog). «إرسال بريد
+  إلكتروني» disabled + `noEmail` (aria-describedby) without an email; «نص واتساب» → `prepareWhatsAppReminder`
+  → read-only textarea + «نسخ النص» (clipboard; `copied` in a role=status line). Refusals are shown inside
+  the dialog (a Toast would sit under the modal's top layer); the email's `sent` Toast after it closes.
+  Only the pressed action shows the spinner; both are disabled while one runs.
+- Visibility (the server re-checks): plan detail — `open && direction === "IN" && partyRemindersOptIn`, on
+  rows with a remainder (same rows as «تسجيل دفعة»); المستحقات — `DueRows remind` (the dues page only, not
+  the home widget) and `row.direction === "IN" && row.partyRemindersOptIn`. Salary plans are OUT, so never.
+
+### H3 — reports (built; same wait)
+- Reports page moved into `reports/(summary)/` so its skeleton does not wrap `reports/aging` (the loading
+  gotcha). `ReportTabs`: «حسب التصنيف» / «أعمار المستحقات».
+- «بحسب الجهة»: `ReportPartyFilter` (GET form, hidden `month` or `from`/`to`, «كل الجهات» = ""); the range
+  forms carry `partyId` in a hidden field; `ReportPartyFilterSchema` parses it; schema failure or
+  `getReport(…, partyId) === null` → amber `invalidParty`, no report, no export/print buttons. Excel link gets
+  `&partyId=`; the print header's subject is the party name.
+- `/owner/reports/aging`: `ensureSalaryInstalments` then `getAgingReport(estId)` (server's today); لنا then
+  علينا `AgingTable`s (party, four buckets, total; tfoot after tbody so the total prints once; neutral amounts,
+  the direction word is the card title; «—» for an empty bucket); printed-at = `report.today`; empty state.
+- Party page: «طباعة», «تصدير Excel» (`/api/export/statement?partyId=`, plain link), «حفظ PDF» (window.print)
+  + `pdfHint`.
+- Skeletons: ReportsSkeleton gains tabs + the filter card; `AgingReportSkeleton` (v12c.tsx).
+- R-H2 + R-H3 PASS (0 BLOCKER, 0 SHOULD, 2 NOTE). Note 1 taken: a refused clipboard write no longer shows
+  `err.unexpected` — it focuses and selects the textarea so the owner copies by hand. Note 2 (bucket label
+  «0–30» vs days 1–30) is the spec's label, left as is — do not "fix" the boundaries to match it.
+- Gates: build 0, tsc 0, vitest 1081/1082 — the one failure is backend's W5 scan finding
+  `reminders/clientRules.ts` (G6, in progress), no frontend file.
+- Lead's ruling on note 1: a refused clipboard write shows `t.clientReminder.copyFailed` in the dialog's
+  role=status line (gray-700, not the success green) and still focuses + selects the textarea. (a) opt-in on
+  every party incl. employees and (b) «طباعة» + «حفظ PDF» accepted as built.
+- Gates: build 0, tsc 0; vitest red only in backend's in-progress G8 files (scoping W5 on clientRules.ts,
+  3 cases in `api/export/statement.test.ts`).
+- Final v1.2c gates after backend's G6–G8 fixes: build 0, tsc 0, vitest 1102/1102. H1–H3 reviewed clean.

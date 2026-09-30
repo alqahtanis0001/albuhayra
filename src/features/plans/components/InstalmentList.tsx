@@ -2,7 +2,8 @@
  * الدفعات of one agreement: per instalment its number, due date (Hijri
  * beneath), amount, paid, remaining, status as a word, the countdown, and the
  * payments recorded against it (each linking to its entry). «تسجيل دفعة» sits
- * on every unpaid row while the agreement is open. One card per row at every
+ * on every unpaid row while the agreement is open, and «تذكير» beside it when
+ * `remind` is set (v1.2c). One card per row at every
  * width: seven values plus nested payments do not survive a 360px table.
  */
 import Link from "next/link";
@@ -11,6 +12,7 @@ import { DateText } from "@/components/DateText";
 import { LinkButton } from "@/components/LinkButton";
 import { MoneyText } from "@/components/MoneyText";
 import type { PlanInstalment } from "@/features/plans/queries";
+import { RemindButton } from "@/features/reminders/components/RemindButton";
 import { t } from "@/i18n/ar";
 
 import { Countdown, InstalmentName, InstalmentStatusBadge } from "./PlanBits";
@@ -18,10 +20,16 @@ import { Countdown, InstalmentName, InstalmentStatusBadge } from "./PlanBits";
 export function InstalmentList({
   instalments,
   open,
+  remind = null,
 }: {
   instalments: PlanInstalment[];
   /** The agreement is OPEN: unpaid rows offer «تسجيل دفعة». */
   open: boolean;
+  /**
+   * v1.2c (C10): set by the owner's page only for an IN agreement whose party
+   * opted in; unpaid rows of an open agreement then offer «تذكير».
+   */
+  remind?: { partyName: string; hasEmail: boolean } | null;
 }) {
   return (
     <ol className="flex flex-col">
@@ -87,10 +95,17 @@ export function InstalmentList({
           ) : null}
 
           {open && row.remainingHalalas > 0 ? (
-            <div className="no-print">
+            <div className="no-print flex flex-wrap items-center gap-2">
               <LinkButton href={`/owner/transactions/new?instalmentId=${row.id}`}>
                 {t.plans.recordPayment}
               </LinkButton>
+              {remind ? (
+                <RemindButton
+                  instalmentId={row.id}
+                  partyName={remind.partyName}
+                  hasEmail={remind.hasEmail}
+                />
+              ) : null}
             </div>
           ) : null}
         </li>

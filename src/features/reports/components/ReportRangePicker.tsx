@@ -13,13 +13,18 @@ import { monthOptions, type ResolvedRange } from "./reportRange";
 export function ReportRangePicker({
   range,
   basePath,
+  partyId = "",
 }: {
   range: ResolvedRange;
   basePath: string;
+  /** v1.2c: the «بحسب الجهة» choice, kept when the period changes. */
+  partyId?: string;
 }) {
+  const party = partyId ? <input type="hidden" name="partyId" value={partyId} /> : null;
   return (
     <div className="no-print grid gap-3 rounded-xl border border-gray-200 bg-white p-4 sm:grid-cols-2">
       <form method="get" action={basePath} className="flex flex-col gap-3">
+        {party}
         <Select
           label={t.reports.month}
           name="month"
@@ -31,6 +36,7 @@ export function ReportRangePicker({
       </form>
 
       <form method="get" action={basePath} className="flex flex-col gap-3">
+        {party}
         <fieldset className="flex flex-col gap-3">
           <legend className="text-sm font-medium text-gray-700">
             {t.reports.customRange}
