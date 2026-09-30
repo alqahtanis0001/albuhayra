@@ -555,3 +555,51 @@ All 5 SHOULD + 8 NOTE accepted (`progress/reviewer.md` → R-brief-c2):
 - **Z4 (S-C2d) — deductions need an OPEN plan and an unpaid month** for both add and delete.
 - **Z5 (S-C2e) —** same-minute check-out → `err.timeOrder` (tested); reads vs writes split: a linked ENDED employee still reads own past payslips/month/salary; check-in/out need ACTIVE with hire ≤ today ≤ end.
 - **Z6 (notes) —** staff self-service reads **omit the owner's attendance notes** (privacy-safe; no new key); «نسخ من آخر يوم عمل» copies statuses only into rows without a record; clearing a saved day back to «غير مسجل» is **not** supported (known limit — the owner corrects it to the right status); M6 awaits `ensureSalaryInstalments` and returns `notFound()` on a bad `ym`; check-in tries update-then-create with P2002 → `err.alreadyCheckedIn`; L11 adds STAFF-with-canEdit refused on owner attendance/deductions and a posted `employeeId` ignored by self-service; the M7 layout link lookup is one scoped `findFirst`; net 0 → PAID asserts payslip remaining = 0.
+
+
+---
+
+# v1.2c — التذكيرات والتقارير (fresh team)
+
+Authority: `docs/V12-SPEC.md` §1 and §4 > `CLAUDE.md` > `docs/V12C-DESIGN.md` (C1–C16) > the rest. Contract in the tree (lead): schema v1.2c block (`Establishment.digestEnabled/digestHour`, `Party.remindersOptIn`, `ReminderDigest`), `src/lib/validation/reminders.ts`, `src/i18n/ar.v12c.ts` (+ `t.navItem.reminders`), `src/lib/audit.ts`, `.env.example` + `render.yaml` (`CRON_SECRET`). Carry-over rules: one Neon DB — never touch it; build lock for **every** build; no commits; real exit codes; mutation-verify every gate; scoped `updateMany`/`deleteMany`; the scoping gate's **rules untouched** (add models/FILES/drivers only); spec §5 stops. **CP2 code starts only after the CP1 commit.**
+
+## Ownership
+| Path | Owner |
+|---|---|
+| `prisma/migrations/<ts>_v1_2c_reminders/**`, `src/features/{reminders,reports}/**` (non-component), `src/app/api/reminders/**`, `src/app/api/export/**`, `src/proxy.ts` (**only** the `OPEN_PATHS` entry, C3), `src/lib/mail/templates.ts` + a new `src/lib/mail/escape.ts` (addenda), changes in `src/features/{parties,plans}/**` (non-component), every `*.test.ts` | `backend` |
+| `src/app/(owner)/owner/settings/reminders/**`, `src/app/(owner)/owner/reports/**`, party/plan/dues pages, `src/features/*/components/**`, `src/components/**` (incl. `chrome/nav.ts`), `globals.css`, string values | `frontend` |
+| README (the scheduler note), docs, schema, validation, string keys, `.env.example`, `render.yaml`, PROGRESS, TASKS | lead |
+
+## CP1 — the owner digest (§4.1)
+| ID | Task | Status |
+|---|---|---|
+| G1 | **Migration** `<ts>_v1_2c_reminders` (expand-only: two Establishment columns with defaults, one Party column with a default, one enum, one table) + PGlite test (old-release inserts into `Establishment`/`Party` still work; `@@unique([establishmentId, date])` refuses a second claim; drift incl. enum labels). | done |
+| G2 | **Digest** `src/features/reminders/{digest,run}.ts` + template: `buildDigest(estId, todayISO)` (C6 groups, dedupe, per-plan `reminderDays`, totals, 50-row cap), `runDigests(now)` (C4 selection, C5 claim-first → build → EMPTY/SENT/FAILED, per-establishment try/catch, audit `DIGEST_SENT` as the owner, `mail:*` caps), `escapeHtml` in `src/lib/mail/escape.ts` used for every owner-entered string (C7), Arabic RTL template with Western digits and the `${APP_URL}/owner/dues` link, plain-text part. | done |
+| G3 | **Endpoint** `src/app/api/reminders/run/route.ts` (C2: `CRON_SECRET` unset → 503; `Authorization: Bearer` compared with `timingSafeEqual`; wrong/missing → 401; query string ignored; `no-store`; counts only) + **C3** `OPEN_PATHS` gains `/api/reminders/run` (one entry — nothing else in `proxy.ts` changes) + `proxy.test.ts` pin. | done |
+| G4 | **Settings** `src/features/reminders/settings.ts`: `getDigestSettings(estId)` → `{ digestEnabled, digestHour, ownerEmail, schedulerConfigured }` (a boolean — never the secret), `updateDigestSettings(prev, formData)` (`requireOwner()`, `DigestSettingsSchema`, scoped `updateMany` on `Establishment { id }`, audit `DIGEST_SETTINGS`). | done |
+| G5 | **Gates:** scoping (new model in the harness, new files in FILES, drivers); admin static case gains `reminderDigest`; 503/401/200 route cases; two concurrent runs on PGlite → one claim, one email; hour gating across Riyadh midnight; empty → no email; FAILED not retried the same day; escaping with `<script>` and quotes; the digest contains another establishment's nothing (tenancy). Mutation-verify. | done |
+
+| ID | Task (frontend) | Status |
+|---|---|---|
+| H1 | **Settings › التذكيرات:** nav item in the الإعدادات group between إقفال الأشهر and حسابي (`t.navItem.reminders`, nav test updated); page `/owner/settings/reminders` (+ `loading.tsx`) with the switch, the hour select (0–23, Western digits, «07:00»), the recipient email shown read-only, `t.reminderSettings.notConfigured` when `schedulerConfigured` is false; `DigestSettingsSchema` client-side first. | done |
+
+## CP2 — client reminders and reports (§4.2, §4.3)
+| ID | Task | Status |
+|---|---|---|
+| G6 | **Client reminders** `src/features/reminders/client.ts`: `setPartyRemindersOptIn(partyId, on)` (owner, audit `PARTY_REMINDERS`), `sendClientReminder(instalmentId)` and `prepareWhatsAppReminder(instalmentId)` per C10–C12 (owner only; IN plan, OPEN, unpaid, opted-in; email needs `party.email`; `remind:{instalmentId}` day cap + `mailto:` cap; no reply-to; escaped; audits). `PartyRow`/`getParty` expose `remindersOptIn`; plan/dues rows expose what the button needs (`direction`, party opt-in, party has email). | todo |
+| G7 | **Reports:** `getAgingReport(estId, todayISO)` (C13 buckets 0–30/31–60/61–90/>90 by days past due, لنا first, per party + totals); `GET /api/export/statement?partyId=` (C14, reads only via `getPartyStatement`, in the export gate's no-`db.` scan and the scoping FILES); `getReport(estId, from, to, partyId?)` + `/api/export?…&partyId=` (C16; unknown/foreign id → a result the page reports as invalid, never the unfiltered report). | todo |
+| G8 | **Gates:** opt-in required, IN only, unpaid only, OPEN only, no staff path (STAFF with canEdit refused), caps, audits, escaping, no reply-to; aging boundaries 30/31, 60/61, 90/91; statement workbook numbers equal `getPartyStatement` (formula evaluator style of v1.1c); party filter scoping and invalid-id behaviour; scoping drivers. Mutation-verify. | todo |
+
+| ID | Task (frontend) | Status |
+|---|---|---|
+| H2 | **Client reminders UI:** opt-in switch on the party page; «تذكير» on unpaid IN instalments of opted-in parties (plan detail, المستحقات) → dialog with «إرسال بريد إلكتروني» (disabled with `noEmail` when none) and «نص واتساب» (shows the text + «نسخ»). Owner only. | todo |
+| H3 | **Reports:** «أعمار المستحقات» tab (`/owner/reports/aging`, printable, لنا first); «بحسب الجهة» select on `/owner/reports` (passed to the Excel link too; `invalidParty` notice); statement «تصدير Excel» + «حفظ PDF» (print with `pdfHint`) on the party page. | todo |
+
+## reviewer
+| ID | Reviews | Status |
+|---|---|---|
+| R-brief-c | **Before any code:** `docs/V12C-DESIGN.md` (C1–C16) and all briefs above against spec §1/§4/§5, the contract in the tree, and the existing code (mail module, proxy, export route, reports). Priorities: the endpoint's secret handling and the §5 question on C3 (the proxy allowlist entry), at-most-once under concurrency, tenancy of the digest, email escaping, client-reminder "never automatic", export gate. | todo |
+| R-G*, R-H* | Each task as it lands. | todo |
+
+## v1.2c — Resolutions after R-brief-c (lead, binding)
+All findings accepted as **E1–E14** in `docs/V12C-DESIGN.md` (contract updated: `DigestStatus.PENDING`, the `digestHour` "" fix, the no-reply footer, `t.reportFilter.byCategoryTab/exportParty/exportAllParties`). Deltas: **G2** splits into `select.ts` (excluded from FILES with its own static gate, E1) + `digest.ts`/`run.ts` (in FILES), PENDING claim (E2), digest caps 150/day + `mailto:` (E3), salary generation first (E4), escaping scope and link (E7), every outcome audited (E12), one-owner rule (N9), one `now` (N5); **G3** E5 secret check + N1 pins; **G5** N10 concurrency, N12 tenancy, N6 admin patterns; **G6** E8 durable daily rule + 20/day per establishment, E9 awaited; **G7** E10 ledger rows filtered + party named, E11 filename, N2 buckets; **H3** the by-category tab label; **README** — the lead writes the hourly-ping note (E6) at the CP1 commit. **Ownership addendum:** `src/lib/rateLimit.ts` (the digest cap constant) → `backend`.

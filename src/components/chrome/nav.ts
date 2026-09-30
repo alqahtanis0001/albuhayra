@@ -74,6 +74,7 @@ export const OWNER_NAV_GROUPS: NavGroup[] = [
       { href: "/owner/settings/categories", label: t.navItem.categories, icon: "categories" },
       { href: "/owner/settings/join-code", label: t.navItem.joinCode, icon: "joinCode" },
       { href: "/owner/settings/locks", label: t.navItem.locks, icon: "locks" },
+      { href: "/owner/settings/reminders", label: t.navItem.reminders, icon: "reminders" },
       { href: "/owner/settings/account", label: t.navItem.account, icon: "account" },
     ],
   },

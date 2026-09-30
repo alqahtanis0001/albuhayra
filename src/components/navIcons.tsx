@@ -82,6 +82,14 @@ export const HashIcon = (p: IconProps) => (
   </Svg>
 );
 
+/** A bell: التذكيرات (v1.2c). */
+export const BellIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15L6 16.5Z" />
+    <path d="M10 20.5a2 2 0 0 0 4 0" />
+  </Svg>
+);
+
 /** Nine squares: المزيد. */
 export const GridIcon = (p: IconProps) => (
   <Svg {...p}>
@@ -110,6 +118,7 @@ export const NAV_ICONS = {
   categories: TagIcon,
   joinCode: HashIcon,
   locks: LockIcon,
+  reminders: BellIcon,
   more: GridIcon,
 } as const;
 

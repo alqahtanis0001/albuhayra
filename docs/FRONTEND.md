@@ -193,3 +193,6 @@ Full list in `docs/BACKEND.md` → *v1.2a amendments* (V1–V12). Screen-side:
 
 ## v1.2b — الموظفون / الحضور / الرواتب
 **The binding spec is `docs/V12B-DESIGN.md`** §4 (screens) with R1–R8 and D1–D12. All earlier FRONTEND rules hold (RTL logical utilities, Western digits, `+`/`−` on directional amounts, `plural()` for counts, server-decided "today", a `loading.tsx` per page with route groups so list skeletons never wrap children, print through the one `@media print` block, colour never the only signal — the attendance grid prints letter codes **with** the legend). The `/owner/staff` and `/owner/staff/attendance` «قريباً» pages are replaced; the staff home gains the «حضوري» card for linked staff only.
+
+## v1.2c — التذكيرات والتقارير
+**Binding spec: `docs/V12-SPEC.md` §1 and §4, implemented per `docs/V12C-DESIGN.md`.** Settings gains «التذكيرات» (`/owner/settings/reminders`) between إقفال الأشهر and حسابي. Client-reminder controls are owner-only and appear only for an opted-in party on unpaid IN instalments. Reports gain the aging tab, a party filter, and the statement's «تصدير Excel» / «حفظ PDF» (browser print). All earlier FRONTEND rules hold.

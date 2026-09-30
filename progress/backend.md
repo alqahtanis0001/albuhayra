@@ -1179,3 +1179,120 @@ first) → P2 → P3 → P4 → P5, gates after each.
   both outcomes); (2) a created row's CHECK_IN audit names the record id (PGlite); (3) self check-in outside
   hire…end → `err.outsideEmployment` (ended and not-yet-started, PGlite); `err.employeeEnded` stays owner-side.
   N1, N1b, N2, N3 each fail their case. checkOut writes no status, so its CAS (checkIn + checkOut null) is unchanged.
+
+## v1.2c — التذكيرات والتقارير (fresh team; CP1 = G1–G5)
+
+### G1 — migration (done)
+- `prisma/migrations/20261003000000_v1_2c_reminders/` from `migrate diff --from-schema <HEAD schema in
+  scratch> --to-schema prisma/schema.prisma --script`, CR stripped: `DigestStatus` enum (PENDING, SENT,
+  EMPTY, FAILED), `Establishment.digestEnabled` (false) / `digestHour` (7), `Party.remindersOptIn` (false),
+  `ReminderDigest` + `@@unique([establishmentId, date])` + FK Restrict. CREATE/ADD only. `npx prisma generate`
+  (no DB) before tsc sees the model.
+- `src/lib/migration.v12c.test.ts` (8, PGlite): old-release Establishment/Party inserts, pre-existing rows
+  read off/07:00/not opted in, NOT NULL establishmentId + exact columns, enum labels, second claim → 23505
+  whatever its status, next day / other tenant allowed, itemCount default 0, Restrict.
+- Mutations (byte copy + cmp): unique→plain index, hour default 8, opt-in default true, enum without
+  PENDING, FK CASCADE — each fails its own case plus the drift check in `migration.v12a.test.ts`.
+
+### G4 — settings (done)
+- Split (reported to main + frontend): `reminders/settings.ts` (server-only) `getDigestSettings(estId)` →
+  `{ digestEnabled, digestHour, ownerEmail, schedulerConfigured }` and `cronSecret()` (trimmed, empty →
+  null; the route uses the same rule); `reminders/actions.ts` ("use server") `updateDigestSettings(prev,
+  formData)` → `requireOwner()`, `DigestSettingsSchema`, scoped `updateMany { id: establishmentId }` (0 rows
+  → `err.notFound`), `DIGEST_SETTINGS` audit (entity Establishment, before/after) in one transaction,
+  `revalidatePath("/owner/settings", "layout")`. Why split: a "use server" module makes every exported
+  async function a callable action — `getDigestSettings(estId)` there would read any tenant's owner email.
+
+### G2 — digest (done)
+- `reminders/select.ts` (E1): the one cross-establishment read — `establishment.findMany` (active,
+  enabled, `digestHour ≤ hour`, no claim for today) with a nested `users` select (OWNER, ACTIVE, verified);
+  exactly one owner else `[digest] skipped: n eligible owners` (no address, N9). Returns the five routing
+  fields only.
+- `reminders/digest.ts`: `digestGroupOf(due, today, reminderDays)` (overdue <0, today 0, tomorrow 1,
+  upcoming ≤ that plan's reminderDays — one group per row), `buildDigest(estId, today)` (one scoped
+  `instalment.findMany` up to today + MAX_REMINDER_DAYS, unpaid by field reference, OPEN plans, salary
+  included via `planTitleOf`); 50 rows per group, `moreCount`, totals over all rows (N11).
+- `reminders/run.ts` `runDigests(now)`: one `now` → `todayISO(now)` + hour of `nowRiyadhHHMM(now)` (N5);
+  per target, sequential, own try/catch (C8): `runSalaryGeneration(est, owner, today, undefined, { auto:
+  true })` FIRST (E4 — a failure there leaves no claim, so a later ping retries) → claim `create` PENDING
+  (P2002 → skip) → build → EMPTY (no mail) / caps (`digest:day` 150 + `mailto:`; capped → FAILED + `[digest]
+  capped`) / `sendMail` awaited (E9) → `updateMany { establishmentId, id }` + `DIGEST_SENT` audit (owner,
+  entity ReminderDigest, `after = { date, status, itemCount }`) in one transaction (E12). A build or send
+  exception after the claim → FAILED, never PENDING. Returns `{ sent, skipped }`.
+- `payroll/generate.ts`: `runSalaryGeneration(…, employeeId?, options = {})` and `syncSalaryPlan(…, auto =
+  false)` — the only change: `SALARY_GENERATE.after` gains `auto: true` when the run calls it (E4). Page
+  loads are unchanged.
+- `rateLimit.ts`: `LIMITS.digestDay = { max: 150, windowMs: DAY_MS }` (in memory, resets on restart).
+- `lib/mail/escape.ts`: `escapeHtml` (& < > " ') and `plainLine` (C0/C1 controls + U+2028/9 → space).
+  `templates.ts`: `digestMail(to, { establishmentName, groups })` — non-empty groups in order, rows party /
+  plan / لنا|علينا / remaining / date, totals per group, «و{n} أخرى» via `plural`, dues link via `appUrl()`
+  (the old `logoUrl()` check generalised; omitted when unset or not http(s)), footer; HTML escaped, subject +
+  text via `plainLine`; placeholders filled with a function replacer so `$&` / `$'` in a name stay literal.
+  A13 comment updated: the three auth mails still carry no owner text.
+
+### G3 — endpoint (done)
+- `src/app/api/reminders/run/route.ts`: `force-dynamic`, `runtime = "nodejs"`, GET only. `cronSecret()`
+  null → 503 empty; exactly `Bearer <token>` (case-sensitive), sha256 both sides → `timingSafeEqual`
+  (always compared, so missing and wrong share one path); one empty 401; query never read; 200 `{ ok, sent,
+  skipped }`; run throws → 500 empty, log `[digest] run failed: <error name>`. `no-store` on every answer.
+  Headers never logged. Note: the Fetch `Headers` API trims a value's outer whitespace, so `Bearer <s> `
+  arrives as `Bearer <s>` — platform behaviour, not ours.
+- `src/proxy.ts`: the one `OPEN_PATHS` entry `/api/reminders/run` (C3). Nothing else changed.
+
+### G5 — gates (done)
+- `reminders/digestRun.test.ts` (18, PGlite + real client; fixtures in `digestRun.fixtures.ts`, test-only):
+  grouping by each plan's window, salary title, 50-cap + totals, tenancy (N12), full run (who is mailed, claims,
+  audits), escaping end to end, E4 salary generated + `auto: true`, N9, same-day + PENDING not retried, Brevo
+  failure FAILED not retried, **two concurrent runs → one claim and one email per owner (N10)**, both caps
+  (E3), midnight at 20:55Z / 21:05Z (N5), C8 isolation (a generation failure skips only that owner; a later
+  ping sends it), post-claim failure → FAILED + audit.
+- `reminders/reminders.test.ts` (27): E1 static gate on `select.ts` (receivers ⊆ establishment/user/
+  reminderDigest, explicit `select` per call, no include, no financial relation, no amount key, no raw SQL —
+  all anchored on code shape, with pattern self-tests), selection output shape + N9 + the exact where,
+  module shapes (server-only vs "use server", one exported action), `digestGroupOf` table, the settings action.
+- `reminders/route.test.ts` (19): 503 ×2, eleven 401 shapes, query ignored, 200, trim, 500, dynamic/runtime/
+  exports, static sha256 + timingSafeEqual + no session + no searchParams, N1 folder contents.
+- `proxy.test.ts` (+8): open with zero session reads, open when signed in, five neighbours still → /login,
+  exact `OPEN_PATHS`. (The iron-session mock now counts reads.)
+- `scoping.test.ts`: model `reminderDigest`; `select.ts` mocked + named FILES absence (comment names the gate
+  that holds it); `sendMail` mocked; drivers for settings, action, `buildDigest`, `runDigests` (EMPTY + SENT);
+  FILES += settings/actions/digest/run + the route. Rules untouched.
+- `admin.test.ts` (N6): FEATURE_IMPORT += reminders, MODEL_CALL += reminderDigest, RELATION_READ +=
+  reminderDigests / digestEnabled / digestHour / remindersOptIn, with pattern self-tests.
+- `mail.test.ts` (+7): escapeHtml, plainLine, digest escaping, subject/text raw on one line with `$&`,
+  order / Western digits / plural / footer, link on APP_URL and omitted for "" and `javascript:`, A13.
+- Gotcha: an unanchored `amount` pattern tripped on select.ts's own comment ("no amount field") — anchored on
+  the key shape `name:` instead (the three-times gotcha, a fourth time).
+- **Mutations: 70 run, 0 survivors** (byte copy → one exact replacement → targeted vitest → restore, bytes
+  compared; the build lock was held throughout so no teammate build could pick up a mutant). run.ts 17
+  (P2002-as-success and no-claim fail N10; UTC hour and UTC date fail N5; each cap; EMPTY mails; always
+  SENT; no/late salary pass; auto dropped; audit only on SENT; no per-establishment catch; post-claim failure
+  left PENDING; scope dropped on the claim / record → scoping; extra audit field), digest.ts 8, select.ts 11,
+  route/settings 9, proxy 2, actions 3, escape/templates 15, generate 2, rateLimit 1. **Four survived the
+  first pass and each exposed a real gap, now pinned:** the nested `users` select could be dropped (a whole
+  user row, password hash included, loaded into memory) → exact select pinned; `plainLine` on text-part rows
+  → CR/LF row case; `auto: true` on every generation → salaryPath asserts no `auto` on save/page-load
+  generation; the 150 constant → pinned by value.
+- Gotcha (again): the tooling turned `\r\n` inside a heredoc'd test string into real CR/LF — rebuilt with
+  `String.fromCharCode`; scanned all 22 touched files for invisible/control characters: clean.
+- Gates: tsc 0 · vitest 1033/1033 in 53 files · build 0 (lock), `/api/reminders/run` dynamic,
+  prerender manifest still only `/_global-error`.
+- Line counts: all new source ≤ 174; `digestRun.test.ts` 285 (tests + mocks; fixtures already split out),
+  `scoping.test.ts` grows by ~75 as every release has.
+- **Follow-ups (lead approval of the G4 split + reviewer's pre-G2 and R-G4 notes):**
+  (1) `DIGEST_OWNER_WHERE` (settings.ts) is the one recipient rule: `select.ts` sends by it and
+  `getDigestSettings` shows the recipient by it — `user.findMany({ where: { establishmentId, ...rule },
+  take: 2 })`, `ownerEmail` null unless exactly one. (2) `fill()` (templates.ts, exported for its test) uses
+  `replaceAll` with a function replacer: every `{key}` filled, `$&`/`$'`/`$$` literal — ready for G6's
+  double-`{establishment}` footer. (3) The reminders modules joined the S8 server-only pin in scoping.test.ts.
+  Tests: 3 settings-read cases, fill + no-leftover-brace cases. Six more mutations (first-only, string
+  replacer, first-of-many owners, any owner, rule without verified, settings.ts without server-only): all killed.
+- Gates: tsc 0 · vitest 1039/1039 in 53 files · build 0 (lock).
+- **R-G1..G5 PASS (0 BLOCKER, 0 SHOULD, 4 NOTE); the lead closed notes 1, 2, 4 before the commit** (3, the cap
+  order, stays by the lead's call): (4) `schedulerConfigured = cronSecret() && BREVO_API_KEY && MAIL_FROM`
+  (each trimmed, non-empty) so «notConfigured» shows when mail is off too; 7 cases; (2) a posted
+  `establishmentId`/`id` is ignored — write, read and audit all name the session's establishment; (1) the
+  proxy "signed-in" case now sets a session explicitly and asserts zero reads, with a control read on a
+  neighbour. Mutations: no BREVO / no MAIL_FROM / no trim, form establishmentId in the write / in the audit,
+  session read before the OPEN_PATHS check — all 6 killed.
+- Gates: tsc 0 · vitest 1046/1046 in 53 files · build 0 (lock). CP1 backend closed.

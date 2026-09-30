@@ -443,7 +443,7 @@ describe("static: rule 10 in the source", () => {
  * code shape — a receiver, an import, a Prisma key — so prose cannot trip it
  * and no comment stripper is needed.
  */
-describe("static: v1.2a and v1.2b models never reach the admin area", () => {
+describe("static: v1.2a, v1.2b and v1.2c models never reach the admin area", () => {
   function walk(dir: string): string[] {
     return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
       const path = `${dir}/${entry.name}`;
@@ -456,12 +456,14 @@ describe("static: v1.2a and v1.2b models never reach the admin area", () => {
   const CHROME = walk("src/components/chrome");
   // v1.2b (N8): the employee, salary and attendance features and models join
   // the lists — the patterns only widen what is forbidden.
+  // v1.2c (N6): the reminders feature, the digest model and relation, and the
+  // new digest / opt-in fields join them the same way.
   const FEATURE_IMPORT =
-    /(?:from\s+|import\s*\(\s*)["'][^"']*features\/(?:parties|projects|plans|employees|payroll|attendance)\b/;
+    /(?:from\s+|import\s*\(\s*)["'][^"']*features\/(?:parties|projects|plans|employees|payroll|attendance|reminders)\b/;
   const MODEL_CALL =
-    /\b(?:db|tx|client)\.(?:party|project|plan|instalment|employee|employeeAllowance|salaryPeriod|salaryDeduction|attendanceRecord)\./;
+    /\b(?:db|tx|client)\.(?:party|project|plan|instalment|employee|employeeAllowance|salaryPeriod|salaryDeduction|attendanceRecord|reminderDigest)\./;
   const RELATION_READ =
-    /\b(?:party|parties|project|projects|plans?|instalments?|employees?|allowances|salaryPeriods?|salaryDeductions?|deductions(?:Created)?|attendance(?:Records|Recorded)?)\s*:\s*(?:true|\{)/;
+    /\b(?:party|parties|project|projects|plans?|instalments?|employees?|allowances|salaryPeriods?|salaryDeductions?|deductions(?:Created)?|attendance(?:Records|Recorded)?|reminderDigests?|digestEnabled|digestHour|remindersOptIn)\s*:\s*(?:true|\{)/;
 
   it("scans real files", () => {
     expect(ADMIN.length).toBeGreaterThanOrEqual(5);
@@ -499,5 +501,12 @@ describe("static: v1.2a and v1.2b models never reach the admin area", () => {
     expect("select: { employee: { select: { id: true } } }").toMatch(RELATION_READ);
     expect("include: { attendanceRecords: true }").toMatch(RELATION_READ);
     expect("select: { salaryDeductions: { select: { id: true } } }").toMatch(RELATION_READ);
+    // v1.2c
+    expect('import { runDigests } from "@/features/reminders/run";').toMatch(FEATURE_IMPORT);
+    expect("db.reminderDigest.count(").toMatch(MODEL_CALL);
+    expect("_count: { select: { reminderDigests: true } }").toMatch(RELATION_READ);
+    expect("select: { digestEnabled: true }").toMatch(RELATION_READ);
+    expect("select: { digestHour: true }").toMatch(RELATION_READ);
+    expect("party: { select: { remindersOptIn: true } }").toMatch(RELATION_READ);
   });
 });

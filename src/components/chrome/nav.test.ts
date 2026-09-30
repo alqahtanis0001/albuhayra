@@ -40,6 +40,7 @@ describe("activeHref", () => {
     expect(activeHref("/owner/staff/attendance", OWNER)).toBe("/owner/staff/attendance");
     expect(activeHref("/owner/staff", OWNER)).toBe("/owner/staff");
     expect(activeHref("/owner/settings/locks", OWNER)).toBe("/owner/settings/locks");
+    expect(activeHref("/owner/settings/reminders", OWNER)).toBe("/owner/settings/reminders");
     // Every owner page falls under /owner, so only an unrelated path is null.
     expect(activeHref("/owner/settings", OWNER)).toBe("/owner");
   });
@@ -90,6 +91,7 @@ describe("owner navigation groups (v1.2a)", () => {
       "/owner/settings/categories",
       "/owner/settings/join-code",
       "/owner/settings/locks",
+      "/owner/settings/reminders",
       "/owner/settings/account",
     ]);
     expect(new Set(hrefs).size).toBe(hrefs.length);
@@ -106,6 +108,7 @@ describe("owner navigation groups (v1.2a)", () => {
   });
 
   it("finds the group of the active item", () => {
+    expect(groupOf(OWNER_NAV_GROUPS, "/owner/settings/reminders")).toBe("settings");
     expect(groupOf(OWNER_NAV_GROUPS, "/owner/projects/new")).toBe("additions");
     expect(groupOf(OWNER_NAV_GROUPS, "/owner/staff/logins")).toBe("staff");
     expect(groupOf(OWNER_NAV_GROUPS, activeHref("/owner/parties/x/edit", OWNER))).toBe(

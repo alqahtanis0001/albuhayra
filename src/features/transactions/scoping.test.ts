@@ -61,6 +61,8 @@ const harness = vi.hoisted(() => {
     "salaryPeriod",
     "salaryDeduction",
     "attendanceRecord",
+    // v1.2c (models join the list; the rules are unchanged)
+    "reminderDigest",
   ];
 
   function defaultResult(method: string): unknown {
@@ -137,6 +139,18 @@ const harness = vi.hoisted(() => {
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/db", () => ({ db: harness.db }));
+/**
+ * v1.2c E1: `reminders/select.ts` is the digest's one cross-establishment read
+ * and is excluded from FILES by name (see the sweep below). Here it answers
+ * with this establishment, so `runDigests` drives only the per-establishment
+ * work of `run.ts`/`digest.ts` through the net. Mail never leaves the process.
+ */
+vi.mock("@/features/reminders/select", () => ({
+  selectDigestTargets: async () => [
+    { establishmentId: EST, ownerId: USER, ownerEmail: "o@example.com", name: "منشأة", digestHour: 7 },
+  ],
+}));
+vi.mock("@/lib/mail/send", () => ({ sendMail: async () => true }));
 vi.mock("next/cache", () => ({ revalidatePath: () => undefined }));
 vi.mock("@/lib/auth", () => {
   const context = {
@@ -238,6 +252,11 @@ const { getMySelf, getMyMonth, getMyPayslips, getMyPayslip, getMySalaryInstalmen
 );
 const { hasEmployeeLink } = await import("@/features/attendance/own");
 const { addDeduction, deleteDeduction } = await import("@/features/payroll/deductions");
+// v1.2c
+const { getDigestSettings } = await import("@/features/reminders/settings");
+const { updateDigestSettings } = await import("@/features/reminders/actions");
+const { buildDigest } = await import("@/features/reminders/digest");
+const { runDigests } = await import("@/features/reminders/run");
 
 /* ------------------------------------------------------------ the scope rule */
 
@@ -2066,6 +2085,51 @@ describe("v1.2b CP2: deductions scope every call", () => {
   });
 });
 
+/* ------------------------------------------------ v1.2c CP1: the owner digest */
+
+/** One unpaid instalment in the shape `buildDigest` selects, due today. */
+function digestInstalment(): Record<string, unknown> {
+  return {
+    dueDate: day(todayISO()), amountDueHalalas: 5000, paidHalalas: 0,
+    plan: { title: "توريد", kind: "STANDARD", direction: "IN", reminderDays: 3, party: { name: "عميل" } },
+  };
+}
+
+describe("v1.2c: the digest settings and the per-establishment run scope every call", () => {
+  it("settings: read empty, read populated, then save", async () => {
+    expect(await getDigestSettings(EST)).toMatchObject({ digestEnabled: false, digestHour: 7, ownerEmail: null });
+    harness.responses.set("establishment.findFirst", { digestEnabled: true, digestHour: 9 });
+    harness.responses.set("user.findMany", [{ email: "o@example.com" }]);
+    expect(await getDigestSettings(EST)).toMatchObject({ digestEnabled: true, digestHour: 9, ownerEmail: "o@example.com" });
+    const form = new FormData();
+    form.append("digestEnabled", "on");
+    form.append("digestHour", "6");
+    expect(await updateDigestSettings(null, form)).toEqual({ ok: true, data: null });
+    expect(observedPairs()).toContain("establishment.updateMany");
+    expect(failures()).toEqual([]);
+    record();
+  });
+
+  it("buildDigest: empty, then with a row", async () => {
+    expect((await buildDigest(EST, todayISO())).itemCount).toBe(0);
+    harness.responses.set("instalment.findMany", [digestInstalment()]);
+    expect((await buildDigest(EST, todayISO())).itemCount).toBe(1);
+    expect(failures()).toEqual([]);
+    record();
+  });
+
+  it("runDigests: generation, claim, build, send, record — EMPTY and SENT", async () => {
+    expect(await runDigests(new Date())).toEqual({ sent: 0, skipped: 1 });
+    harness.responses.set("instalment.findMany", [digestInstalment()]);
+    expect(await runDigests(new Date())).toEqual({ sent: 1, skipped: 0 });
+    for (const pair of ["reminderDigest.create", "reminderDigest.updateMany", "auditLog.create", "plan.findMany"]) {
+      expect(observedPairs()).toContain(pair);
+    }
+    expect(failures()).toEqual([]);
+    record();
+  });
+});
+
 /* --------------------------------------------------------- the static sweep */
 
 describe("static sweep: no call site escapes the runtime net", () => {
@@ -2075,6 +2139,13 @@ describe("static sweep: no call site escapes the runtime net", () => {
    * cross-establishment view, so the unscoped aggregate this gate rejects is
    * correct there. `src/features/admin/admin.test.ts` holds the rule that
    * applies instead — Security rule 10, no amounts and no transaction rows.
+   *
+   * v1.2c E1: `src/features/reminders/select.ts` is the second named absence.
+   * Choosing whose digest is due is cross-establishment by nature, like the
+   * admin view, so this gate's tenant rule cannot hold there. Its own static
+   * gate in `src/features/reminders/reminders.test.ts` applies instead: only
+   * `establishment` / `user` / `reminderDigest`, an explicit `select` on every
+   * call, no financial model, no amount field.
    */
   const FILES = [
     "src/features/transactions/queries.ts",
@@ -2129,6 +2200,13 @@ describe("static sweep: no call site escapes the runtime net", () => {
     "src/features/attendance/self.ts",
     "src/features/attendance/mine.ts",
     "src/features/payroll/deductions.ts",
+    // v1.2c CP1 (select.ts: the named absence above)
+    "src/features/reminders/settings.ts",
+    "src/features/reminders/actions.ts",
+    "src/features/reminders/digest.ts",
+    "src/features/reminders/run.ts",
+    // Reaches data only through runDigests: listed so a direct call fails here.
+    "src/app/api/reminders/run/route.ts",
   ];
 
   it("every (model, method) pair in the source was exercised above", () => {
@@ -2258,6 +2336,9 @@ describe("static sweep: no call site escapes the runtime net", () => {
       "src/features/attendance/own.ts", "src/features/attendance/mine.ts",
       "src/features/employees/form.ts", "src/features/employees/salaryPlan.ts",
       "src/features/employees/queries.ts", "src/features/employees/payslip.ts",
+      // v1.2c: the digest modules — settings.ts's reader takes an establishment id.
+      "src/features/reminders/settings.ts", "src/features/reminders/select.ts",
+      "src/features/reminders/digest.ts", "src/features/reminders/run.ts",
     ];
     for (const file of serverOnly) {
       const source = readFileSync(file, "utf8");

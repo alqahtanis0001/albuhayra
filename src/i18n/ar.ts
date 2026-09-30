@@ -5,9 +5,11 @@
  */
 import { v12aSections } from "./ar.v12a";
 import { v12bSections } from "./ar.v12b";
+import { v12cSections } from "./ar.v12c";
 
 const { errV12a, ...v12a } = v12aSections;
 const { errV12b, ...v12b } = v12bSections;
+const { errV12c, ...v12c } = v12cSections;
 
 const APP_NAME = "زخم";
 const APP_TAGLINE = "نظام السجل المالي للمنشآت";
@@ -391,6 +393,9 @@ export const t = {
 
     // v1.2b — employees, salaries, attendance (src/i18n/ar.v12b.ts)
     ...errV12b,
+
+    // v1.2c — reminders and reports (src/i18n/ar.v12c.ts)
+    ...errV12c,
   },
 
   /** v1.1e — sign-up field labels and helper lines. Western digits throughout. */
@@ -461,6 +466,9 @@ export const t = {
 
   // v1.2b sections (employees, attendance, myAttendance, deductions, payslip, …)
   ...v12b,
+
+  // v1.2c sections (reminderSettings, digestMail, clientReminder, aging, …)
+  ...v12c,
 
   a11y: {
     skipToContent: "تجاوز إلى المحتوى",

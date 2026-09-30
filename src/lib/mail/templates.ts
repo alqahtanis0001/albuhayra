@@ -1,28 +1,42 @@
 import "server-only";
 
 import { t } from "@/i18n/ar";
+import { formatSAR } from "@/lib/money";
+import { plural } from "@/lib/plural";
+
+import { escapeHtml, plainLine } from "./escape";
 import type { MailMessage } from "./send";
 
 /**
- * The three emails (docs/BACKEND.md v1.1e "Email"). Arabic, right to left,
- * plain HTML with inline styles, plus a plain-text part. Every word comes from
- * `t.mail.*`, and **no user-supplied text** appears in any of them (A13) —
+ * The three auth emails (docs/BACKEND.md v1.1e "Email"). Arabic, right to
+ * left, plain HTML with inline styles, plus a plain-text part. Every word comes
+ * from `t.mail.*`, and **no user-supplied text** appears in any of them (A13) —
  * not even a name — so a sign-up form cannot be used to put words in our mail.
  * The only variable is the code, which is six digits we generated.
+ *
+ * v1.2c: the owner digest (`digestMail`, below) is the one exception, by the
+ * spec — it shows the owner their own party names and plan titles, escaped with
+ * `escapeHtml` in the HTML part and `plainLine` elsewhere (C7, E7). A13 still
+ * binds the three auth emails.
  */
 
 const GREEN = "#006C35";
 
-/** The logo URL, or null when APP_URL is unset or not http(s). */
-function logoUrl(): string | null {
+/** `path` on APP_URL, or null when APP_URL is unset or not http(s). */
+function appUrl(path: string): string | null {
   const base = process.env.APP_URL;
   if (!base) return null;
   try {
-    const url = new URL("/brand/zakham-brand/zakham-wordmark-green.png", base);
+    const url = new URL(path, base);
     return url.protocol === "https:" || url.protocol === "http:" ? url.href : null;
   } catch {
     return null;
   }
+}
+
+/** The logo URL, or null when APP_URL is unset or not http(s). */
+function logoUrl(): string | null {
+  return appUrl("/brand/zakham-brand/zakham-wordmark-green.png");
 }
 
 function header(): string {
@@ -69,4 +83,96 @@ export function existsMail(to: string): MailMessage {
 <p style="margin:0;font-size:13px;color:#525252">${t.mail.ignore}</p>`);
   const text = [t.mail.senderName, "", t.mail.existsBody, "", t.mail.ignore].join("\n");
   return { to, subject: t.mail.existsSubject, html, text };
+}
+
+/* ------------------------------------------------------------ v1.2c digest */
+
+type DigestMailRow = {
+  partyName: string;
+  planTitle: string;
+  direction: "IN" | "OUT";
+  remainingHalalas: number;
+  dueDate: string;
+};
+type DigestMailGroup = { rows: DigestMailRow[]; moreCount: number; totalInHalalas: number; totalOutHalalas: number };
+export type DigestMailInput = {
+  establishmentName: string;
+  groups: Record<"overdue" | "today" | "tomorrow" | "upcoming", DigestMailGroup>;
+};
+
+/**
+ * Every `{key}` (a string may hold one twice), with a function replacer so a
+ * `$&`, `$'` or `$$` in owner text is never a pattern. Callers pass the
+ * value already escaped for the HTML part, raw (`plainLine`) otherwise.
+ */
+export function fill(template: string, key: string, value: string): string {
+  return template.replaceAll(`{${key}}`, () => value);
+}
+
+const DIGEST_LABELS = {
+  overdue: t.digestMail.overdue,
+  today: t.digestMail.today,
+  tomorrow: t.digestMail.tomorrow,
+  upcoming: t.digestMail.upcoming,
+} as const;
+
+const CELL = "padding:6px 8px;border-bottom:1px solid #e5e5e5;text-align:right;font-size:13px";
+
+function directionWord(direction: "IN" | "OUT"): string {
+  return direction === "IN" ? t.digestMail.toUs : t.digestMail.fromUs;
+}
+
+function totalsLine(group: DigestMailGroup): string {
+  return `${t.digestMail.total}: ${t.digestMail.toUs} ${formatSAR(group.totalInHalalas)} · ${t.digestMail.fromUs} ${formatSAR(group.totalOutHalalas)}`;
+}
+
+function digestGroupHtml(label: string, group: DigestMailGroup): string {
+  const head = [t.digestMail.party, t.digestMail.plan, "", t.digestMail.remaining, t.digestMail.dueDate]
+    .map((h) => `<th style="${CELL};font-weight:700">${h}</th>`)
+    .join("");
+  const body = group.rows
+    .map((r) =>
+      [escapeHtml(r.partyName), escapeHtml(r.planTitle), directionWord(r.direction), formatSAR(r.remainingHalalas), `<span dir="ltr">${r.dueDate}</span>`]
+        .map((c) => `<td style="${CELL}">${c}</td>`)
+        .join(""),
+    )
+    .map((cells) => `<tr>${cells}</tr>`)
+    .join("\n");
+  const more = group.moreCount > 0 ? `<p style="margin:4px 0 0;font-size:13px">${plural(t.digestMail.more, group.moreCount)}</p>` : "";
+  return `<h2 style="margin:24px 0 8px;font-size:17px;color:${GREEN}">${label}</h2>
+<table dir="rtl" style="width:100%;border-collapse:collapse"><tr>${head}</tr>
+${body}
+</table>${more}
+<p style="margin:8px 0 0;font-size:14px;font-weight:700">${totalsLine(group)}</p>`;
+}
+
+function digestGroupText(label: string, group: DigestMailGroup): string[] {
+  const lines = [label];
+  for (const r of group.rows) {
+    lines.push(`- ${plainLine(r.partyName)} — ${plainLine(r.planTitle)} — ${directionWord(r.direction)} ${formatSAR(r.remainingHalalas)} — ${r.dueDate}`);
+  }
+  if (group.moreCount > 0) lines.push(plural(t.digestMail.more, group.moreCount));
+  lines.push(totalsLine(group), "");
+  return lines;
+}
+
+/** The owner's daily digest (C6): only non-empty groups, in a fixed order. */
+export function digestMail(to: string, input: DigestMailInput): MailMessage {
+  const keys = (["overdue", "today", "tomorrow", "upcoming"] as const).filter((k) => input.groups[k].rows.length > 0);
+  const link = appUrl("/owner/dues");
+  const html = page(`<p style="margin:0 0 8px;font-size:16px">${fill(t.digestMail.intro, "establishment", escapeHtml(input.establishmentName))}</p>
+${keys.map((k) => digestGroupHtml(DIGEST_LABELS[k], input.groups[k])).join("\n")}
+${link ? `<p style="margin:24px 0 0"><a href="${escapeHtml(link)}" style="color:${GREEN};font-weight:700">${t.digestMail.openDues}</a></p>` : ""}
+<p style="margin:24px 0 0;font-size:12px;color:#525252">${t.digestMail.footer}</p>`);
+  const text = [
+    t.mail.senderName,
+    "",
+    fill(t.digestMail.intro, "establishment", plainLine(input.establishmentName)),
+    "",
+    ...keys.flatMap((k) => digestGroupText(DIGEST_LABELS[k], input.groups[k])),
+    ...(link ? [`${t.digestMail.openDues}: ${link}`, ""] : []),
+    t.digestMail.footer,
+  ].join("\n");
+  const subject = fill(t.digestMail.subject, "establishment", plainLine(input.establishmentName));
+  return { to, subject, html, text };
 }

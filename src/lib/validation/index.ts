@@ -67,6 +67,8 @@ export * from "./parties";
 export * from "./plans";
 // v1.2b
 export * from "./employees";
+// v1.2c
+export * from "./reminders";
 
 /* -------------------------------------------------------------------- schemas */
 

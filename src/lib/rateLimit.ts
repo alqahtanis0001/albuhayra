@@ -27,6 +27,12 @@ export const LIMITS = {
   resetIp: { max: 20, windowMs: WINDOW_MS },
   mailIp: { max: 20, windowMs: DAY_MS },
   mailTo: { max: 5, windowMs: HOUR_MS },
+  /**
+   * v1.2c (E3): every owner digest together, per day. Brevo's free 300/day is
+   * shared with auth mail; this leaves it 150. In memory like the rest, so a
+   * restart resets it.
+   */
+  digestDay: { max: 150, windowMs: DAY_MS },
 } as const;
 
 type Entry = { count: number; resetAt: number };

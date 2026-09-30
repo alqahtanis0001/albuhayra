@@ -32,6 +32,8 @@ export const v12aSections = {
     categories: "التصنيفات",
     joinCode: "رمز الانضمام",
     locks: "إقفال الأشهر",
+    /** v1.2c (spec §1): Settings › التذكيرات. */
+    reminders: "التذكيرات",
     account: "حسابي",
     more: "المزيد",
     moreTitle: "كل الأقسام",

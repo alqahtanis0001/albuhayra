@@ -17,11 +17,11 @@ npm run typecheck        # tsc --noEmit, not part of build
 `DATABASE_URL` is read by `prisma.config.ts` (which loads `.env` via dotenv) for migrate/seed, and by `src/lib/db.ts` at runtime. `prisma generate` and `npm run build` work without it.
 
 ## Current phase
-**Phase:** v1.2b complete (CP1 employees and salaries + CP2 attendance and self-service committed); v1.2c (reminders and reports, spec §4) next — the lead continues per spec §5.
-**Status:** commits since v1.1e: `792a601` v1.2a CP1 · `1a9aae4` v1.2a CP2 · `e394d0a` handover · `99d526e` v1.2 spec · `aa5f4f1` v1.2b CP1 · v1.2b CP2 (this). **Nothing pushed.** Migrations awaiting the user's push: `20261001000000_v1_2a_parties_projects_plans`, `20261002000000_v1_2b_employees_salaries` (expand-only; CP2 added none). Gates on the v1.2b CP2 tree (lead's own run, under the lock): `npx tsc --noEmit` 0, `npx vitest run` 941/941 in 49 files (twice), `npm run build` 0 (first attempt hit the known npm exit-139 crash before compiling; the immediate retry passed); prerender only `/_global-error`; routes only health/export.
-**Exactly where we stopped:** v1.2b CP2 committed; v1.2c not started.
-**Next concrete action:** v1.2c design + contract (spec §4: owner digest via `GET /api/reminders/run` with `CRON_SECRET`, Settings › التذكيرات, client reminders by explicit owner action, aging report, statement to Excel/PDF, «بحسب الجهة» filter) → R-brief → build → commit(s).
-**Teammates:** fresh v1.2b team `backend`, `frontend`, `reviewer` (the v1.2a team was shut down at the handover).
+**Phase:** v1.2c checkpoint 1 committed (owner digest); checkpoint 2 (client reminders, reports) next.
+**Status:** commits since v1.1e: `792a601`, `1a9aae4` (v1.2a) · `e394d0a` · `99d526e` (spec) · `aa5f4f1`, `1d29ea4` (v1.2b) · v1.2c CP1 (this). **Nothing pushed.** Three migrations await the user's push: `20261001000000_v1_2a_parties_projects_plans`, `20261002000000_v1_2b_employees_salaries`, `20261003000000_v1_2c_reminders` (all expand-only). **New secret before pushing: `CRON_SECRET`** (plus the hourly scheduler, README). Gates on the v1.2c CP1 tree (lead, under the lock): `npx tsc --noEmit` 0, `npx vitest run` 1046/1046 in 53 files (twice), `npm run build` 0; prerender only `/_global-error`; API routes health, export, reminders/run.
+**Exactly where we stopped:** v1.2c CP1 committed; CP2 (G6–G8, H2–H3) about to start.
+**Next concrete action:** CP2 build → review → commit "v1.2c: checkpoint 2 — client reminders and reports" → the combined report for the user.
+**Teammates:** fresh v1.2c team `backend`, `frontend`, `reviewer` (the v1.2b team was shut down after `1d29ea4`, spec §5 "team per release").
 
 
 ## v1.2 release plan (user's instruction, 2026-09-30)
@@ -121,6 +121,10 @@ Closed the two gaps no test in this repo can reach: server actions submitted end
 | v1.2b CP2 | L7 attendance helpers (Y5 grace, Z1 settle rule) · L8 owner day sheet (Z2 employment window, Z3 compare-and-set on changed rows, P2002) + month grid + employee month + `getLastRecordedDate` · L9 self-service (`own.ts` session-keyed, server-clock check-in/out with an override-safe compare-and-set, `err.outsideEmployment`, reads open to ENDED, owner notes stripped, forced own-employee generation) · L10 deductions (Z4: OPEN plan + unpaid month on add and delete, total by aggregate, re-allocation) · L11 gates (self-service isolation on PGlite, cache-lag pin, STAFF-with-canEdit refused) — ~30 mutations, none surviving | backend | 2026-09-30 |
 | v1.2b CP2 | M5 الحضور daily sheet (changed rows only, «نسخ من آخر يوم عمل», fallback notice) + printable monthly grid with codes and legend · M6 monthly sheet per employee with deductions · M7 «حضوري» (linked-only nav, today card, own month/payslips/salaries, every page self-checks the link) · M8 «تسجيل حضور» quick action | frontend | 2026-09-30 |
 | v1.2b CP2 | R-brief-c2 (5 SHOULD + 8 NOTE → Z1–Z6), R-L7..L11, R-M5..M8 (S-M5a, S-L10a closed) — nothing open | reviewer | 2026-09-30 |
+| v1.2c CP1 | Design C1–C16 + E1–E14 after R-brief-c (3 BLOCKER, 10 SHOULD, 13 NOTE); contract (schema, validation, strings, `CRON_SECRET` in `.env.example`/`render.yaml`); README hourly-scheduler section | lead | 2026-09-30 |
+| v1.2c CP1 | G1 expand-only migration + PGlite · G2 digest (`select.ts` routing-only under its own static gate, `digest.ts` groups, `run.ts` claim-first with PENDING, salary generation first, 150/day + `mailto:` caps, escaping, every outcome audited) · G3 `GET /api/reminders/run` (503/401, sha256 + timingSafeEqual, header only) + one `OPEN_PATHS` entry · G4 settings (getter server-only, action in "use server", one shared owner rule) · G5 gates — 76 mutations, 0 survivors | backend | 2026-09-30 |
+| v1.2c CP1 | H1 Settings › التذكيرات (nav item, switch + hour, recipient, not-configured notice) | frontend | 2026-09-30 |
+| v1.2c CP1 | R-brief-c, R-G1..G5, R-H1 — nothing open (N3 cap order accepted) | reviewer | 2026-09-30 |
 
 ## v1.1 plan
 (a) done; (b) not started. In this order.
@@ -266,12 +270,20 @@ Format: date — decision — reason. Anything that changed from the docs or cho
 
 - 2026-09-30 — **v1.2b CP2 rulings (lead):** the override rule for «حاضر»/«متأخر» posted without a check-in (not an override on a work day, so a later late check-in still derives LATE; an override on a non-work day, so a Friday «حاضر» is kept); staff self-service reads omit the owner's attendance notes; a dedicated `getLastRecordedDate` replaces a 7-day look-back (Eid breaks); the monthly grid shows a muted «ع» on unrecorded non-work days, display only; one neutral line («خارج فترة خدمتك») for both not-yet-started and ended employees on self check-in; a mutation that "survives by design" is not accepted under spec §5 — the cache-lag deduction branch was pinned by staging the lag on PGlite.
 
+- 2026-09-30 — **v1.2c design (lead, `docs/V12C-DESIGN.md` C1–C16), the calls worth the user's eye:** the digest is **off by default** (C1 — no email to an owner who did not ask); the scheduler secret travels only in `Authorization: Bearer`, never a query string (C2); **`/api/reminders/run` is added to the proxy's `OPEN_PATHS`** (C3) — the spec requires an endpoint an external scheduler can reach without a session, the edit is one list entry and no session logic changes, so it is read as within spec §5 (flagged in the report); at-most-once is a claim row created before sending, so a Brevo failure means no digest that day rather than two (C5); owner-entered names appear HTML-escaped in the digest and client emails (C7 — A13 still binds auth emails); client emails carry **no reply-to**, so the owner's login email is not exposed to clients (C11); WhatsApp is copy-ready text only, no wa.me link (C12); **"PDF" is the browser's Save-as-PDF of the existing print sheet** (C15 — no PDF library on a frozen stack).
+
+- 2026-09-30 — **v1.2c R-brief-c: 3 BLOCKER + 10 SHOULD + 13 NOTE, all accepted as E1–E14 (`docs/V12C-DESIGN.md`).** The reviewer judged C3 (one `OPEN_PATHS` entry) **within spec §5**. The blockers were real: the cross-establishment digest selection cannot pass the scoping gate without a rule change (§5 forbids), so it is split into `reminders/select.ts`, excluded from `FILES` with a named comment and its own static gate — the admin precedent; the claim needed a `PENDING` state; and the per-IP `mail:` cap would have silently failed every digest after the 20th, so digests use `mailto:` plus a 150/day global cap. Salary months are generated inside the run before the digest is built, so an owner who never opens the app still sees this month's salary.
+
+- 2026-09-30 — **v1.2c CP1 rulings during the build:** the digest-settings getter is server-only and the action lives in a separate "use server" file (a getter with an establishment id in a "use server" module would be a client-callable cross-tenant read of the owner's email — `backend`'s catch); the settings page and the digest share one recipient rule (exactly one ACTIVE verified OWNER, else no address shown); the "not configured" notice also covers missing mail settings; salary generation runs before the day's claim so a generation failure is retried next hour; README requires an hourly job (a daily one would never reach owners with a later hour).
+
 ## Waiting on user
 - **Browser test + push of v1.2a** (test plan in the CP2 report; a Neon branch first is the zero-risk option). Push applies the v1.2a migration on Render.
 - Carried over: the contract migration dropping `User.name`, Google sign-in, and the placeholder `support@example.com` in the footer.
 
 ## Known issues
 Failing builds, bugs, must-not-forget TODOs. Remove when fixed.
+- **v1.2c: the digest's 150/day cap is in memory** (resets on restart, like every limiter); the per-day claim is durable, so a restart can never cause a duplicate — at worst the cap is exceeded that day.
+- **v1.2c: with `BREVO_API_KEY` unset a digest is recorded FAILED and not retried that day** (at-most-once); the settings page warns when the scheduler or mail is not configured.
 - **v1.2b: a saved attendance day cannot be cleared back to «غير مسجل»** (accepted, Z6 — the owner corrects it to the right status).
 - **v1.2b: an owner's «متأخر» saved without a time becomes «حاضر» if the employee then checks in on time** (follows from the ratified Z1 rule; accepted).
 - **v1.2b: an end-of-service month kept only by a soft-deleted payment is written off but not listed in the end dialog** (accepted; needs a query flag to list).

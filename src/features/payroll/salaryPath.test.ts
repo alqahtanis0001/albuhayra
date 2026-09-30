@@ -145,6 +145,10 @@ describe("creating an employee with a salary (D1, D2, Y1, X4)", () => {
     expect((await months(ahmed)).map((m) => m.periodYm)).toEqual(["2026-10", "2026-11", "2026-12"]);
     await totalsHold();
     expect(await q(`SELECT count(*)::int AS n FROM "AuditLog" WHERE "action" = 'SALARY_GENERATE'`)).toEqual([{ n: 2 }]);
+    // v1.2c E4: only the digest run marks its generation `auto` — a save or a page load never does.
+    expect(
+      await q(`SELECT count(*)::int AS n FROM "AuditLog" WHERE "action" = 'SALARY_GENERATE' AND ("after"->'auto') IS NOT NULL`),
+    ).toEqual([{ n: 0 }]);
   });
 
   it("a second open salary plan for the same employee cannot take a month (S3) — the run survives", async () => {

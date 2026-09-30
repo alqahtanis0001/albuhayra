@@ -36,11 +36,15 @@ enum PaymentMethod {
 }
 
 model Establishment {
-  id        String   @id @default(cuid())
-  name      String
-  joinCode  String   @unique
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
+  id            String   @id @default(cuid())
+  name          String
+  joinCode      String   @unique
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  /// v1.2c (docs/V12C-DESIGN.md C1): the owner's daily digest. Off by default.
+  digestEnabled Boolean  @default(false)
+  /// 0–23, Asia/Riyadh.
+  digestHour    Int      @default(7)
 
   users              User[]
   categories         Category[]
@@ -56,6 +60,8 @@ model Establishment {
   salaryPeriods      SalaryPeriod[]
   salaryDeductions   SalaryDeduction[]
   attendanceRecords  AttendanceRecord[]
+  // v1.2c
+  reminderDigests    ReminderDigest[]
 }
 
 model User {
@@ -226,6 +232,8 @@ model Party {
   email           String?
   notes           String?
   active          Boolean   @default(true)
+  /// v1.2c (C9): explicit per-party opt-in for client reminders (§4.2).
+  remindersOptIn  Boolean   @default(false)
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -489,4 +497,30 @@ model AttendanceRecord {
 
   @@unique([employeeId, date])
   @@index([establishmentId, date])
+}
+
+// ---------------------------------------------------------------- v1.2c
+// Reminders and reports — docs/V12C-DESIGN.md.
+
+enum DigestStatus {
+  /// Claimed, outcome not yet recorded (a crash leaves it; never retried that day).
+  PENDING
+  SENT
+  EMPTY
+  FAILED
+}
+
+/// One row per establishment per Riyadh day: the claim that makes the owner
+/// digest at-most-once (C5). Created before building/sending.
+model ReminderDigest {
+  id              String       @id @default(cuid())
+  establishmentId String
+  date            DateTime     @db.Date
+  status          DigestStatus
+  itemCount       Int          @default(0)
+  createdAt       DateTime     @default(now())
+
+  establishment Establishment @relation(fields: [establishmentId], references: [id])
+
+  @@unique([establishmentId, date])
 }

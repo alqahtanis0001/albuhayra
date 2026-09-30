@@ -53,7 +53,13 @@ export type AuditAction =
   | "DEDUCTION_DELETE"
   | "ATTENDANCE_SET"
   | "CHECK_IN"
-  | "CHECK_OUT";
+  | "CHECK_OUT"
+  // v1.2c (docs/V12C-DESIGN.md)
+  | "DIGEST_SETTINGS"
+  | "DIGEST_SENT"
+  | "PARTY_REMINDERS"
+  | "CLIENT_REMINDER_EMAIL"
+  | "CLIENT_REMINDER_WHATSAPP";
 
 export type AuditEntity =
   | "Transaction"
@@ -68,7 +74,10 @@ export type AuditEntity =
   // v1.2b
   | "Employee"
   | "SalaryPeriod"
-  | "AttendanceRecord";
+  | "AttendanceRecord"
+  // v1.2c
+  | "ReminderDigest"
+  | "Instalment";
 
 /**
  * Never pass a password hash or a session into `before`/`after`.

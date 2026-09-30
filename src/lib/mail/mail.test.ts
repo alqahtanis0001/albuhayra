@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
@@ -188,5 +190,128 @@ describe("templates", () => {
   it("refuse anything but six digits as a code", async () => {
     const { verifyMail } = await load();
     expect(() => verifyMail(TO, "<b>x</b>")).toThrow();
+  });
+});
+
+/* ------------------------------------------------------------ v1.2c digest */
+
+describe("escapeHtml and plainLine (C7, E7)", () => {
+  it("escapeHtml turns the five characters into entities and nothing else", async () => {
+    const { escapeHtml } = await import("./escape");
+    expect(escapeHtml(`<script>alert("x")</script> & 'y'`)).toBe(
+      "&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt; &amp; &#39;y&#39;",
+    );
+    expect(escapeHtml("مؤسسة الأمل 123")).toBe("مؤسسة الأمل 123");
+  });
+
+  it("plainLine removes CR/LF and control characters, keeps the rest raw", async () => {
+    const { plainLine } = await import("./escape");
+    const LS = String.fromCharCode(0x2028);
+    const TAB = String.fromCharCode(9);
+    expect(plainLine(`a\r\nBcc: x@example.com${TAB}b${LS}c`)).toBe("a Bcc: x@example.com b c");
+    expect(plainLine(`<b> & "q"`)).toBe(`<b> & "q"`);
+  });
+});
+
+describe("digestMail (C6, C7, E7)", () => {
+  const HOSTILE = `<img src=x onerror="alert(1)"> & 'q' $& $'`;
+  const row = (partyName: string, planTitle: string, direction: "IN" | "OUT", remainingHalalas: number) => ({
+    partyName, planTitle, direction, remainingHalalas, dueDate: "2026-10-01",
+  });
+  const empty = { rows: [], moreCount: 0, totalInHalalas: 0, totalOutHalalas: 0 };
+  function input(name = HOSTILE) {
+    return {
+      establishmentName: name,
+      groups: {
+        overdue: { rows: [row(HOSTILE, "عقد <b>", "IN", 123456)], moreCount: 3, totalInHalalas: 999900, totalOutHalalas: 50 },
+        today: empty,
+        tomorrow: { rows: [row("مورد", "توريد", "OUT", 5000)], moreCount: 0, totalInHalalas: 0, totalOutHalalas: 5000 },
+        upcoming: empty,
+      },
+    };
+  }
+
+  it("escapes every owner-entered string in the HTML part", async () => {
+    const { digestMail } = await load();
+    const { html } = digestMail(TO, input());
+    expect(html).not.toContain("<img src=x");
+    expect(html).not.toContain("<b>");
+    expect(html).toContain("&lt;img src=x onerror=&quot;alert(1)&quot;&gt; &amp; &#39;q&#39; $&amp; $&#39;");
+    expect(html).toContain("عقد &lt;b&gt;");
+  });
+
+  it("keeps the subject and text raw but on one line, and never expands $& or $'", async () => {
+    const { digestMail, t } = await load();
+    const message = digestMail(TO, input(`منشأة\r\nBcc: evil@example.com $& $'`));
+    expect(message.subject).toBe(t.digestMail.subject.replace("{establishment}", () => "منشأة Bcc: evil@example.com $& $'"));
+    expect(message.subject).not.toMatch(/[\r\n]/);
+    expect(message.text).toContain(HOSTILE);
+    expect(message.text).toContain("منشأة Bcc: evil@example.com $& $'");
+    expect(message.text).not.toContain("{establishment}");
+  });
+
+  it("fill replaces every placeholder, and never expands $ patterns in the value", async () => {
+    const { fill } = await load();
+    expect(fill("{e} — {e}", "e", "$& $' $$ $`")).toBe("$& $' $$ $` — $& $' $$ $`");
+  });
+
+  it("no placeholder brace survives in any part, whatever the name", async () => {
+    const { digestMail } = await load();
+    const message = digestMail(TO, input("منشأة {establishment} $&"));
+    for (const part of [message.subject, message.text]) expect(part.replace("{establishment}", "")).not.toMatch(/[{}]/);
+    expect(message.html.match(/\{establishment\}/g)).toHaveLength(1);
+  });
+
+  it("a CR/LF in a party name or plan title cannot start a line of the text part", async () => {
+    const { digestMail } = await load();
+    const hostile = input();
+    const CRLF = String.fromCharCode(13, 10);
+    const LF = String.fromCharCode(10);
+    hostile.groups.overdue.rows = [row(`عميل${CRLF}Bcc: a@example.com`, `عقد${LF}Fake: line`, "IN", 100)];
+    const { text } = digestMail(TO, hostile);
+    expect(text).not.toMatch(new RegExp(`${LF}(?:Bcc|Fake):`));
+    expect(text).toContain("عميل Bcc: a@example.com");
+    expect(text).toContain("عقد Fake: line");
+  });
+
+  it("is Arabic, right to left, lists only non-empty groups in order, with Western-digit totals", async () => {
+    const { digestMail, t } = await load();
+    const { html, text } = digestMail(TO, input());
+    expect(html).toContain('<html dir="rtl" lang="ar">');
+    expect(html).toContain(t.digestMail.overdue);
+    expect(html).toContain(t.digestMail.tomorrow);
+    expect(html).not.toContain(t.digestMail.today);
+    expect(html).not.toContain(t.digestMail.upcoming);
+    expect(html.indexOf(t.digestMail.overdue)).toBeLessThan(html.indexOf(t.digestMail.tomorrow));
+    expect(html).toContain("1,234.56 ر.س");
+    expect(html).toContain(`${t.digestMail.toUs} 9,999.00 ر.س`);
+    expect(html).toContain("و3 أخرى");
+    expect(text).toContain("و3 أخرى");
+    expect(html).not.toMatch(/[٠-٩]/);
+    expect(text).not.toMatch(/[٠-٩]/);
+    expect(html).toContain(t.digestMail.footer);
+  });
+
+  it("links to the dues page on APP_URL, and omits the link when APP_URL is unset or not http(s)", async () => {
+    let { digestMail, t } = await load();
+    expect(digestMail(TO, input()).html).toContain('href="https://ledger.example.com/owner/dues"');
+    expect(digestMail(TO, input()).text).toContain("https://ledger.example.com/owner/dues");
+    for (const value of ["", "javascript:alert(1)"]) {
+      vi.stubEnv("APP_URL", value);
+      vi.resetModules();
+      ({ digestMail, t } = await load());
+      const message = digestMail(TO, input());
+      expect(message.html).not.toContain("href=");
+      expect(message.html).not.toContain(t.digestMail.openDues);
+      expect(message.text).not.toContain(t.digestMail.openDues);
+      expect(message.html).not.toContain("javascript:");
+    }
+  });
+
+  it("the auth mails still carry no owner text (A13 unchanged)", async () => {
+    const source = readFileSync("src/lib/mail/templates.ts", "utf8");
+    const auth = source.slice(0, source.indexOf("v1.2c digest */"));
+    expect(auth).not.toMatch(/escapeHtml\(|plainLine\(/);
+    expect(auth.length).toBeGreaterThan(1000);
   });
 });

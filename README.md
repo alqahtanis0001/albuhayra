@@ -97,6 +97,28 @@ The first build takes a few minutes. It installs packages, applies any pending d
 - To change a secret: Render dashboard → the `ledger` service → **Environment** → edit → **Save**. Render redeploys.
 - Backups are handled by **Neon**, not Render. Set the history or retention window in the Neon console.
 
+### Daily reminder email (v1.2c)
+Owners can switch on a **daily summary email** in **الإعدادات › التذكيرات**. It lists overdue payments and those coming due soon. Render's free plan has no built-in scheduler, so a free outside service has to visit one address once an hour to trigger the sending. Until you set this up, nothing is sent and nothing else in the app is affected.
+
+1. **Create a secret.** Generate one the same way as the `SESSION_SECRET` above:
+
+   ```bash
+   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+   ```
+
+   In Render: the `ledger` service → **Environment** → add **`CRON_SECRET`** with that value → **Save**. Render redeploys.
+2. **Create the scheduled call** with a free service such as [cron-job.org](https://cron-job.org). Create a job with:
+   - **URL:** `https://<your-address>/api/reminders/run`
+   - **Method:** `GET`
+   - **Schedule:** **every hour.** Each owner receives the email at the hour they chose, at most once a day. Do **not** use a once-a-day job. A job that runs once a day at, say, 07:00 only reaches owners who chose 07:00 or earlier. Owners who picked a later hour would never get the email.
+   - **Header:** `Authorization` with the value `Bearer <your CRON_SECRET>`. Never put the secret in the URL.
+   - **Timeout:** 60 seconds or more. A sleeping free service can take close to a minute to wake up.
+3. **Check it.** The job's first run should show status **200**.
+   - **503** means `CRON_SECRET` is not set on Render.
+   - **401** means the header is wrong.
+
+The emails are sent through Brevo, like the sign-up codes, and share its free daily limit.
+
 ---
 
 ## Later: Google and Microsoft sign-in (v1.1)

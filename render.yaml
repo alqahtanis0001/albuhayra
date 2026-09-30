@@ -39,3 +39,6 @@ services:
       # Public base URL, used for the logo image inside emails. Not a secret.
       - key: APP_URL
         value: https://ledger-8c5g.onrender.com
+      # v1.2c — protects GET /api/reminders/run; paste in the dashboard.
+      - key: CRON_SECRET
+        sync: false

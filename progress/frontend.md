@@ -1812,3 +1812,25 @@ Q1–Q6 + the Q2 overpaid follow-up all passed review (R-Q1…R-Q6, no open find
 - R-M7 passed; its note: ClockCard's can't-clock line is now `t.myAttendance.cannotClock` (right before hire
   and after the end), not `err.employeeEnded`.
 - Gates: build 0, tsc 0, vitest 940/940.
+
+## v1.2c
+
+### H1 — Settings › التذكيرات (done, awaiting review)
+- Nav: `/owner/settings/reminders` in the الإعدادات group between إقفال الأشهر and حسابي (`t.navItem.reminders`,
+  new `BellIcon` → `NAV_ICONS.reminders`); nav.test.ts pins the href order, the active match and the group.
+  MoreSheet and the side nav read the same groups, so nothing else changes.
+- Page `(owner)/owner/settings/reminders/page.tsx`: `requireOwner()` → `getDigestSettings(estId)`; one Card
+  (`digestTitle`): help line, «يُرسل إلى» + the owner email in `<bdi dir=ltr>` (read-only), the amber
+  `notConfigured` notice when `schedulerConfigured` is false (a boolean — never the secret), then the form.
+- `features/reminders/components/DigestSettingsForm.tsx` (client): a native checkbox with `role="switch"`
+  (sr-only; the track/knob are aria-hidden visuals, knob moved by `ms-0.5`/`ms-5.5`, so logical in RTL;
+  focus ring through `peer-focus-visible`; off track gray-500 for 3:1 against white; transitions off under
+  reduced motion) + the hour `Select` 0–23 as «00:00»…«23:00». `DigestSettingsSchema` runs client-side first.
+  The hour select is never disabled while the switch is off: a disabled field is not posted and the hour is
+  required by the schema. Success → Toast `saved`; errors → FormToast / field error.
+- Loading: `ReminderSettingsSkeleton` in a new `components/skeletons/v12c.tsx`.
+- Wired to G4: `getDigestSettings` from `@/features/reminders/settings` (server-only) and `updateDigestSettings`
+  from `@/features/reminders/actions` ("use server"). Backend split them so the read with an id is never a
+  client-callable action. `ownerEmail` is `string | null`, so the «يُرسل إلى» line is omitted when it is null.
+- Gates: build 0 (`ƒ /owner/settings/reminders`), tsc 0, vitest 950/950; no Arabic outside comments, no
+  physical utilities.

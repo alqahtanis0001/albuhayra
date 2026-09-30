@@ -2682,3 +2682,140 @@ My run: tsc 0; vitest **867/867 in 44 files**.
 - **Open:** only R-M6 NOTE 1 (lockedHint wording when the plan is archived), and that is non-blocking.
 - **CP2 verdict: CLEAR.**
 - **Final confirmation:** lockedHint now covers both reasons ('its salary is paid, or the salary agreement was closed'), so R-M6 NOTE 1 is closed. The gates were already run on the final tree (941/941, tsc 0). **CP2: nothing open. CLEAR.**
+
+---
+
+# v1.2c
+
+## 2026-09-30 — R-brief-c (design C1–C16 + briefs G1–G8, H1–H3, before code) — 3 BLOCKER, 10 SHOULD, 13 NOTE
+Baseline on my run: `npx prisma validate` OK; `npx tsc --noEmit` 0; `npx vitest run` 941/942. The one failure is the expected migration drift (`DigestStatus:SENT,EMPTY,FAILED`; no v1.2c migration yet).
+
+**C3 opinion (§5): within the spec, not a stop.** Spec §4.1 requires `GET /api/reminders/run` to be reachable by an external scheduler holding only `CRON_SECRET`. Without the entry the proxy sends a 307 to /login, and §4.1 cannot work. The proxy is documented as convenience routing (proxy.ts:15-18). An `OPEN_PATHS` entry changes nothing about sealing or reading sessions, nothing in requireX(), and nothing in the `destinationFor` logic. Conditions: exactly one entry; `matches()` and `destinationFor` untouched; the route never calls requireX() or getSession; the N1 pins.
+
+BLOCKER
+- **B1 — the scoping gate vs the cross-tenant selection.** G5 says "new files in FILES". The run's selection is cross-tenant by nature: `establishment.findMany` by `digestEnabled`/`active`, plus a reminderDigest lookup by date. It fails the establishment rule (scoping.test.ts:293-312: `where.id` must equal EST). The only way through would be a rule change, and §5 forbids that. Fix in the brief: split the work into two files.
+  - `src/features/reminders/select.ts` holds only the cross-tenant selection and returns `{establishmentId, ownerId, ownerEmail, name, digestHour}`. It is NOT in FILES (same treatment as admin) and gets its own static test: only `establishment|user|reminderDigest` receivers, an explicit `select`, no financial model, no amounts.
+  - `digest.ts`/`run.ts` hold the per-establishment work and ARE in FILES, with drivers: the claim `create` with establishmentId, `updateMany({where:{establishmentId,id}})`, and buildDigest.
+- **B2 — `DigestStatus` has no claim state** (schema.prisma:505-519). C5 claims with `create` first, but the enum holds only SENT/EMPTY/FAILED. A crash or timeout between the claim and the send leaves either a false SENT or an unexplained FAILED. Fix now, before G1 writes the migration: add `PENDING` for the claim, then update to SENT/EMPTY/FAILED. A leftover PENDING means "claimed, outcome unknown", and it is still never retried the same day.
+- **B3 — the mail cap, as written, silently stops every digest past 20 a day.** `deliver(msg, ip)` consumes `mail:${ip}`, which allows 20 a day (send.ts:85-89, rateLimit.ts:28). The scheduler has one IP, so from the 21st owner on, every digest is FAILED every day, with no signal. Fix:
+  - The digest calls `sendMail` behind `mailto:${ownerEmail}` (LIMITS.mailTo) plus one global daily digest cap (e.g. `mail:digest`). The lead picks the number, leaving Brevo headroom for auth mail.
+  - A capped digest is recorded FAILED and logged `[digest] capped`, without the address.
+  - A mutation-proven test.
+
+SHOULD
+- S1 — salary months are generated lazily. `ensureSalaryInstalments` needs a session (generate.ts:184-202), and generation creates months only up to month+1 (payroll.ts:71). An owner who hasn't opened the app for a calendar month gets a digest without that month's salary, and an ended employee's unfixed months stay listed. Fix: for each establishment, inside the try, call `runSalaryGeneration(estId, ownerId, today)` before `buildDigest`. This only invokes the allocation code; it does not change it. The SALARY_GENERATE audit carries `auto: true`.
+- S2 — secret handling details:
+  - Hash both sides with sha256, then `timingSafeEqual`: a fixed 32 bytes, so no length leak and no throw.
+  - Parse exactly `Bearer <token>`.
+  - Trim the env value; empty after trimming counts as unset → 503.
+  - The same 401 body for a missing and a wrong secret.
+  - `dynamic = "force-dynamic"` and the Node runtime.
+  - Never log headers.
+  - Next runs GET for HEAD requests. That is harmless, because the same gate covers it.
+- S3 — the hour setting vs a "daily ping". With `digestHour ≤ nowHour`, a once-daily ping at hour H never serves owners whose hour is later than H, yet hourHelp promises "at this hour or after". The README must recommend an **hourly** free ping, and note the Render free-tier cold start and a scheduler timeout of at least 60 s. No task ID covers the README yet; the lead should add one.
+- S4 — escaping scope:
+  - `escapeHtml` (& < > " ') applies to the HTML part only.
+  - The subject and the text part stay raw, with CR/LF and control characters stripped; escaping them would show "&amp;".
+  - Build the `/owner/dues` link with the same protocol check as `logoUrl()` (templates.ts:17-26), and leave it out when APP_URL is unset.
+  - Never put owner text in an attribute or a URL.
+- S5 — `remind:{instalmentId}` uses the in-memory `consumeAttempt`, which resets on every restart (Render free instances sleep). Its rolling 24 h window also isn't "today", which `err.reminderTooSoon` claims. Fix:
+  - Check the scoped audit log for a CLIENT_REMINDER_EMAIL on that instalment since Riyadh midnight.
+  - Keep the in-memory cap as well, against double-clicks.
+  - Consume it only after the eligibility checks pass, and clear it if Brevo fails, since err.mailFailed says "try later".
+  - Add a per-establishment daily cap on client emails. It protects the platform's sender reputation and the Brevo 300/day quota shared with auth mail.
+- S6 — BACKEND.md:306 says sends are never awaited in the response path. The client reminder must await the send to report sent/failed, and the cron route awaits too. Amend the v1.2c section: A6's timing rationale applies to auth only, and these two are explicit exceptions.
+- S7 — the C16 export:
+  - Filter the ledger rows (`listTransactions`, route.ts:28-36) as well, not only `getReport`.
+  - The info sheet must name the party (a new key, e.g. `t.export.party`), so a filtered file can't pass for the full books.
+  - `params.get()` returns null; convert it to undefined before `ReportPartyFilterSchema`, because optionalCuid rejects null.
+- S8 — statement filename: an Arabic party name in `Content-Disposition` throws (headers are ByteString), giving a 500. Use an ASCII fallback `filename="statement_<partyId>_<date>.xlsx"` plus `filename*=UTF-8''<encoded>`. Test with an Arabic name, a quote, and CR/LF.
+- S9 — §0 requires an audit on every mutation, and each claim outcome (SENT/EMPTY/FAILED) is one. Audit all three: `DIGEST_SENT`, or the same action with `after.status`. `after` holds only {date, status, itemCount}.
+- S10 — with no reply-to, client replies land in MAIL_FROM, the platform's inbox. Add to the `clientReminder.mailFooter`/body value: "لا تردّ على هذه الرسالة؛ للتواصل راسل {establishment} مباشرة." This changes a value only.
+
+NOTE
+- N1 — C3 pins in proxy.test:
+  - `/api/reminders/run` passes without a session and without any session read.
+  - `/api/reminders`, `/api/export/statement` and `/api/export` still redirect to /login.
+  - `OPEN_PATHS` equals an exact list.
+  - `matches()` is prefix-based (proxy.ts:87-89), so `/api/reminders/run/*` is open too. Pin that `src/app/api/reminders/run/` holds only route.ts.
+- N2 — aging:
+  - Overdue means due < today, so "0–30" actually holds days 1–30.
+  - Pin day 0 (excluded), 1, 30/31, 60/61 and 90/91, computed with `dayOffset` on ISO dates.
+  - One row per party **per direction**.
+  - OPEN plans only; remaining = due − paid.
+- N3 — `DigestSettingsSchema.digestHour`: "" becomes Number("") = 0 (midnight) with no error. Preprocess "" → undefined.
+- N4 — W5 pins `StaffDueRow` to 4 keys (dues.ts:44). Reminder fields go on `DueRow` only, and expose `partyHasEmail: boolean`, not the email.
+- N5 — one `now`: `todayISO(now)` plus the hour from `nowRiyadhHHMM(now)`. Write the date column via `isoToDate`. Midnight test at 21:05Z and 20:55Z.
+- N6 — admin static test: add `reminderDigest` to MODEL_CALL, `reminderDigests` to RELATION_READ, and `reminders` to FEATURE_IMPORT.
+- N7 — two comments go stale: health/route.ts:3 ("The only unauthenticated route") and export/route.ts:12 ("The only route besides /api/health").
+- N8 — missing keys: a tab label for the existing by-category report beside «أعمار المستحقات», and the export party label (S7).
+- N9 — owner lookup: require exactly one ACTIVE, verified OWNER. More than one → skip and log, without the address.
+- N10 — PGlite serialises queries, so the concurrency test is a `Promise.all` of two `runDigests` → one claim and one fetch. The mutations "treat P2002 as success" and "drop the claim" must fail it.
+- N11 — digest totals per group cover all rows, not just the 50 shown.
+- N12 — tenancy test: fetch recipients are a subset of the owner emails and never a party email (client reminders are never automatic). The digest HTML contains no other establishment's party or plan name.
+- N13 — choices beyond the spec's wording for the user to see (not stops): off by default (C1), EMPTY → no email (C5), PDF = browser print (C15).
+
+**Lead's response:** R-brief-c was accepted in full as E1–E14 (docs/V12C-DESIGN.md). Sizes: a global digest cap of 150/day and 20 client emails per establishment per day. I verified in the tree: PENDING (schema.prisma:507), the digestHour ""/null fix (reminders.ts:12-15), the no-reply footer (ar.v12c.ts:64), and the byCategoryTab, exportParty and exportAllParties keys.
+- Sent to backend: the footer has {establishment} twice, and the repo idiom `.replace("{x}", v)` fills only the first. A string replacement value also expands `$&` in owner names. Use a helper with a function replacer, tested with a "$&" name and no leftover "{".
+- Sent to main: E6's "a daily ping sends at ping time" holds only for owners whose hour is at or before the ping hour; the README wording should say so.
+
+## 2026-09-30 — R-G1 (migration 20261003000000_v1_2c_reminders + migration.v12c.test.ts) — PASS, 0 findings
+- The SQL is expand-only:
+  - It creates the DigestStatus enum with PENDING,SENT,EMPTY,FAILED in the schema's order.
+  - It adds three NOT NULL columns with constant defaults (false / 7 / false). These are fast defaults, so there is no rewrite and old-release inserts still work.
+  - It adds one table, with a unique index on (establishmentId, date) and an FK set to RESTRICT. Nothing in the code deletes an Establishment.
+- The tests kill these mutants: the default changed (:58/:67), the enum order changed or PENDING missing (:88), the unique index dropped (:95), establishmentId made nullable (:80).
+- My run: 4 migration files, 65/65 tests; the drift check passes.
+- G4 split (getter server-only, action in "use server" actions.ts): endorsed. A getter inside a "use server" file would be a client-callable cross-tenant read of the owner email. R-G4 will verify that the action takes its establishment from requireOwner() only.
+
+## 2026-09-30 — R-H1 (Settings › التذكيرات) — PASS; 1 NOTE for backend (G4)
+- **Nav:** the spec §1 order is right, and nav.test pins it along with activeHref and groupOf.
+- **Page:** it calls requireOwner(), then the server-only getDigestSettings with the session's estId. The scheduler state crosses as a boolean only. The recipient is shown in `<bdi dir=ltr>`.
+- **Switch:** a native checkbox with role=switch, named by its label. peer-focus-visible works. The knob uses ms-0.5/ms-5.5, which is logical and valid on Tailwind 4.3. motion-reduce is respected.
+- **Hour select:** controlled, Western digits, always posted. The schema runs client-side first.
+- **Early G4 read:** actions.ts exports only updateDigestSettings. estId comes from requireOwner() only. The write is updateMany on { id } in a transaction, with the DIGEST_SETTINGS audit (before and after).
+- **NOTE (backend, G4):** settings.ts:33-37 shows the oldest OWNER as the recipient. The digest sends to exactly one ACTIVE, verified OWNER (N9), so the two can disagree. Share one predicate or helper with select.ts.
+
+## 2026-09-30 — R-G4 (reminders/settings.ts + actions.ts) — code PASS; tests owed in G5
+- **actions.ts:** exports only async updateDigestSettings (plus an erased type). The establishment comes only from requireOwner(), never from formData. The write is updateMany on { id } in a $transaction with the DIGEST_SETTINGS audit (before and after); count ≠ 1 → notFound.
+- **settings.ts:** server-only. cronSecret() trims, and empty means unset (E5).
+- **Open:**
+  - The recipient-predicate NOTE (backend).
+  - G5 owes FILES and drivers for both files, the server-only pin, and action tests: STAFF refused, a posted establishmentId ignored, bad hour → no write, the audit written, unchecked → false. Each must be mutation-verified.
+
+## 2026-09-30 — R-G1..G5 (CP1 backend) — PASS, 0 BLOCKER, 0 SHOULD, 4 NOTE; G4 closed
+- **My run:** reminders, scoping, proxy, mail and admin: 7 files, 276/276.
+- **route.ts (E5):**
+  - sha256 on both sides, then timingSafeEqual; exactly "Bearer ".
+  - The env value is trimmed; empty → 503. Missing or wrong → one empty 401.
+  - Counts only; no-store; force-dynamic and nodejs; the only exports are GET, dynamic and runtime; the run/ folder holds only route.ts.
+- **Proxy:** one entry; the exact list is pinned; a no-session-read counter; the neighbours still redirect.
+- **select.ts:**
+  - The shared DIGEST_OWNER_WHERE is used by select.ts and settings.ts alike, which closes the R-H1 recipient NOTE.
+  - The nested select is exact, and the static gate has self-tests.
+- **run.ts:**
+  - One `now` (h23); the order is salary → PENDING claim → build → caps → awaited send → record plus audit in one transaction.
+  - Per-establishment catch.
+- **digest.ts:** one group per row; totals over all rows.
+- **templates.ts:** fill = replaceAll with a function replacer; escapeHtml on the HTML part only; plainLine on subject and text; the link goes through appUrl().
+- **PGlite end to end:** tenancy, N10 concurrency, N5 midnight, PENDING and FAILED not retried, both caps, and a post-claim failure → FAILED plus audit. 70 mutants, 0 survivors.
+- **Backend's readings, accepted:**
+  - The salary pass runs before the claim, so it is retried if it fails.
+  - Mail disabled → FAILED.
+  - Headers trims whitespace.
+- **NOTEs:**
+  1. The proxy "signed-in" test sets no session.
+  2. No test for a posted foreign establishmentId.
+  3. digest:day is consumed before the mailto: check.
+  4. Mail unset → silent daily FAILED. Suggested: schedulerConfigured also requires BREVO_API_KEY and MAIL_FROM (the lead's call).
+- **Minor:** archiveSalaryPlan's audit during the digest run has no auto flag.
+- **CP1 verdict to the lead: CLEAR.**
+  - G4 (1): DIGEST_OWNER_WHERE is shared by settings.ts:27-31 and select.ts:45; the page shows an email only when exactly one owner matches.
+  - G4 (2): STAFF refused, bad hours refused, the audit and unchecked → false are all pinned. The posted foreign establishmentId is still unpinned (NOTE 2).
+  - The E1 gate, including the exact nested users select, is verified.
+- **CP1 follow-up — NOTEs 1, 2 and 4 closed. CP1 stays CLEAR.**
+  - N1: the proxy test uses a real session, with reads 0 and a control path.
+  - N2: est_other is posted and appears in no call.
+  - N4: schedulerConfigured requires the secret and both mail settings.
+  - N3 (cap order) is accepted as is.
+  - My run: reminders, proxy and scoping, 232/232.

@@ -44,14 +44,17 @@ const nextConfig = rawNextConfig as NextConfigShape;
  * catch. Verified by hand against `next start` twice, in Phase 0 and Checkpoint 1.
  */
 
-const session = vi.hoisted(() => ({ value: null as unknown }));
+const session = vi.hoisted(() => ({ value: null as unknown, reads: 0 }));
 
 vi.mock("iron-session", () => ({
-  getIronSession: async () => session.value ?? {},
+  getIronSession: async () => {
+    session.reads += 1;
+    return session.value ?? {};
+  },
   nextProxyCookies: () => ({ read: () => undefined, write: () => undefined }),
 }));
 
-const { proxy } = await import("./proxy");
+const { proxy, OPEN_PATHS } = await import("./proxy");
 
 const NONCE = /nonce-([a-f0-9]{32})/;
 
@@ -279,5 +282,50 @@ describe("v1.1e paths", () => {
 
   it("…unless requireUser() sent them (the signedOut marker), as on /login", async () => {
     expect(destination(await proxy(request("/reset?signedOut=1")))).toBeNull();
+  });
+});
+
+/**
+ * v1.2c C3 + N1: `/api/reminders/run` is one more OPEN path — an external
+ * scheduler has no session, and the route's CRON_SECRET check is its gate. The
+ * edit is one list entry: the session logic is untouched, so everything next
+ * to it still redirects a signed-out visitor.
+ */
+describe("v1.2c: the reminders endpoint", () => {
+  function destination(response: Response): string | null {
+    const location = response.headers.get("location");
+    return location ? new URL(location).pathname : null;
+  }
+
+  it("is open to a signed-out caller, without reading a session", async () => {
+    session.value = null;
+    session.reads = 0;
+    expect(destination(await proxy(request("/api/reminders/run")))).toBeNull();
+    expect(session.reads).toBe(0);
+  });
+
+  it("is not bounced for a signed-in caller either, and still reads no session", async () => {
+    session.value = { userId: "user_1", role: "OWNER", establishmentId: "est_1" };
+    session.reads = 0;
+    expect(destination(await proxy(request("/api/reminders/run")))).toBeNull();
+    expect(session.reads).toBe(0);
+    // Control: the same session IS read on a neighbouring path.
+    await proxy(request("/owner/settings/reminders"));
+    expect(session.reads).toBe(1);
+  });
+
+  it.each(["/api/reminders", "/api/reminders/runs", "/api/reminders/other", "/api/export", "/owner/settings/reminders"])(
+    "its neighbour %s still sends a signed-out visitor to /login",
+    async (path) => {
+      session.value = null;
+      expect(destination(await proxy(request(path)))).toBe("/login");
+    },
+  );
+
+  it("OPEN_PATHS is exactly this list", () => {
+    expect([...OPEN_PATHS]).toEqual([
+      "/pending", "/verify", "/api/health", "/api/reminders/run",
+      "/manifest.json", "/sw.js", "/_next", "/icons", "/favicon.ico",
+    ]);
   });
 });
