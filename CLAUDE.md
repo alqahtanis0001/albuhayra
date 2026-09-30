@@ -15,6 +15,7 @@ Priorities in order: **simple → secure → Arabic UI → correct numbers**. Wh
 - Money is an integer in halalas. Dates are Gregorian in the DB, Hijri shown alongside in the UI.
 - No VAT anywhere. No receipts anywhere.
 - **v1.2 (user's ruling):** parties (الجهات), owner-named cost items (إضافة, code name `Project`, with an optional budget), and agreements (الاتفاقيات, `Plan`) paid by scheduled instalments (`Instalment`) are in scope. A payment is always an ordinary `Transaction` — all money still goes through `Transaction`; an instalment never creates an entry by itself. Release plan: v1.2a (these + nav restructure) → v1.2b الموظفون/الحضور → v1.2c التذكيرات/التقارير (see `PROGRESS.md`).
+- **v1.2b (user's ruling):** employees (each a `Party` of type موظف), salaries as system-generated monthly instalments of a `SALARY` plan (paid with «تسجيل دفعة» — still ordinary `Transaction`s), attendance, deductions and a payslip marked "not a legal payroll document" are in scope; spec `docs/V12B-DESIGN.md`. **Never store national ID, iqama or IBAN** until a later release adds encryption at rest.
 
 ## Files that define the project
 | File | Owner | Purpose |
@@ -24,9 +25,10 @@ Priorities in order: **simple → secure → Arabic UI → correct numbers**. Wh
 | `progress/<teammate>.md` | that teammate | Each teammate's own running notes; lead merges into PROGRESS.md |
 | `docs/BACKEND.md` | lead | Schema, auth, server actions, security, Render |
 | `docs/FRONTEND.md` | lead | Screens, Arabic/RTL, components, PWA |
+| `docs/V12-SPEC.md` | product owner (the user) | **Authoritative v1.2 (a/b/c) specification.** Outranks `docs/V12B-DESIGN.md`, `docs/BACKEND.md` / `docs/FRONTEND.md` v1.2 sections, `progress/*.md`, briefs, earlier chat rulings and any summary; where it conflicts with *Out of scope* below (e.g. the v1.2c reminder emails), the spec wins. Code, docs or a brief that disagree with it are changed to match, with a Decision logged. |
 | `.claude/settings.json` | lead | Team env var, permissions, quality-gate hook |
 
-Precedence: `CLAUDE.md` > `docs/*` > code. If code disagrees with docs, fix the code, or change the doc and record a Decision in `PROGRESS.md`.
+Precedence: `CLAUDE.md` > `docs/*` > code — except that for v1.2 `docs/V12-SPEC.md` (the product owner's) outranks every other doc and brief, as its row above says. If code disagrees with docs, fix the code, or change the doc and record a Decision in `PROGRESS.md`.
 
 ## Team protocol (agent teams are enabled)
 Team shape: **lead** + `backend` + `frontend` + `reviewer`. Do not spawn more without the user asking.
