@@ -185,9 +185,9 @@ export const t = {
     deleteConfirm: "سيتم حذف هذه الحركة من السجل. هل تريد المتابعة؟",
     addButton: "إضافة حركة",
     hijriHint: "التاريخ الهجري للعرض فقط",
-    // v1.2a
+    // v1.2a; v1.4 B4 renamed الإضافة → النشاط (a project), lead's file
     party: "الجهة",
-    project: "ضمن إضافة",
+    project: "ضمن نشاط",
   },
 
   ledger: {
@@ -260,7 +260,7 @@ export const t = {
     printedAt: "تاريخ الطباعة",
     // v1.2a
     statementTitle: "كشف حساب",
-    projectSummaryTitle: "ملخص الإضافة",
+    projectSummaryTitle: "ملخص النشاط",
     generatedBy: `تم الإنشاء بواسطة ${APP_NAME}`,
   },
 

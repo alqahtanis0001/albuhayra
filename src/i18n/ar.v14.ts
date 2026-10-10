@@ -66,8 +66,10 @@ export const v14Sections = {
     receivedSoFar: "المستلم حتى الآن",
     paidSoFar: "المدفوع حتى الآن",
     remaining: "المتبقي",
-    /** aria-label of the progress bar; `{pct}` includes its % sign, inside <bdi dir="ltr">. */
+    /** aria-label of the progress bar; `{pct}` includes its % sign, inside <bdi dir="ltr">. IN plans. */
     progressLabel: "المحصّل {pct} من الإجمالي",
+    /** The same for OUT (payable) plans (reviewer P12). */
+    progressLabelOut: "المدفوع {pct} من الإجمالي",
     /** Tag on the plans list card. */
     tag: "مفتوحة",
     /** List card line when there is no total. */
@@ -86,6 +88,8 @@ export const v14Sections = {
     /** Top banner on /owner/plans?pick=payment (C6). */
     pickBanner: "اختر الاتفاقية لتسجيل الدفعة",
     recorded: "تم تسجيل الدفعة",
+    /** D10 (user): one informational line on the party statement; `{amount}` is a formatted SAR amount. */
+    statementRemaining: "اتفاقيات مفتوحة: المتبقي {amount}",
   },
 
   /** v1.4 error keys. Merged into `t.err` by ar.ts. */
@@ -94,6 +98,7 @@ export const v14Sections = {
     planNotOpenEnded: "هذه الاتفاقية ليست مفتوحة",
     planKindFixed: "لا يمكن تغيير نوع الاتفاقية",
     expectedEndBeforeStart: "تاريخ الانتهاء المتوقع لا يسبق تاريخ البدء",
+    paymentBeforeStart: "تاريخ الدفعة لا يسبق تاريخ بداية الاتفاقية",
     planReopenNotAllowed: "إعادة الفتح متاحة للاتفاقيات المفتوحة فقط",
   },
 } as const;

@@ -380,6 +380,40 @@ dialog::backdrop {
     box-shadow: inset -4px 0 0 var(--color-money-in);
   }
 }
+
+/* v1.4 (docs/V14-SPEC.md A4) — category chips in edit mode. Screen-only and
+   off under reduced motion like the v1.3 block. The wiggle is the one
+   deliberate loop besides the live clock: ±1.5°, 0.3 s per half-rock
+   (`alternate`, so a full rock is 0.6 s), and it stops the moment edit mode
+   ends (the class leaves).
+   - .v14-wiggle    a chip rocking gently while it can be removed
+   - .v14-fade-out  a removed chip leaving over 200 ms. The ONE exception to
+                    "no fill modes": `forwards` holds the faded state because
+                    the component unmounts the chip right after — by a 200 ms
+                    timer, never by waiting for `animationend`, which does not
+                    fire under reduced motion (reviewer K5). */
+@keyframes v14-wiggle {
+  from {
+    rotate: -1.5deg;
+  }
+  to {
+    rotate: 1.5deg;
+  }
+}
+@keyframes v14-fade-out {
+  to {
+    opacity: 0;
+    scale: 0.92;
+  }
+}
+@media screen and (prefers-reduced-motion: no-preference) {
+  .v14-wiggle {
+    animation: v14-wiggle 300ms ease-in-out infinite alternate;
+  }
+  .v14-fade-out {
+    animation: v14-fade-out 200ms ease-out forwards;
+  }
+}
 .sr-only-screen {
   position: absolute;
   width: 1px;

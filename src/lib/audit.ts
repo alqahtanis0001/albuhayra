@@ -59,7 +59,10 @@ export type AuditAction =
   | "DIGEST_SENT"
   | "PARTY_REMINDERS"
   | "CLIENT_REMINDER_EMAIL"
-  | "CLIENT_REMINDER_WHATSAPP";
+  | "CLIENT_REMINDER_WHATSAPP"
+  // v1.4 (docs/V14-SPEC.md C3): «إعادة فتح» of an OPEN_ENDED plan. Closing
+  // one reuses PLAN_ARCHIVE; auto-close (C4) too, with `after.autoClosed`.
+  | "PLAN_REOPEN";
 
 export type AuditEntity =
   | "Transaction"

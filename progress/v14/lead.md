@@ -24,8 +24,18 @@ Your own running notes. Only you write here. Keep entries short; newest at the b
 
 | CP-A rulings folded in: D3 reversed (QuickActions unchanged), `plans` owns `parties/statement.ts` + the one `payments.ts` line, V14 row in CLAUDE.md | `docs/V14-SPEC.md`, `CLAUDE.md`, `progress/v14/plans.md` | — | |
 
+| Step 0 committed `8920553 v1.4: contract`; **migration applied to Neon** (`migrate deploy` → `20261010000000_v14_open_plans` applied; `migrate status` → 6 migrations, up to date); `prisma generate` ✓ | — | — | Local app and Neon are consistent again |
+| Spawn prep: `PLAN_REOPEN` audit action; `ar.ts` project-meaning values («ضمن نشاط», «ملخص النشاط»); `.v14-wiggle` / `.v14-fade-out` in `globals.css`; v1.4 bundle baseline from the v1.3 build (55 routes); Decisions D8–D10 (open plans: start = today; edit-path link fixed; outside party balance); briefs `progress/v14/brief-{common,cats,add,plans}.md` | `src/lib/audit.ts`, `src/i18n/ar.ts`, `src/app/globals.css`, `progress/v14/bundle-baseline.json`, `docs/V14-SPEC.md`, briefs | typecheck still the 8 P0 errors | Uncommitted; goes into the CP-B commit |
+| Team spawned: `reviewer` (pre-code brief review), `cats` / `add` / `plans` (Phase 1 orientation, no code) | — | — | Builders are resumed with "go" after the reviewer's findings are folded in |
+
+| User's rulings on D8–D10 folded in: D8 amended (open-plan form has «تاريخ البداية», default/max today; payment date ≥ start → new key `err.paymentBeforeStart`); D9 accepted; D10 accepted + statement line `t.openPlan.statementRemaining` (owned by `plans`, incl. `PartyStatementView.tsx`) | `docs/V14-SPEC.md` (C2, D8, D10, Team), `src/i18n/ar.v14.ts` (2 keys), `progress/v14/brief-plans.md` | — | `plans` will see the amended brief when resumed with "go" |
+
+| Handover (user closing the machine): reviewer's pre-code findings (5 B / 22 S / 19 N) ruled as D14–D15 and folded into `brief-{cats,add,plans}.md` ("Ready for go: YES"); builders' questions ruled (D11–D13); `.v14-fade-out` comment fixed (K5), `t.openPlan.progressLabelOut` added (P12); PROGRESS Current phase + Waiting on user rewritten; agents told to finalise recordings and exit | briefs, `docs/V14-SPEC.md`, `globals.css`, `ar.v14.ts`, `PROGRESS.md` | build/test at handover: see session log | No code written by any builder |
+
 ## In progress
-- Task: Checkpoint A approved; committing step 0, then "apply"
+- Task: handed over — build phase not started
+- Where I am: everything the next lead needs is in `PROGRESS.md › Current phase`, `docs/V14-SPEC.md` D1–D15, `progress/v14/brief-*.md`, `progress/v14/{cats,add,plans,reviewer}.md`
+- Next action (next session): spawn the four agents from the briefs, give "go"; `plans` P0 first
 - Where I am: nothing applied to Neon; nothing committed since `1459a39`
 - Next action: on "apply" → `npx prisma migrate deploy` (DIRECT_URL per prisma.config.ts), `npx prisma migrate status`, `npx prisma generate`; then brief `reviewer` first with all three briefs, then `cats`, `add`, `plans`
 
