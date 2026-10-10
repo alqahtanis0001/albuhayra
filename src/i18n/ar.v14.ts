@@ -22,6 +22,9 @@ export const v14Sections = {
     hide: "إخفاء التصنيف {name}",
     hidden: "تم إخفاء التصنيف",
     chipsLabel: "التصنيفات النشطة",
+    /** D17 c5: grey chips of the direction's hidden categories, each with an «إظهار» control. */
+    hiddenChipsLabel: "التصنيفات المخفية",
+    show: "إظهار",
     done: "تم",
     more: "المزيد (إعادة ترتيب، إعادة تسمية، إظهار)",
   },

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { EmptyState } from "@/components/EmptyState";
 import { Tabs } from "@/components/Tabs";
@@ -31,6 +32,23 @@ function refusal(raw: string | string[] | undefined, valid: (v: string) => boole
   if (raw === undefined) return null;
   if (typeof raw !== "string" || !valid(raw)) return "err.dateInvalid";
   return raw > max ? "err.dateFuture" : null;
+}
+
+/** v1.4 (D17, c17): both tabs' «لا يوجد موظفون نشطون» say what to do next and link to it. */
+function NoEmployees() {
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white">
+      <EmptyState
+        title={t.attendance.empty}
+        hint={t.employees.emptyHint}
+        action={
+          <Link href="/owner/staff/new" className="text-sm text-accent-dark underline-offset-2 hover:underline">
+            {t.employees.add}
+          </Link>
+        }
+      />
+    </div>
+  );
 }
 
 function FallbackNotice({ reason }: { reason: string | null }) {
@@ -95,9 +113,7 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
         <FallbackNotice reason={refused} />
         <MonthPicker ym={ym} />
         {grid.rows.length === 0 ? (
-          <div className="rounded-xl border border-gray-200 bg-white">
-            <EmptyState title={t.attendance.empty} />
-          </div>
+          <NoEmployees />
         ) : (
           <>
             <MonthGrid ym={ym} days={grid.days} rows={grid.rows} />
@@ -127,9 +143,7 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
       <FallbackNotice reason={refused} />
       <DayPicker date={date} today={today} />
       {rows.length === 0 ? (
-        <div className="rounded-xl border border-gray-200 bg-white">
-          <EmptyState title={t.attendance.empty} />
-        </div>
+        <NoEmployees />
       ) : (
         <DaySheetForm key={date} action={saveAttendanceDay} date={date} rows={rows} copySource={copySource} />
       )}
