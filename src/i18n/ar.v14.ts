@@ -62,6 +62,8 @@ export const v14Sections = {
     total: "إجمالي المبلغ (اختياري)",
     totalHelp: "اتركه فارغًا إذا كان المبلغ غير محدد.",
     expectedEnd: "تاريخ الانتهاء المتوقع (اختياري)",
+    /** Detail-page label (no "optional" suffix). */
+    expectedEndShort: "تاريخ الانتهاء المتوقع",
     noExpectedEnd: "بدون تاريخ انتهاء متوقع",
     receivedSoFar: "المستلم حتى الآن",
     paidSoFar: "المدفوع حتى الآن",

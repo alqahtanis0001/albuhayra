@@ -32,6 +32,8 @@ Your own running notes. Only you write here. Keep entries short; newest at the b
 
 | Handover (user closing the machine): reviewer's pre-code findings (5 B / 22 S / 19 N) ruled as D14–D15 and folded into `brief-{cats,add,plans}.md` ("Ready for go: YES"); builders' questions ruled (D11–D13); `.v14-fade-out` comment fixed (K5), `t.openPlan.progressLabelOut` added (P12); PROGRESS Current phase + Waiting on user rewritten; agents told to finalise recordings and exit | briefs, `docs/V14-SPEC.md`, `globals.css`, `ar.v14.ts`, `PROGRESS.md` | build/test at handover: see session log | No code written by any builder |
 
+| Follow-up after the handover commit: `plans`' late Q4/Q5/Q12/Q13 ruled in `brief-plans.md`; key `t.openPlan.expectedEndShort` added | `brief-plans.md`, `ar.v14.ts` | — | Second commit, no amend |
+
 ## In progress
 - Task: handed over — build phase not started
 - Where I am: everything the next lead needs is in `PROGRESS.md › Current phase`, `docs/V14-SPEC.md` D1–D15, `progress/v14/brief-*.md`, `progress/v14/{cats,add,plans,reviewer}.md`
