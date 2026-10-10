@@ -34,10 +34,13 @@ Your own running notes. Only you write here. Keep entries short; newest at the b
 
 | Follow-up after the handover commit: `plans`' late Q4/Q5/Q12/Q13 ruled in `brief-plans.md`; key `t.openPlan.expectedEndShort` added | `brief-plans.md`, `ar.v14.ts` | — | Second commit, no amend |
 
+| UX research session (new machine, branch `claude/zakham-v14-ux-research-o9ns6l`): spawned read-only `ux-scout` → `docs/UX-REVIEW-v14.md` + `progress/v14/ux-scout.md`; committed `d149237 docs: ux review v1.4`; two nav/page/action trees given in chat | `docs/UX-REVIEW-v14.md`, `progress/v14/ux-scout.md` | n/a (no code) | WebFetch DNS-blocked here; Firecrawl worked but rate-limited |
+| User's rulings → D16–D19 in `docs/V14-SPEC.md` (B1/B2 amended inline), "Amendments after the UX review" blocks in the four briefs, PROGRESS anchored edits (Current phase + pre-"go" list, Done, Decisions, Waiting on user, new *Later*, session log) | `docs/V14-SPEC.md`, `progress/v14/brief-*.md`, `PROGRESS.md`, this file | n/a | Commit `v1.4: ux rulings`, pushed this branch only |
+
 ## In progress
 - Task: handed over — build phase not started
 - Where I am: everything the next lead needs is in `PROGRESS.md › Current phase`, `docs/V14-SPEC.md` D1–D15, `progress/v14/brief-*.md`, `progress/v14/{cats,add,plans,reviewer}.md`
-- Next action (next session): spawn the four agents from the briefs, give "go"; `plans` P0 first
+- Next action (next session, from the merged `main`): the lead's pre-"go" list in `PROGRESS.md › Current phase` (D17 keys in `ar.v14.ts`, `navGroup.staff` value, the «قسط» wording sweep + `instalmentWording.test.ts`, the pending-page button, the attendance empty-state link), then spawn the four agents from the briefs, give "go"; `plans` P0 first
 - Where I am: nothing applied to Neon; nothing committed since `1459a39`
 - Next action: on "apply" → `npx prisma migrate deploy` (DIRECT_URL per prisma.config.ts), `npx prisma migrate status`, `npx prisma generate`; then brief `reviewer` first with all three briefs, then `cats`, `add`, `plans`
 
