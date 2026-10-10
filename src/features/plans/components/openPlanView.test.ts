@@ -1,8 +1,12 @@
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
+import type { PlanStatus } from "@/lib/instalments";
 import { PaymentMethodEnum } from "@/lib/validation";
 
-import { METHODS, payable, planHref, progressOf, recordedHref } from "./openPlanView";
+import { METHODS, payable, pickRows, planHref, progressOf, recordedHref } from "./openPlanView";
+import { PlanFilters } from "./PlanFilters";
 
 /** v1.4 C3 / C6 / P11: the open agreement's view rules, without a DOM. */
 describe("v1.4: progressOf", () => {
@@ -35,6 +39,25 @@ describe("v1.4: pick-mode links and the payable filter", () => {
   it("payable: open statuses only", () => {
     expect(["UPCOMING", "ACTIVE"].map((s) => payable(s as never))).toEqual([true, true]);
     expect(["COMPLETED", "ARCHIVED", "CANCELLED"].map((s) => payable(s as never))).toEqual([false, false, false]);
+  });
+
+  it("pickRows (the list page's filter): pick mode keeps the payable rows only; outside it every row stays, in order", () => {
+    const rows = (["ACTIVE", "COMPLETED", "UPCOMING", "ARCHIVED", "CANCELLED"] as PlanStatus[]).map((status, i) => ({ id: `p${i}`, status }));
+    expect(pickRows(rows, true).map((r) => r.id)).toEqual(["p0", "p2"]);
+    expect(pickRows(rows, false)).toBe(rows);
+    expect(pickRows([], true)).toEqual([]);
+  });
+
+  it("PlanFilters carries ?pick=payment through the form (hidden input) and the clear link, and only then", () => {
+    const html = (pick: boolean) => renderToStaticMarkup(createElement(PlanFilters, { filter: { status: "ACTIVE" }, parties: [], pick }));
+    const picking = html(true);
+    expect(picking).toContain('name="pick"');
+    expect(picking).toContain('value="payment"');
+    expect(picking).toContain('href="/owner/plans?pick=payment"');
+    const plain = html(false);
+    expect(plain).not.toContain('name="pick"');
+    expect(plain).not.toContain("pick=payment");
+    expect(plain).toContain('href="/owner/plans"');
   });
 
   it("recordedHref carries the payment id and closed=1 only on an auto-close", () => {

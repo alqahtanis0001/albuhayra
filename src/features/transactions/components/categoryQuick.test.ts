@@ -223,6 +223,20 @@ describe("A4 — hiding removes the option and resets a selection that pointed a
     expect(categoryOptions(shown, "OUT").map((o) => o.value)).toContain("out_hidden");
   });
 
+  it("c5 (F8): applyShown flips only the asked row — a second hidden row of the same direction stays hidden", () => {
+    // Two hidden IN rows: a mutant that activates every row would pass the case above.
+    const two = [...LIST, cat("in_hidden_2", "IN", false, 3)];
+    const shown = applyShown(two, "in_hidden_2");
+    expect(shown).toHaveLength(two.length);
+    expect(shown.find((c) => c.id === "in_hidden_2")?.active).toBe(true);
+    expect(shown.filter((c) => !c.active).map((c) => c.id)).toEqual(["in_hidden", "out_hidden"]);
+    // The other direction is untouched, row for row.
+    expect(shown.filter((c) => c.type === "OUT")).toEqual(two.filter((c) => c.type === "OUT"));
+    expect(activeOf(shown, "OUT")).toEqual(activeOf(two, "OUT"));
+    // applyShown returns only the list — it has no selection to touch, so the form keeps its own.
+    expect(categoryOptions(shown, "IN").map((o) => o.value)).toEqual(["in_a", "in_hidden_2"]);
+  });
+
   it("the ledger still names a hidden category: listTransactions reads the Category row with no active filter", async () => {
     const { listTransactions } = await import("@/features/transactions/queries");
     const { dbCalls } = (await import("@/lib/db")) as unknown as {

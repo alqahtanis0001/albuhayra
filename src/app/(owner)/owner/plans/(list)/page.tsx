@@ -8,7 +8,7 @@ import { ensureSalaryInstalments } from "@/features/payroll/generate";
 import { PaymentPickBanner } from "@/features/plans/components/PaymentPickBanner";
 import { PlanFilters, parsePlanFilters } from "@/features/plans/components/PlanFilters";
 import { PlanList } from "@/features/plans/components/PlanList";
-import { payable } from "@/features/plans/components/openPlanView";
+import { pickRows } from "@/features/plans/components/openPlanView";
 import { listPlans } from "@/features/plans/queries";
 import { t } from "@/i18n/ar";
 import { requireOwner } from "@/lib/auth";
@@ -29,7 +29,7 @@ export default async function PlansPage({
   const parties = await listPartyOptions(establishmentId);
   const filter = parsePlanFilters(sp, parties);
   const all = await listPlans(establishmentId, filter);
-  const rows = pick ? all.filter((r) => payable(r.status)) : all;
+  const rows = pickRows(all, pick);
   const filtered = Boolean(filter.direction || filter.status || filter.partyId);
 
   return (

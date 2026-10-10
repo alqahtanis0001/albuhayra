@@ -83,7 +83,7 @@ export function MoreSheet({
         }}
         className="nav-sheet no-print mx-0 mt-auto mb-0 max-h-[85dvh] w-full max-w-full overflow-y-auto rounded-t-xl border-0 border-t border-gray-200 bg-white p-0 text-gray-900"
       >
-        <div className="safe-bottom flex flex-col gap-4 p-4">
+        <div className="flex flex-col gap-4 p-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]">
           <div className="flex items-center justify-between gap-2">
             <h2 id={titleId} className="text-base font-semibold">
               {t.navItem.moreTitle}

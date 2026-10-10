@@ -42,7 +42,10 @@ function NoEmployees() {
         title={t.attendance.empty}
         hint={t.employees.emptyHint}
         action={
-          <Link href="/owner/staff/new" className="text-sm text-accent-dark underline-offset-2 hover:underline">
+          <Link
+            href="/owner/staff/new"
+            className="inline-flex min-h-11 items-center text-sm text-accent-dark underline-offset-2 hover:underline"
+          >
             {t.employees.add}
           </Link>
         }

@@ -47,6 +47,7 @@ await import("@/lib/db");
 const { getDues, getStaffDues, getOverdueCount, getInstalmentForPayment, getStaffPaymentPrefill } = await import("./dues");
 const { listPlans, getPlan } = await import("./queries");
 const { getOpenPlan } = await import("./openQueries");
+const { updateOpenPlan } = await import("./openActions");
 const { getAgingReport } = await import("@/features/reports/aging");
 const { buildDigest } = await import("@/features/reminders/digest");
 const { reminderTarget } = await import("@/features/reminders/clientRules");
@@ -215,6 +216,16 @@ describe("v1.4 P7 / D5: the lock probe counts soft-deleted payments", () => {
     expect(await getOpenPlan("est1", "p_del")).toMatchObject({ partyLocked: true, receivedHalalas: 0, payments: [] });
     expect(await getOpenPlan("est1", "p_open_null")).toMatchObject({ partyLocked: false, receivedHalalas: 0 });
   });
+
+  it("the action side agrees: a party change on a plan whose only payment is deleted → err.planPartyLocked, nothing written", async () => {
+    const form = new FormData();
+    for (const [k, v] of Object.entries({
+      partyId: "pArch", direction: "IN", title: "اتفاقية p_del", categoryId: "cin", startDate: "2026-01-01", totalHalalas: "", expectedEndDate: "", notes: "",
+    })) form.append(k, v);
+    expect(await updateOpenPlan("p_del", null, form)).toMatchObject({ ok: false, fieldErrors: { partyId: "err.planPartyLocked" } });
+    const { rows } = await h.lite!.query<{ partyId: string }>(`SELECT "partyId" FROM "Plan" WHERE "id" = 'p_del'`);
+    expect(rows).toEqual([{ partyId: "pNoCeil" }]);
+  });
 });
 
 describe("v1.4 D6 / P17: the kind branch runs before the total is read", () => {
@@ -231,5 +242,7 @@ describe("v1.4 D6 / P17: the kind branch runs before the total is read", () => {
   it("getPlan is a scheduled read: an open-ended id reads as missing, the control reads", async () => {
     expect(await getPlan("est1", "p_open")).toBeNull();
     expect(await getPlan("est1", "p_std")).toMatchObject({ id: "p_std", instalments: [{ id: "i_std" }] });
+    // The D6 mirror: getOpenPlan is an open-ended read — the detail/edit pages ask it first.
+    expect(await getOpenPlan("est1", "p_std")).toBeNull();
   });
 });

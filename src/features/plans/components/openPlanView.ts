@@ -34,6 +34,11 @@ export function payable(status: PlanStatus): boolean {
   return status !== "ARCHIVED" && status !== "CANCELLED" && status !== "COMPLETED";
 }
 
+/** The list page's rows: in pick mode (`?pick=payment`) only the payable ones; otherwise every row, untouched. */
+export function pickRows<T extends { status: PlanStatus }>(rows: T[], pick: boolean): T[] {
+  return pick ? rows.filter((r) => payable(r.status)) : rows;
+}
+
 /** After «تسجيل دفعة»: back to the detail with the `?paid=` marker (v1.3's pattern) and `closed=1` on an auto-close. */
 export function recordedHref(planId: string, transactionId: string, autoClosed: boolean): string {
   return `/owner/plans/${planId}?paid=${encodeURIComponent(transactionId)}${autoClosed ? "&closed=1" : ""}`;

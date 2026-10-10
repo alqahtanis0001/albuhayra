@@ -249,9 +249,10 @@ describe("D9: editing an open-plan payment through updateTransaction", () => {
     expect(h.writes).toEqual([]);
   });
 
-  it("D8 applies to an edited payment: a date before the plan's start is refused", async () => {
+  it("D8 applies to an edited payment: a date before the plan's start is refused; the start date itself is accepted", async () => {
     expect(await updateTransaction("tx_1", null, editForm({ date: shift(-31) }))).toMatchObject({ fieldErrors: { date: "err.paymentBeforeStart" } });
     expect(h.writes).toEqual([]);
+    expect((await updateTransaction("tx_1", null, editForm({ date: shift(-30) }))).ok).toBe(true);
   });
 
   it("P3: the category may change within the direction; amount, date, method and note are editable", async () => {

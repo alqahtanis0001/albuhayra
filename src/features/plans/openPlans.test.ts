@@ -181,6 +181,17 @@ describe("updateOpenPlan", () => {
     expect(write("plan.updateMany")!.data).toMatchObject({ partyId: "party_2", direction: "OUT", categoryId: "cat_2", startDate: d(shift(-3)) });
   });
 
+  it("V5 / P10: an inactive party or category is kept on save, never newly assigned", async () => {
+    h.party = { active: false };
+    expect(await updateOpenPlan("plan_1", null, openForm({ title: "نفس الجهة" }))).toEqual({ ok: true, data: null });
+    expect(await updateOpenPlan("plan_1", null, openForm({ partyId: "party_2" }))).toMatchObject({ fieldErrors: { partyId: "err.partyInvalid" } });
+    h.party = { active: true };
+    h.category = { type: "IN", active: false };
+    expect(await updateOpenPlan("plan_1", null, openForm({ title: "نفس الفئة" }))).toEqual({ ok: true, data: null });
+    expect(await updateOpenPlan("plan_1", null, openForm({ categoryId: "cat_2" }))).toMatchObject({ fieldErrors: { categoryId: "err.categoryInvalid" } });
+    expect(ops().filter((op) => op === "plan.updateMany")).toHaveLength(2);
+  });
+
   it("C6 / D8 / P7: once any entry references the plan, party, direction and start are locked; the category too (D9)", async () => {
     h.referenced = 1;
     expect(await updateOpenPlan("plan_1", null, openForm({ partyId: "party_2" }))).toMatchObject({ fieldErrors: { partyId: "err.planPartyLocked" } });
@@ -251,11 +262,12 @@ describe("closeOpenPlan / reopenOpenPlan", () => {
     expect(h.writes).toEqual([]);
   });
 
-  it("every open action is behind requireOwner", async () => {
+  it("every open action is behind requireOwner — update, close and reopen (D7; createOpenPlan is pinned above)", async () => {
+    expect(await updateOpenPlan("plan_1", null, openForm())).toEqual({ ok: true, data: null });
     await closeOpenPlan("plan_1");
     h.plan = { ...OPEN, state: "ARCHIVED" };
     await reopenOpenPlan("plan_1");
-    expect(h.guards).toEqual(["requireOwner", "requireOwner"]);
+    expect(h.guards).toEqual(["requireOwner", "requireOwner", "requireOwner"]);
   });
 });
 

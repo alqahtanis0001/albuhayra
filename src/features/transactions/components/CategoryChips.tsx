@@ -149,7 +149,7 @@ export function CategoryChips({
       ) : null}
 
       <div className="flex flex-wrap items-center gap-3">
-        <Button variant="secondary" size="sm" onClick={onDone}>
+        <Button variant="secondary" size="sm" className="min-w-11" onClick={onDone}>
           {t.categoryQuick.done}
         </Button>
         <Link

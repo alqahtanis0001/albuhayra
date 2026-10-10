@@ -36,7 +36,7 @@ export default async function DuesPage() {
       {/* v1.4 (D17 c2): a payment on an agreement nothing is due on yet goes through the pick list. */}
       <Link
         href="/owner/plans?pick=payment"
-        className="no-print self-start text-sm text-accent-dark underline-offset-2 hover:underline"
+        className="no-print inline-flex min-h-11 items-center self-start text-sm text-accent-dark underline-offset-2 hover:underline"
       >
         {t.dues.pickOther}
       </Link>

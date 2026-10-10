@@ -143,7 +143,7 @@ export function OpenPlanDetail({
                 <Th>{t.transaction.date}</Th>
                 <Th className="text-end">{t.transaction.amount}</Th>
                 <Th>{t.paymentMethod.label}</Th>
-                <Th>{t.openPlan.byWhom}</Th>
+                <Th className="hidden md:table-cell">{t.openPlan.byWhom}</Th>
                 <Th className="no-print">
                   <span className="sr-only">{t.openPlan.editPayment}</span>
                 </Th>
@@ -153,15 +153,15 @@ export function OpenPlanDetail({
             <TBody>
               {plan.payments.map((p) => (
                 <Tr key={p.transactionId} className={p.transactionId === paidId ? "v13-paid" : ""}>
-                  <Td>
+                  <Td className="whitespace-nowrap">
                     <DateText date={p.date} className="items-start" />
                   </Td>
                   <Td className="text-end">
                     <MoneyText halalas={p.amountHalalas} direction={plan.direction} />
                   </Td>
                   <Td>{t.paymentMethod[p.paymentMethod]}</Td>
-                  <Td>{p.createdByName}</Td>
-                  <Td className="no-print">
+                  <Td className="hidden md:table-cell">{p.createdByName}</Td>
+                  <Td className="no-print whitespace-nowrap">
                     <Link
                       href={`/owner/transactions/${p.transactionId}/edit`}
                       className="inline-flex min-h-11 items-center text-sm font-medium text-accent-dark underline-offset-2 hover:underline"

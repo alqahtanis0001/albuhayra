@@ -22,7 +22,7 @@ export function LockBadge({ href }: { href?: string }) {
       {badge}
       <Link
         href={href}
-        className="inline-flex min-h-11 items-center text-sm font-medium text-accent-dark underline"
+        className="no-print inline-flex min-h-11 items-center text-sm font-medium text-accent-dark underline"
       >
         {t.navItem.locks}
       </Link>

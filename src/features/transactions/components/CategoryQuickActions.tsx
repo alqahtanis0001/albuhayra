@@ -179,12 +179,14 @@ export function CategoryAddBox({
           className={`min-h-11 w-full rounded-lg border bg-white px-3 text-base text-gray-900 ${error ? "border-money-out" : "border-gray-300"}`}
         />
       </div>
-      <Button size="sm" pending={pending} onClick={onSave}>
-        {t.common.save}
-      </Button>
-      <Button size="sm" variant="secondary" disabled={pending} onClick={onCancel}>
-        {t.common.cancel}
-      </Button>
+      <div className="flex gap-2">
+        <Button size="sm" pending={pending} onClick={onSave}>
+          {t.common.save}
+        </Button>
+        <Button size="sm" variant="secondary" disabled={pending} onClick={onCancel}>
+          {t.common.cancel}
+        </Button>
+      </div>
       {error ? (
         <p id={errorId} role="alert" className="basis-full text-xs font-medium text-money-out">
           {errorMessage(error)}

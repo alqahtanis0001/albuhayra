@@ -172,6 +172,11 @@ describe("the open agreement's money path on real Postgres", () => {
     expect(await getOpenPlan("est1", planId)).toMatchObject({ receivedHalalas: 1000, remainingHalalas: 3000, partyLocked: true });
     expect((await listPlans("est1"))[0]).toMatchObject({ receivedHalalas: 1000 });
     expect(await agreement()).toBe(3000);
+    // err.totalBelowPaid compares against the same non-deleted sum: 4000 before the delete, 1000 after.
+    expect(await updateOpenPlan(planId, null, openForm({ totalHalalas: "999" }))).toMatchObject({ fieldErrors: { totalHalalas: "err.totalBelowPaid" } });
+    expect(await updateOpenPlan(planId, null, openForm({ totalHalalas: "1000" }))).toEqual({ ok: true, data: null });
+    expect(await updateOpenPlan(planId, null, openForm({ totalHalalas: "4000", notes: "موسّع" }))).toEqual({ ok: true, data: null });
+    expect(await getOpenPlan("est1", planId)).toMatchObject({ totalHalalas: 4000, receivedHalalas: 1000, remainingHalalas: 3000 });
   });
 
   it("D9: an edit keeps direction and party (refused on mismatch), may change the amount, never changes the state", async () => {
