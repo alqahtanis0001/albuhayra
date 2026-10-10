@@ -31,7 +31,6 @@ export const v13Sections = {
     donutOther: "أخرى",
     donutSliceLink: "عرض مصروفات «{name}» في السجل",
     donutTable: "جدول المصروفات حسب الفئة",
-    share: "النسبة",
     // 5 — six-month card tabs and the waterfall
     tabBars: "الوارد والصادر",
     tabWaterfall: "التدفق النقدي",
@@ -114,7 +113,6 @@ export const v13Sections = {
     gross: "إجمالي الاستحقاق",
     deductions: "الخصومات",
     stepsLabel: "من الإجمالي إلى الصافي",
-    stepsText: "الإجمالي {gross} ناقص الخصومات {deductions} يساوي الصافي {net}",
   },
 
   /** `people`, item 13 — statement header. «له عندنا» in the spec reads as "we owe them"; see PROGRESS.md. */
@@ -136,7 +134,6 @@ export const v13Sections = {
       many: "{n} دفعة",
       other: "{n} دفعة",
     },
-    barLabel: "توزيع متأخرات {name} حسب العمر",
     segment: "{bucket}: {amount}",
   },
 } as const;

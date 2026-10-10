@@ -29,7 +29,7 @@ Priorities in order: **simple → secure → Arabic UI → correct numbers**. Wh
 | `docs/V13-SPEC.md` | product owner (the user) | **Authoritative v1.3 visual-pass specification** (agents `dash`, `flow`, `people`; recordings in `progress/v13/`). Outranks `docs/FRONTEND.md` — notably its "no decorative animation" rule, for the motion V13 lists — and any brief or chat summary. |
 | `.claude/settings.json` | lead | Team env var, permissions, quality-gate hook |
 
-Precedence: `CLAUDE.md` > `docs/*` > code — except that for v1.2 `docs/V12-SPEC.md` (the product owner's) outranks every other doc and brief, as its row above says. If code disagrees with docs, fix the code, or change the doc and record a Decision in `PROGRESS.md`.
+Precedence: `CLAUDE.md` > `docs/*` > code — except that the product owner's specs — `docs/V12-SPEC.md` for v1.2 and `docs/V13-SPEC.md` for v1.3 — outrank every other doc and brief for their release, as their rows above say. If code disagrees with docs, fix the code, or change the doc and record a Decision in `PROGRESS.md`.
 
 ## Team protocol (agent teams are enabled)
 Team shape: **lead** + `backend` + `frontend` + `reviewer`. Do not spawn more without the user asking.
@@ -61,7 +61,7 @@ Team shape: **lead** + `backend` + `frontend` + `reviewer`. Do not spawn more wi
 Contract between backend and frontend: the exported types and zod schemas in `src/lib/validation.ts`, the action signatures listed in `docs/BACKEND.md`, and the string keys in `src/i18n/ar.ts`. Change any of these only through the lead.
 
 ## Stack (do not change without a logged Decision)
-Next.js 14+ App Router, TypeScript, Tailwind CSS · PostgreSQL on Render via Prisma · iron-session + bcrypt · zod · recharts (one chart) · exceljs · Vitest · transactional email via the **Brevo REST API** with plain `fetch` (no SDK) since v1.1e · `@electric-sql/pglite` as a dev-only test dependency for migration tests. Nothing else unless tiny and RTL-safe.
+Next.js 14+ App Router, TypeScript, Tailwind CSS · PostgreSQL on Render via Prisma · iron-session + bcrypt · zod · recharts (dashboard only: the six-month chart and, since v1.3, the expense donut; every other chart is hand-written SVG) · exceljs · Vitest · transactional email via the **Brevo REST API** with plain `fetch` (no SDK) since v1.1e · `@electric-sql/pglite` as a dev-only test dependency for migration tests. Nothing else unless tiny and RTL-safe.
 
 ## Build plan
 **Phase 0 — lead alone, sequential.** Scaffold, Prisma schema + first migration, seed script, `src/lib/` (db, session, auth helpers, money, dates, validation with all zod schemas and exported types), `src/i18n/ar.ts` with every key the screens need (values can be rough), `render.yaml`, `.env.example`, `.claude/settings.json`, `PROGRESS.md` filled in. `npm run build` must pass before Phase 1.
