@@ -37,6 +37,11 @@ describe("instalment wording (c7)", () => {
     expect(plural(t.navItem.overdueBadge, 1)).toBe("قسط متأخر واحد");
     expect(plural(t.dues.overdueStrip, 3)).toBe("3 أقساط متأخرة");
     expect(plural(t.duesRibbon.count, 2)).toBe("قسطان");
+    // D21 (reviewer M5/M6): the instalment link and the countdown agree with the masculine noun too.
+    expect(t.err.planBothLinks).toContain("بقسط");
+    expect(t.countdown.today).toBe("مستحق اليوم");
+    expect(plural(t.countdown.lateDays, 2)).toBe("متأخر يومين");
+    expect(t.instalmentStatus.OVERDUE).toBe("متأخر");
   });
 
   it("«دفعة» stays where money was recorded", () => {

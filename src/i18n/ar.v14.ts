@@ -99,7 +99,7 @@ export const v14Sections = {
 
   /** v1.4 error keys. Merged into `t.err` by ar.ts. */
   errV14: {
-    planBothLinks: "لا يمكن ربط الحركة بدفعة وباتفاقية مفتوحة معًا",
+    planBothLinks: "لا يمكن ربط الحركة بقسط وباتفاقية مفتوحة معًا",
     planNotOpenEnded: "هذه الاتفاقية ليست مفتوحة",
     planKindFixed: "لا يمكن تغيير نوع الاتفاقية",
     expectedEndBeforeStart: "تاريخ الانتهاء المتوقع لا يسبق تاريخ البدء",

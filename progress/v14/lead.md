@@ -39,7 +39,7 @@ Your own running notes. Only you write here. Keep entries short; newest at the b
 | Build session (cloud, branch `claude/zakham-v14-build-01QtmW` from merged `main` `78a93f8`, no `.env`): pre-"go" list — nine D17 keys (in their sections' files, D20), `navGroup.staff` → «الموظفون والحضور», the «قسط» sweep over `ar.v12a/v12c/v13.ts` + `src/i18n/instalmentWording.test.ts` (12 cases, 4 mutations), pending-page button `t.pending.checkStatus`, attendance empty state hint + «إضافة موظف» link (both tabs) | `src/i18n/ar.ts`, `ar.v12a.ts`, `ar.v12c.ts`, `ar.v13.ts`, `ar.v14.ts`, `instalmentWording.test.ts`, `(auth)/pending/page.tsx`, `owner/staff/attendance/page.tsx`, `docs/V14-SPEC.md` (D20), `PROGRESS.md` | typecheck: still exactly the 8 P0 errors; vitest 68 files / **1230** ✓ (was 1218); build not run (fails on P0 types until `plans` lands it) | Commit `v1.4: lead prep`, pushed. Next: spawn `reviewer` (re-reads the amended briefs), `cats`, `add`, `plans` |
 
 ## In progress
-- Task: v1.4 build — pre-"go" list done and committed; spawning the team next
+- Task: v1.4 build — "go" given (reviewer R-amend folded in as D21; briefs amended; M5/M6 applied)
 - Where I am: branch `claude/zakham-v14-build-01QtmW`; `reviewer` re-reads the amended briefs and posts concerns before "go"; then `cats`, `add`, `plans` ("go"); `plans` P0 first; sequencing: `cats`' `manageCategories` line before `plans`' `PaymentBanner` line on the owner edit page; `plans` P6 + `hasPlans` before `add`'s staff badge and hidden dues card
 - Next action: CP-B gates (build, test, bundles), commit `v1.4: simpler owner flows`, push, merge recordings into PROGRESS, report with click-list, wait for the user's OK
 - Where I am: nothing applied to Neon; nothing committed since `1459a39`

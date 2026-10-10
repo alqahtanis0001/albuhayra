@@ -2,6 +2,10 @@
 
 Lead: the session's lead agent. Product owner: the user. Spec: `docs/V14-SPEC.md` — it outranks every other doc for v1.4; its Decisions D1–D19 are binding (D16–D19 are the user's rulings on `docs/UX-REVIEW-v14.md`; read them, and your brief's *Amendments after the UX review* block, before anything else).
 
+## Amendments after the reviewer's R-amend pass (lead rulings, D21 — binding; they override anything below that differs)
+- **Gates while P0 is open:** `npm run typecheck` / `npm run build` are red only in the four P0 files (`plans/dues.ts`, `plans/queries.ts`, `parties/statement.ts`, `transactions/payments.ts`) until `plans` lands P0. Until the lead tells you "P0 landed", your interim gate is: **no type error in any file you touched** (`npx tsc --noEmit | grep <your files>` is empty) and `npx vitest run` green. After "P0 landed", run the full three gates (with the build lock) before calling any task done.
+- **Do not use the TaskCreate/TaskUpdate tools** — the project's task-completion hook runs an unlocked `npm run build` that collides with the other agents' builds. Record progress in your `progress/v14/<you>.md` only.
+
 ## Read first, in this order
 1. `CLAUDE.md` (roles, conventions, out of scope)
 2. `PROGRESS.md` — at least *Current phase*, *Known issues*, *Gotchas* (the Gotchas are hard-won; several apply directly: anchored edits, `redirect()` throws, `"use server"` exports, logical utilities, `.next/` collisions)

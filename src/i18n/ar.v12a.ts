@@ -207,13 +207,14 @@ export const v12aSections = {
       many: "بعد {n} يوماً",
       other: "بعد {n} يوم",
     },
-    today: "مستحقة اليوم",
+    /** v1.4 (D21, reviewer M6): masculine beside «القسط N» and the masculine status badge. */
+    today: "مستحق اليوم",
     lateDays: {
-      one: "متأخرة يوماً واحداً",
-      two: "متأخرة يومين",
-      few: "متأخرة {n} أيام",
-      many: "متأخرة {n} يوماً",
-      other: "متأخرة {n} يوم",
+      one: "متأخر يوماً واحداً",
+      two: "متأخر يومين",
+      few: "متأخر {n} أيام",
+      many: "متأخر {n} يوماً",
+      other: "متأخر {n} يوم",
     },
   },
 
