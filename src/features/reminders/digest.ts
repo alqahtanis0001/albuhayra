@@ -11,6 +11,7 @@ import { MAX_REMINDER_DAYS, type DirectionValue } from "@/lib/validation";
  * Per-establishment work: every call carries the establishment id and the file
  * is in the scoping gate's FILES. Unpaid instalments of OPEN plans, salary
  * included (the owner's own data), both directions, each in exactly one group.
+ * v1.4 (C5): OPEN_ENDED plans are excluded explicitly (D4-tested).
  */
 
 export type DigestGroupKey = "overdue" | "today" | "tomorrow" | "upcoming";
@@ -59,7 +60,7 @@ export async function buildDigest(establishmentId: string, today: string): Promi
       establishmentId,
       dueDate: { lte: isoToDate(horizon) },
       paidHalalas: { lt: db.instalment.fields.amountDueHalalas },
-      plan: { state: "OPEN" },
+      plan: { state: "OPEN", kind: { not: "OPEN_ENDED" } },
     },
     select: {
       dueDate: true,

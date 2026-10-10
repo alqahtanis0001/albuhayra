@@ -90,7 +90,7 @@ export function ProjectActions({
           onCancel={() => setConfirmDelete(false)}
           onConfirm={() => {
             setConfirmDelete(false);
-            run(() => deleteProject(projectId), () => router.push("/owner/projects"));
+            run(() => deleteProject(projectId), () => router.push("/owner/transactions?tab=activities"));
           }}
         />
       )}

@@ -8,67 +8,24 @@ import { dayOffset, instalmentStatus, type InstalmentStatus } from "@/lib/instal
 import { planTitleOf } from "@/lib/payroll";
 import type { DirectionValue } from "@/lib/validation";
 
+import { scheduledKind, scheduledTotal } from "./kind";
+import type { DueRow, Dues, InstalmentForPayment, PaymentLink, StaffDueRow, StaffPaymentPrefill } from "./types";
+
 /**
  * المستحقات and the payment-form reads (docs/BACKEND.md → v1.2a → Plans; CP2
  * additions; W1, W2, W7, W8). Every `where` starts with the page's
  * `establishmentId`. "Unpaid" is `paidHalalas < amountDueHalalas` through a
- * Prisma field reference, so the database compares the two columns.
+ * Prisma field reference, so the database compares the two columns. The
+ * exported shapes live in `./types.ts` (v1.4) and are re-exported here.
+ *
+ * v1.4 (C5, D4): an OPEN_ENDED plan never produces a due. It has no
+ * instalments by construction, but every read here still filters
+ * `kind: { not: "OPEN_ENDED" }` explicitly, so a corrupt instalment row on an
+ * open plan (the D4 fixture) yields nothing — and the D6 narrowing after the
+ * read fails loud instead of defaulting a missing total.
  */
 
-export type DueRow = {
-  instalmentId: string;
-  planId: string;
-  planTitle: string;
-  partyId: string;
-  partyName: string;
-  direction: DirectionValue;
-  seq: number;
-  dueDate: string;
-  remainingHalalas: number;
-  status: InstalmentStatus;
-  dayOffset: number;
-  /** v1.2b: SALARY rows carry their month — show it instead of `seq`. */
-  kind: "STANDARD" | "SALARY";
-  periodYm: string | null;
-  /** v1.2c C10 (N4): what the owner's «تذكير» button needs — never the address itself. */
-  partyRemindersOptIn: boolean;
-  partyHasEmail: boolean;
-};
-
-export type Dues = {
-  today: string;
-  weekEnd: string;
-  overdue: DueRow[];
-  thisWeek: DueRow[];
-  totals: { overdueInHalalas: number; overdueOutHalalas: number; weekInHalalas: number; weekOutHalalas: number };
-};
-
-/** The staff card's rows — exactly these four fields (user's ruling; W5 pins the keys). */
-export type StaffDueRow = { instalmentId: string; partyName: string; remainingHalalas: number; dueDate: string };
-
-export type InstalmentForPayment = {
-  instalmentId: string;
-  planId: string;
-  planTitle: string;
-  seq: number;
-  direction: DirectionValue;
-  partyId: string;
-  partyName: string;
-  categoryId: string;
-  instalmentRemainingHalalas: number;
-  planRemainingHalalas: number;
-  kind: "STANDARD" | "SALARY";
-  periodYm: string | null;
-};
-
-/** W2: the staff payment form sees exactly these six fields — no plan title or totals. */
-export type StaffPaymentPrefill = Pick<
-  InstalmentForPayment,
-  "instalmentId" | "direction" | "partyId" | "partyName" | "categoryId" | "instalmentRemainingHalalas"
->;
-
-/** W1: the link shown when editing a payment — any plan state. */
-export type PaymentLink = { planId: string; planTitle: string; direction: DirectionValue; partyId: string; partyName: string };
+export type { DueRow, Dues, InstalmentForPayment, PaymentLink, StaffDueRow, StaffPaymentPrefill } from "./types";
 
 /** "This week" = the next 7 days including today; UTC arithmetic on the ISO day (W8). */
 export function weekEndOf(today: string): string {
@@ -88,7 +45,7 @@ async function unpaidUntil(establishmentId: string, until: string, take?: number
       establishmentId,
       dueDate: { lte: isoToDate(until) },
       paidHalalas: { lt: db.instalment.fields.amountDueHalalas },
-      plan: { state: "OPEN", ...(staff ? { AND: [staff] } : {}) },
+      plan: { state: "OPEN", kind: { not: "OPEN_ENDED" }, ...(staff ? { AND: [staff] } : {}) },
     },
     select: {
       id: true,
@@ -112,7 +69,12 @@ async function unpaidUntil(establishmentId: string, until: string, take?: number
 
 export async function getDues(establishmentId: string, today: string = todayISO()): Promise<Dues> {
   const weekEnd = weekEndOf(today);
-  const rows = (await unpaidUntil(establishmentId, weekEnd)).map((r): DueRow => {
+  // v1.4 (D17 c9): one scoped count, any kind or state — the home card hides on 0.
+  const [unpaid, planCount] = await Promise.all([
+    unpaidUntil(establishmentId, weekEnd),
+    db.plan.count({ where: { establishmentId } }),
+  ]);
+  const rows = unpaid.map((r): DueRow => {
     const dueDate = dateToISO(r.dueDate);
     return {
       instalmentId: r.id,
@@ -126,7 +88,7 @@ export async function getDues(establishmentId: string, today: string = todayISO(
       remainingHalalas: r.amountDueHalalas - r.paidHalalas,
       status: instalmentStatus({ ...r, dueDate }, today, r.plan.reminderDays),
       dayOffset: dayOffset(dueDate, today),
-      kind: r.plan.kind,
+      kind: scheduledKind(r.plan.kind, r.planId),
       periodYm: r.periodYm,
       partyRemindersOptIn: r.plan.party.remindersOptIn,
       partyHasEmail: Boolean(r.plan.party.email),
@@ -147,6 +109,7 @@ export async function getDues(establishmentId: string, today: string = todayISO(
       weekInHalalas: sum(thisWeek, "IN"),
       weekOutHalalas: sum(thisWeek, "OUT"),
     },
+    hasPlans: planCount > 0,
   };
 }
 
@@ -157,7 +120,7 @@ export async function getOverdueCount(establishmentId: string, today: string = t
       establishmentId,
       dueDate: { lt: isoToDate(today) },
       paidHalalas: { lt: db.instalment.fields.amountDueHalalas },
-      plan: { state: "OPEN" },
+      plan: { state: "OPEN", kind: { not: "OPEN_ENDED" } },
     },
   });
 }
@@ -183,7 +146,7 @@ export async function getInstalmentForPayment(
   instalmentId: string,
 ): Promise<InstalmentForPayment | null> {
   const row = await db.instalment.findFirst({
-    where: { establishmentId, id: instalmentId },
+    where: { establishmentId, id: instalmentId, plan: { kind: { not: "OPEN_ENDED" } } },
     select: {
       id: true,
       planId: true,
@@ -215,8 +178,8 @@ export async function getInstalmentForPayment(
     partyName: row.plan.party.name,
     categoryId: row.plan.categoryId,
     instalmentRemainingHalalas: row.amountDueHalalas - row.paidHalalas,
-    planRemainingHalalas: row.plan.totalHalalas - Number(paid._sum.amountHalalas ?? 0),
-    kind: row.plan.kind,
+    planRemainingHalalas: scheduledTotal(row.plan.totalHalalas, row.planId) - Number(paid._sum.amountHalalas ?? 0),
+    kind: scheduledKind(row.plan.kind, row.planId),
     periodYm: row.periodYm,
   };
 }

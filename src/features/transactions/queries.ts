@@ -38,6 +38,8 @@ export type LedgerRow = {
   projectName: string | null;
   /** Set on a payment against an agreement's instalment (checkpoint 2). */
   instalmentId: string | null;
+  /** v1.4 (D7, P6): set on a payment of an open-ended agreement (`Transaction.planId`); never with `instalmentId`. */
+  planId: string | null;
 };
 
 export type LedgerPage = {
@@ -69,6 +71,7 @@ const ROW_SELECT = {
   partyId: true,
   projectId: true,
   instalmentId: true,
+  planId: true,
   category: { select: { nameAr: true } },
   createdBy: { select: NAME_SELECT },
   party: { select: { name: true } },
@@ -87,6 +90,7 @@ type SelectedRow = {
   partyId: string | null;
   projectId: string | null;
   instalmentId: string | null;
+  planId: string | null;
   category: { nameAr: string };
   createdBy: NameParts;
   party: { name: string } | null;
@@ -112,6 +116,7 @@ function toRow(row: SelectedRow): LedgerRow {
     projectId: row.projectId ?? null,
     projectName: row.project?.name ?? null,
     instalmentId: row.instalmentId ?? null,
+    planId: row.planId ?? null,
   };
 }
 

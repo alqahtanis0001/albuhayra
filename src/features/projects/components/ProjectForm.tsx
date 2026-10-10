@@ -60,7 +60,7 @@ export function ProjectForm({
       const result = await action(prev, formData);
       if (result.ok) {
         const id = result.data?.id ?? projectId;
-        router.push(id ? `/owner/projects/${id}` : "/owner/projects");
+        router.push(id ? `/owner/projects/${id}` : "/owner/transactions?tab=activities");
       }
       return result;
     },

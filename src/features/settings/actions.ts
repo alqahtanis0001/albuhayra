@@ -36,6 +36,20 @@ function revalidateSettings(): void {
   revalidatePath("/owner/settings", "layout");
 }
 
+/**
+ * v1.4 (A3/A4): categories are also added and hidden from the entry form, so a
+ * change must reach the next server render of /owner/transactions/new,
+ * [id]/edit and the staff twins — both ledger segments, as layouts.
+ */
+function revalidateCategories(): void {
+  revalidateSettings();
+  revalidatePath("/owner/transactions", "layout");
+  revalidatePath("/staff/transactions", "layout");
+}
+
+/** D12: the row `createCategory` hands back — the entry form appends and selects it. */
+export type CategoryCreated = { id: string; nameAr: string; type: DirectionValue };
+
 const idSchema = z.string().trim().min(1, "err.required").max(64, "err.tooLong");
 
 const orderSchema = z.object({
@@ -147,7 +161,7 @@ async function nameTaken(
 export async function createCategory(
   _prev: SettingsState,
   formData: FormData,
-): Promise<ActionResult<null>> {
+): Promise<ActionResult<CategoryCreated>> {
   const { user: owner, establishmentId } = await requireOwner();
   const parsed = CategoryInputSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return invalid(parsed.error);
@@ -178,8 +192,10 @@ export async function createCategory(
       before: { active: false },
       after: { active: true },
     });
-    revalidateSettings();
-    return { ok: true, data: null };
+    revalidateCategories();
+    // The same shape as the insert path: whoever asked gets a row to select,
+    // whatever its origin.
+    return { ok: true, data: { id: retired.id, nameAr, type } };
   }
 
   const last = await db.category.findFirst({
@@ -205,8 +221,8 @@ export async function createCategory(
     after: { nameAr, type },
   });
 
-  revalidateSettings();
-  return { ok: true, data: null };
+  revalidateCategories();
+  return { ok: true, data: { id: created.id, nameAr, type } };
 }
 
 /**
@@ -250,7 +266,7 @@ export async function updateCategory(
     after: { nameAr: parsed.data.nameAr },
   });
 
-  revalidateSettings();
+  revalidateCategories();
   return { ok: true, data: null };
 }
 
@@ -300,7 +316,7 @@ export async function setCategoryActive(
     after: { active: parsed.data.active },
   });
 
-  revalidateSettings();
+  revalidateCategories();
   return { ok: true, data: null };
 }
 
@@ -360,6 +376,6 @@ export async function setCategoryOrder(
     });
   });
 
-  revalidateSettings();
+  revalidateCategories();
   return { ok: true, data: null };
 }

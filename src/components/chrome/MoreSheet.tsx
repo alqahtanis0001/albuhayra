@@ -11,6 +11,10 @@
  * the v1.1d pending look; the sheet closes when the path changes. Tapping the
  * page you are already on closes it at once. The slide-up lives in globals.css
  * (.nav-sheet), fade only under reduced motion; nothing here prints.
+ *
+ * v1.4 (D21 M2): the trigger shows the sum of its tiles' badges, number only
+ * (the tiles carry the accessible phrases), so a count on a non-tab item such
+ * as حسابات الدخول is visible before the sheet opens.
  */
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -22,7 +26,7 @@ import { CloseIcon } from "../icons";
 import { NAV_ICONS } from "../navIcons";
 import { LinkPending } from "../NavProgress";
 import { NavBadge } from "./NavBadge";
-import type { NavGroup } from "./nav";
+import { moreBadgeTotal, type LinkGroup } from "./nav";
 import { NAV_PRESS, TAB_ACTIVE, TAB_CLASS } from "./navClasses";
 
 export function MoreSheet({
@@ -30,8 +34,8 @@ export function MoreSheet({
   active,
   badges,
 }: {
-  /** Already stripped of the tab-bar items. */
-  groups: NavGroup[];
+  /** Already stripped of the tab-bar items and the «+» (`moreGroups()`). */
+  groups: LinkGroup[];
   active: string | null;
   badges: Record<string, number>;
 }) {
@@ -63,7 +67,10 @@ export function MoreSheet({
           holdsActive ? TAB_ACTIVE : "border-transparent text-gray-600"
         }`}
       >
-        <NAV_ICONS.more size={22} />
+        <span className="relative">
+          <NAV_ICONS.more size={22} />
+          <NavBadge count={moreBadgeTotal(shown, badges)} phrase={null} className="absolute -top-1.5 -end-3" />
+        </span>
         {t.navItem.more}
       </button>
 
@@ -118,6 +125,7 @@ export function MoreSheet({
                           <Icon size={24} />
                           <NavBadge
                             count={badges[item.href] ?? 0}
+                            phrase={item.badge}
                             className="absolute -top-1.5 -end-3"
                           />
                         </span>

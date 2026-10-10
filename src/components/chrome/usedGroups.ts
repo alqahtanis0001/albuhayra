@@ -6,6 +6,8 @@
  * works without it: the groups just start collapsed.
  */
 
+import type { NavGroup } from "./nav";
+
 export const USED_GROUPS_KEY = "zk_nav_groups";
 
 /** Anything that is not a JSON array of strings reads as "nothing used". */
@@ -38,4 +40,13 @@ export function rememberUsedGroup(key: string): string[] {
     // Storage unavailable: the group is still open for this page view.
   }
   return next;
+}
+
+/**
+ * v1.4: the remembered keys that still name a collapsible group, so a key a
+ * past release stored (v1.2a's "additions") is ignored by construction rather
+ * than by SideNav happening not to render it.
+ */
+export function openGroupKeys(groups: NavGroup[], used: string[]): string[] {
+  return used.filter((key) => groups.some((g) => g.key === key && g.collapsible));
 }

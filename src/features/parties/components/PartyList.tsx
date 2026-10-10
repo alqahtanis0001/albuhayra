@@ -38,6 +38,7 @@ export function PartyList({ rows }: { rows: PartyRow[] }) {
               <PartyBalance
                 owedToUsHalalas={row.owedToUsHalalas}
                 owedByUsHalalas={row.owedByUsHalalas}
+                openPlansRemainingHalalas={row.openPlansRemainingHalalas}
                 className="items-end text-end"
               />
             </Link>
@@ -83,6 +84,7 @@ export function PartyList({ rows }: { rows: PartyRow[] }) {
                   <PartyBalance
                     owedToUsHalalas={row.owedToUsHalalas}
                     owedByUsHalalas={row.owedByUsHalalas}
+                openPlansRemainingHalalas={row.openPlansRemainingHalalas}
                   />
                 </Td>
               </Tr>

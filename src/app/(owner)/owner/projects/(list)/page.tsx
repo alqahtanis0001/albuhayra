@@ -1,62 +1,23 @@
-import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
-import { EmptyState } from "@/components/EmptyState";
-import { LinkButton } from "@/components/LinkButton";
-import { Tabs } from "@/components/Tabs";
-import { PlusIcon } from "@/components/icons";
-import { ProjectList } from "@/features/projects/components/ProjectList";
-import { listProjects } from "@/features/projects/queries";
-import { t } from "@/i18n/ar";
 import { requireOwner } from "@/lib/auth";
-import { ProjectStatusEnum, type ProjectStatusValue } from "@/lib/validation";
 
-export const metadata: Metadata = { title: t.projects.listTitle };
+import { activitiesHref, parseActivitiesStatus } from "../../transactions/(list)/ledgerTab";
 
-export default async function ProjectsPage({
+/**
+ * v1.4 (docs/V14-SPEC.md B3): the projects list now lives in the «الأنشطة» tab
+ * of السجل. Old links and bookmarks land here and are sent on, keeping a
+ * `status` only when it is one the list accepts (A4). No loading.tsx beside
+ * this page: a redirect-only page must answer 307, not stream (D13).
+ * `redirect()` throws, so it sits outside any try/catch. /owner/projects/new,
+ * [id] and [id]/edit are untouched.
+ */
+export default async function ProjectsRedirectPage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const { establishmentId } = await requireOwner();
-  // The URL only narrows the list; anything unrecognised shows every status.
-  const parsed = ProjectStatusEnum.safeParse((await searchParams).status);
-  const status: ProjectStatusValue | undefined = parsed.success ? parsed.data : undefined;
-  const rows = await listProjects(establishmentId, { status });
-
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold text-gray-900">{t.projects.listTitle}</h1>
-        <LinkButton href="/owner/projects/new" className="no-print">
-          <PlusIcon size={18} />
-          {t.projects.add}
-        </LinkButton>
-      </div>
-
-      <Tabs
-        label={t.projectStatus.label}
-        active={status ?? "ALL"}
-        tabs={[
-          { key: "ALL", label: t.plans.allStatuses, href: "/owner/projects" },
-          ...ProjectStatusEnum.options.map((key) => ({
-            key,
-            label: t.projectStatus[key],
-            href: `/owner/projects?status=${key}`,
-          })),
-        ]}
-      />
-
-      {rows.length === 0 ? (
-        <div className="rounded-xl border border-gray-200 bg-white">
-          <EmptyState
-            title={status ? t.projects.emptyFiltered : t.projects.empty}
-            hint={status ? undefined : t.projects.emptyHint}
-            kind={status ? undefined : "projects"}
-          />
-        </div>
-      ) : (
-        <ProjectList rows={rows} />
-      )}
-    </div>
-  );
+  await requireOwner();
+  const status = parseActivitiesStatus((await searchParams).status);
+  redirect(activitiesHref(status));
 }

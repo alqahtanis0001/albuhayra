@@ -10,8 +10,11 @@
  * the route loads (<LinkPending> sets data-pending; the `has-data-pending:`
  * classes repeat the active look and `.nav-item:has([data-pending])` breathes
  * in globals.css); then the real active state once the route commits.
- * aria-current follows the real page only (activeHref over every item of the
+ * aria-current follows the real page only (activeHref over every link of the
  * role), so for a moment two items can look active — accepted.
+ *
+ * v1.4: an add entry (the «+», nav.ts) renders as <AddSheet> in both bars; it
+ * is not a link, so it never carries aria-current.
  */
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -22,11 +25,22 @@ import { t } from "@/i18n/ar";
 import { ChevronDownIcon } from "../icons";
 import { NAV_ICONS } from "../navIcons";
 import { LinkPending } from "../NavProgress";
+import { AddSheet } from "./AddSheet";
 import { MoreSheet } from "./MoreSheet";
 import { NavBadge } from "./NavBadge";
 import { NAV_PRESS, TAB_ACTIVE, TAB_CLASS, TAB_IDLE } from "./navClasses";
-import { activeHref, groupOf, navItems, type NavGroup, type NavItem } from "./nav";
-import { readUsedGroups, rememberUsedGroup } from "./usedGroups";
+import {
+  activeHref,
+  groupOf,
+  isAdd,
+  moreGroups,
+  navItems,
+  tabEntries,
+  type NavGroup,
+  type NavItem,
+  type TabSlot,
+} from "./nav";
+import { openGroupKeys, readUsedGroups, rememberUsedGroup } from "./usedGroups";
 
 export type Badges = Record<string, number>;
 
@@ -40,7 +54,7 @@ function Tab({ item, active, badge }: { item: NavItem; active: boolean; badge: n
     >
       <span className="relative">
         <Icon size={22} />
-        <NavBadge count={badge} className="absolute -top-1.5 -end-3" />
+        <NavBadge count={badge} phrase={item.badge} className="absolute -top-1.5 -end-3" />
       </span>
       {item.label}
       <LinkPending />
@@ -55,17 +69,13 @@ export function BottomTabs({
   label,
 }: {
   groups: NavGroup[];
-  /** The tabs, in order; every other item goes to the المزيد sheet. Omit: all items are tabs. */
-  tabHrefs?: string[];
+  /** The slots, in order; every other link goes to the المزيد sheet. Omit: every entry is a tab. */
+  tabHrefs?: TabSlot[];
   badges?: Badges;
   label: string;
 }) {
   const pathname = usePathname();
-  const all = navItems(groups);
-  const active = activeHref(pathname, all);
-  const tabs = tabHrefs
-    ? tabHrefs.flatMap((href) => all.filter((i) => i.href === href))
-    : all;
+  const active = activeHref(pathname, navItems(groups));
 
   return (
     <nav
@@ -73,21 +83,20 @@ export function BottomTabs({
       className="no-print safe-bottom fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white md:hidden"
     >
       <ul className="flex">
-        {tabs.map((item) => (
-          <li key={item.href} className="flex-1">
-            <Tab item={item} active={item.href === active} badge={badges[item.href] ?? 0} />
-          </li>
-        ))}
+        {tabEntries(groups, tabHrefs).map((entry) =>
+          isAdd(entry) ? (
+            <li key="add" className="flex-1">
+              <AddSheet entry={entry} variant="tab" />
+            </li>
+          ) : (
+            <li key={entry.href} className="flex-1">
+              <Tab item={entry} active={entry.href === active} badge={badges[entry.href] ?? 0} />
+            </li>
+          ),
+        )}
         {tabHrefs ? (
           <li className="flex-1">
-            <MoreSheet
-              groups={groups.map((g) => ({
-                ...g,
-                items: g.items.filter((i) => !tabHrefs.includes(i.href)),
-              }))}
-              active={active}
-              badges={badges}
-            />
+            <MoreSheet groups={moreGroups(groups, tabHrefs)} active={active} badges={badges} />
           </li>
         ) : null}
       </ul>
@@ -110,7 +119,7 @@ function SideItem({ item, active, badge }: { item: NavItem; active: boolean; bad
       >
         <Icon size={20} />
         <span className="min-w-0 flex-1">{item.label}</span>
-        <NavBadge count={badge} />
+        <NavBadge count={badge} phrase={item.badge} />
         <LinkPending />
       </Link>
     </li>
@@ -141,9 +150,9 @@ export function SideNav({
   );
 
   useEffect(() => {
-    const used = readUsedGroups();
+    const used = openGroupKeys(groups, readUsedGroups());
     setOpen((o) => ({ ...Object.fromEntries(used.map((k) => [k, true])), ...o }));
-  }, []);
+  }, [groups]);
 
   useEffect(() => {
     if (!activeGroup || !groups.some((g) => g.key === activeGroup && g.collapsible)) return;
@@ -198,14 +207,20 @@ export function SideNav({
                 hidden={!isOpen}
                 className="flex flex-col gap-1"
               >
-                {group.items.map((item) => (
-                  <SideItem
-                    key={item.href}
-                    item={item}
-                    active={item.href === active}
-                    badge={badges[item.href] ?? 0}
-                  />
-                ))}
+                {group.items.map((entry) =>
+                  isAdd(entry) ? (
+                    <li key="add" className="py-1">
+                      <AddSheet entry={entry} variant="side" />
+                    </li>
+                  ) : (
+                    <SideItem
+                      key={entry.href}
+                      item={entry}
+                      active={entry.href === active}
+                      badge={badges[entry.href] ?? 0}
+                    />
+                  ),
+                )}
               </ul>
             </div>
           );

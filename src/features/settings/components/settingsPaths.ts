@@ -11,7 +11,12 @@ const TAB_PATHS = new Map<string, string>([
   ["account", "/owner/settings/account"],
 ]);
 
-/** Anything unrecognised (or no tab) goes to التصنيفات, as the first tab did. */
+/**
+ * Anything unrecognised (or no tab) goes to رمز الانضمام — the first item of
+ * the v1.4 الإعدادات group (D11). It used to be التصنيفات, which left the menus
+ * in v1.4 and would make the categories page's «← الإعدادات» land on itself.
+ * `?tab=categories` still goes to categories, so old bookmarks keep working.
+ */
 export function settingsRedirectPath(tab: string | string[] | undefined): string {
-  return (typeof tab === "string" && TAB_PATHS.get(tab)) || "/owner/settings/categories";
+  return (typeof tab === "string" && TAB_PATHS.get(tab)) || "/owner/settings/join-code";
 }

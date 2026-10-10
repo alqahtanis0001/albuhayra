@@ -61,3 +61,13 @@ export async function getJoinCode(establishmentId: string): Promise<string | nul
   });
   return row?.joinCode ?? null;
 }
+
+/**
+ * v1.4 (D17 c10): the badge on حسابات الدخول — how many STAFF join requests
+ * wait for the owner. A count only: no name, no email, no amount reaches the
+ * layout. Runs on every owner request, covered by the (establishmentId, role,
+ * status) index.
+ */
+export async function countPendingStaff(establishmentId: string): Promise<number> {
+  return db.user.count({ where: { establishmentId, role: "STAFF", status: "PENDING" } });
+}
