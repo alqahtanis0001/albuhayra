@@ -160,6 +160,10 @@ model Transaction {
   /// The instalment a payment was recorded against. Allocation starts there
   /// and rolls forward (docs/BACKEND.md, v1.2a). Fixed once set.
   instalmentId    String?
+  /// v1.4: a payment on an OPEN_ENDED plan links the plan directly (it has no
+  /// instalments). Never set together with instalmentId (docs/V14-SPEC.md C1;
+  /// zod + action check). Fixed once set.
+  planId          String?
 
   establishment Establishment @relation(fields: [establishmentId], references: [id])
   category      Category      @relation(fields: [categoryId], references: [id])
@@ -167,6 +171,7 @@ model Transaction {
   party         Party?        @relation(fields: [partyId], references: [id], onDelete: Restrict)
   project       Project?      @relation(fields: [projectId], references: [id], onDelete: Restrict)
   instalment    Instalment?   @relation(fields: [instalmentId], references: [id], onDelete: Restrict)
+  plan          Plan?         @relation(fields: [planId], references: [id], onDelete: Restrict)
 
   @@index([establishmentId, date])
   @@index([establishmentId, deletedAt])
@@ -175,6 +180,7 @@ model Transaction {
   @@index([partyId])
   @@index([projectId])
   @@index([instalmentId])
+  @@index([planId])
 }
 
 model PeriodLock {
@@ -289,9 +295,13 @@ model Plan {
   partyId         String
   direction       Direction
   title           String
-  totalHalalas    Int
+  /// v1.4: null only on an OPEN_ENDED plan whose ceiling is unknown
+  /// (docs/V14-SPEC.md C1). STANDARD and SALARY plans always carry it.
+  totalHalalas    Int?
   categoryId      String
   startDate       DateTime  @db.Date
+  /// v1.4: OPEN_ENDED plans only, informational. Null elsewhere.
+  expectedEndDate DateTime? @db.Date
   reminderDays    Int       @default(3)
   state           PlanState @default(OPEN)
   /// When it was archived or cancelled (an instant, Riyadh-formatted on display).
@@ -313,6 +323,8 @@ model Plan {
   category      Category      @relation(fields: [categoryId], references: [id])
   employee      Employee?     @relation(fields: [employeeId], references: [id], onDelete: Restrict)
   instalments   Instalment[]
+  /// v1.4: payments of an OPEN_ENDED plan (Transaction.planId).
+  transactions  Transaction[]
 
   @@index([establishmentId, state])
   @@index([partyId])
@@ -356,6 +368,8 @@ model Instalment {
 enum PlanKind {
   STANDARD
   SALARY
+  /// v1.4 (docs/V14-SPEC.md C): no instalments; payments link the plan itself.
+  OPEN_ENDED
 }
 
 enum EmployeeStatus {

@@ -137,6 +137,9 @@ export function salaryLinkedWhere(
  * X13: a SALARY plan's title is derived from its party's current name at read
  * time, so a rename follows; the stored title is only a snapshot.
  */
-export function planTitleOf(plan: { kind: "STANDARD" | "SALARY"; title: string }, partyName: string): string {
+export function planTitleOf(
+  plan: { kind: "STANDARD" | "SALARY" | "OPEN_ENDED"; title: string },
+  partyName: string,
+): string {
   return plan.kind === "SALARY" ? t.employees.salaryPlanTitle.replace("{name}", partyName) : plan.title;
 }

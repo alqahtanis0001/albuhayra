@@ -7,10 +7,12 @@ import { v12aSections } from "./ar.v12a";
 import { v12bSections } from "./ar.v12b";
 import { v12cSections } from "./ar.v12c";
 import { v13Sections } from "./ar.v13";
+import { v14Sections } from "./ar.v14";
 
 const { errV12a, ...v12a } = v12aSections;
 const { errV12b, ...v12b } = v12bSections;
 const { errV12c, ...v12c } = v12cSections;
+const { errV14, ...v14 } = v14Sections;
 
 const APP_NAME = "زخم";
 const APP_TAGLINE = "نظام السجل المالي للمنشآت";
@@ -397,6 +399,9 @@ export const t = {
 
     // v1.2c — reminders and reports (src/i18n/ar.v12c.ts)
     ...errV12c,
+
+    // v1.4 — open agreements (src/i18n/ar.v14.ts)
+    ...errV14,
   },
 
   /** v1.1e — sign-up field labels and helper lines. Western digits throughout. */
@@ -473,6 +478,9 @@ export const t = {
 
   // v1.3 sections (dashVisual, duesRibbon, planBar, budgetMeter, liveClock, …)
   ...v13Sections,
+
+  // v1.4 sections (categoryQuick, categoriesPage, addSheet, ledgerTabs, openPlan)
+  ...v14,
 
   a11y: {
     skipToContent: "تجاوز إلى المحتوى",
