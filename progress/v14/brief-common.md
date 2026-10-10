@@ -1,6 +1,6 @@
 # v1.4 — common brief for `cats`, `add`, `plans` (read with your own brief)
 
-Lead: the session's lead agent. Product owner: the user. Spec: `docs/V14-SPEC.md` — it outranks every other doc for v1.4; its Decisions D1–D10 are binding.
+Lead: the session's lead agent. Product owner: the user. Spec: `docs/V14-SPEC.md` — it outranks every other doc for v1.4; its Decisions D1–D19 are binding (D16–D19 are the user's rulings on `docs/UX-REVIEW-v14.md`; read them, and your brief's *Amendments after the UX review* block, before anything else).
 
 ## Read first, in this order
 1. `CLAUDE.md` (roles, conventions, out of scope)
