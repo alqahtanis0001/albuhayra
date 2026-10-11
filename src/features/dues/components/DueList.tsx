@@ -35,15 +35,24 @@ export function DueRows({
           data-due-date={row.dueDate}
           className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 p-3 last:border-b-0"
         >
-          <div className="flex min-w-0 flex-col gap-0.5">
+          <div className="flex min-w-0 flex-col">
+            {/* v1.4 (D17 c15): the party leads to its page, the agreement to its own — both ≥ 44 px tall (R2-1). */}
             <Link
-              href={`/owner/plans/${row.planId}`}
-              className="truncate font-medium text-gray-900 underline-offset-2 hover:underline"
+              href={`/owner/parties/${row.partyId}`}
+              className="inline-flex min-h-11 max-w-full items-center font-medium text-gray-900 underline-offset-2 hover:underline"
             >
-              {row.partyName}
+              <span className="truncate">{row.partyName}</span>
             </Link>
-            <span className="truncate text-xs text-gray-600">
-              {row.planTitle} · <InstalmentName seq={row.seq} periodYm={row.periodYm} />
+            <span className="flex min-w-0 items-center gap-1 text-xs text-gray-600">
+              <Link
+                href={`/owner/plans/${row.planId}`}
+                className="inline-flex min-h-11 min-w-0 items-center underline-offset-2 hover:underline"
+              >
+                <span className="truncate">{row.planTitle}</span>
+              </Link>
+              <span className="shrink-0">
+                · <InstalmentName seq={row.seq} periodYm={row.periodYm} />
+              </span>
             </span>
             <Countdown dayOffset={row.dayOffset} status={row.status} />
           </div>

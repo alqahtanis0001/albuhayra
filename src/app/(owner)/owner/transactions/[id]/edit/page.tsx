@@ -7,6 +7,7 @@ import { listCategories } from "@/features/settings/queries";
 import { listLocks } from "@/features/locks/queries";
 import { listPartyOptions } from "@/features/parties/queries";
 import { getPaymentLink } from "@/features/plans/dues";
+import { getOpenPlanPaymentLink } from "@/features/plans/openQueries";
 import { listProjectOptions } from "@/features/projects/queries";
 import { PaymentBanner } from "@/features/transactions/components/PaymentBanner";
 import { TransactionForm } from "@/features/transactions/components/TransactionForm";
@@ -34,8 +35,12 @@ export default async function OwnerEditTransactionPage({
     listProjectOptions(establishmentId),
   ]);
   if (!row) notFound();
-  // A payment keeps its plan's direction and party (W1): locked, not editable.
-  const link = row.instalmentId ? await getPaymentLink(establishmentId, row.instalmentId) : null;
+  // A payment keeps its plan's direction and party (W1): locked, not editable. v1.4 D9: an open-plan payment likewise.
+  const link = row.instalmentId
+    ? await getPaymentLink(establishmentId, row.instalmentId)
+    : row.planId
+      ? await getOpenPlanPaymentLink(establishmentId, row.id)
+      : null;
   // The form only needs which months are closed, not the whole lock row.
   const lockedMonths = locks.filter((l) => l.locked).map((l) => l.ym);
 
@@ -56,6 +61,7 @@ export default async function OwnerEditTransactionPage({
         today={todayISO()}
         doneHref="/owner/transactions"
         initial={row}
+        manageCategories // v1.4 A2: owner only — decided here, on the server (D12).
         payment={link ? { direction: link.direction } : undefined}
         banner={
           link ? (

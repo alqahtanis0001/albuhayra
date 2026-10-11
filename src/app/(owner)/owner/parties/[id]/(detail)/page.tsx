@@ -80,6 +80,7 @@ export default async function PartyPage({ params }: { params: Promise<{ id: stri
             <PartyBalance
               owedToUsHalalas={party.owedToUsHalalas}
               owedByUsHalalas={party.owedByUsHalalas}
+              openPlansRemainingHalalas={statement.openPlansRemainingHalalas}
             />
             <span className="text-xs text-gray-600">{t.parties.balanceHint}</span>
           </dd>

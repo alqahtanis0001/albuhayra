@@ -4,19 +4,31 @@
  * One month in the lock grid. `lockable` is decided on the **server** — false for
  * the open month and anything after it — so the client never decides what "now"
  * is. That is the whole reason `todayISO()` exists in one place.
+ *
+ * v1.4 (D17 c19): «إلغاء الإقفال» asks first — reopening a month lets everyone
+ * add and edit in it again — while «إقفال» stays one tap. The dialog is
+ * rendered only while open (24 cells, one <dialog> at most) and is not
+ * destructive, so it takes the accent tone.
  */
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { Button } from "@/components/Button";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Toast } from "@/components/Toast";
 import { errorMessage, t } from "@/i18n/ar";
 import { lockMonth, unlockMonth } from "@/features/locks/actions";
 import type { LockRow } from "@/features/locks/queries";
 
+/** Which control a press of the cell's button reaches: a locked month asks, an open one acts. */
+export function pressTarget(locked: boolean): "confirm" | "toggle" {
+  return locked ? "confirm" : "toggle";
+}
+
 export function LockCell({ row, label }: { row: LockRow; label: string }) {
   const router = useRouter();
   const [pending, start] = useTransition();
+  const [confirm, setConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const toggle = () =>
@@ -27,6 +39,8 @@ export function LockCell({ row, label }: { row: LockRow; label: string }) {
       if (result.ok) router.refresh();
       else setError(result.error);
     });
+
+  const press = () => (pressTarget(row.locked) === "confirm" ? setConfirm(true) : toggle());
 
   return (
     <div
@@ -46,12 +60,27 @@ export function LockCell({ row, label }: { row: LockRow; label: string }) {
       ) : null}
 
       {row.lockable ? (
-        <Button size="sm" variant="secondary" pending={pending} onClick={toggle}>
+        <Button size="sm" variant="secondary" pending={pending} onClick={press}>
           {row.locked ? t.settings.unlock : t.settings.lock}
         </Button>
       ) : (
         <span className="text-xs text-gray-500">{t.settings.currentMonthHint}</span>
       )}
+
+      {confirm ? (
+        <ConfirmDialog
+          open
+          title={`${t.settings.unlock}: ${label}`}
+          message={t.settings.unlockConfirm}
+          tone="accent"
+          pending={pending}
+          onCancel={() => setConfirm(false)}
+          onConfirm={() => {
+            setConfirm(false);
+            toggle();
+          }}
+        />
+      ) : null}
 
       {error ? (
         <Toast message={errorMessage(error)} onDismiss={() => setError(null)} />

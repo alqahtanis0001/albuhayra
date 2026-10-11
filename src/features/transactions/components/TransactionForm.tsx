@@ -14,6 +14,7 @@ import type { DirectionValue } from "@/lib/validation";
 
 import { AmountField } from "./AmountField";
 import { categoryOptions } from "./categoryOptions";
+import { CategoryQuickActions } from "./CategoryQuickActions";
 import { DirectionToggle, readLastDirection, rememberDirection } from "./DirectionToggle";
 import { LinkFields } from "./LinkFields";
 import { LockedNotice } from "./LockedNotice";
@@ -42,6 +43,7 @@ export function TransactionForm({
   payment,
   banner,
   notice,
+  manageCategories,
 }: {
   mode: "new" | "edit";
   action: TransactionFormAction;
@@ -69,6 +71,7 @@ export function TransactionForm({
   banner?: ReactNode;
   /** An err.* key to toast on arrival (an unusable ?instalmentId=). */
   notice?: string;
+  manageCategories?: boolean; // v1.4 A2 (D12): owner pages only — the category quick actions and the lock link.
 }) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
@@ -86,6 +89,7 @@ export function TransactionForm({
   // retired category, which the server would then reject as a direction
   // mismatch. Clearing it on every switch makes that unreachable.
   const [categoryId, setCategoryId] = useState(initial?.categoryId ?? payment?.categoryId ?? "");
+  const [list, setList] = useState(categories); // v1.4 A1: the select is untouched; only the array it maps over is client state.
   const [saved, setSaved] = useState(false);
   const [noticeShown, setNoticeShown] = useState(Boolean(notice));
 
@@ -138,11 +142,11 @@ export function TransactionForm({
   const originalLocked = initial ? lockedMonths.includes(monthOf(initial.date)) : false;
   const blocked = dateLocked || originalLocked;
 
-  const options = categoryOptions(categories, direction, initial?.categoryId);
+  const options = categoryOptions(list, direction, initial?.categoryId);
 
   return (
     <form ref={formRef} action={formAction} className="flex flex-col gap-4" noValidate>
-      {blocked ? <LockedNotice /> : null}
+      {blocked ? <LockedNotice href={manageCategories ? "/owner/settings/locks" : undefined} /> : null}
       {banner}
       {/* The banner's hidden fields have no input to show their error under. */}
       {linkError ? <p role="alert" className="text-sm font-medium text-money-out">{errorMessage(linkError)}</p> : null}
@@ -190,6 +194,7 @@ export function TransactionForm({
         required
         error={fieldErrors?.categoryId}
       />
+      {manageCategories && !originalLocked && !payment ? <CategoryQuickActions direction={direction} categories={list} selected={categoryId} keepId={initial?.categoryId} onCategories={setList} onSelect={setCategoryId} /> : null}
 
       <LinkFields
         key={linkKey}

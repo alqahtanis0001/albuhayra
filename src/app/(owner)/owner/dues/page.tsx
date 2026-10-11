@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { Card } from "@/components/Card";
 import { DateText } from "@/components/DateText";
@@ -32,6 +33,13 @@ export default async function DuesPage() {
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-xl font-semibold text-gray-900">{t.dues.title}</h1>
+      {/* v1.4 (D17 c2): a payment on an agreement nothing is due on yet goes through the pick list. */}
+      <Link
+        href="/owner/plans?pick=payment"
+        className="no-print inline-flex min-h-11 items-center self-start text-sm text-accent-dark underline-offset-2 hover:underline"
+      >
+        {t.dues.pickOther}
+      </Link>
 
       <WeekRibbon {...buildRibbon(dues)} />
 

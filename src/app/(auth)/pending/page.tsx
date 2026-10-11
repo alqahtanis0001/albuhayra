@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 
 import { Button } from "@/components/Button";
-import { LogoutIcon } from "@/components/icons";
 import { AuthCard } from "@/features/auth/components/AuthCard";
 import { logout } from "@/features/auth/components/actions";
 import { t } from "@/i18n/ar";
@@ -45,10 +44,11 @@ export default async function PendingPage({
         ) : null}
         <p className="text-sm text-gray-500">{t.pending.hint}</p>
 
+        {/* v1.4 (D17, c16): the only button still signs out — an approved
+            account finds out by signing in again, so the label says that. */}
         <form action={logout}>
-          <Button type="submit" variant="secondary" block pendingLabel={t.common.signingOut}>
-            <LogoutIcon size={18} className="rtl:-scale-x-100" />
-            {t.common.logout}
+          <Button type="submit" variant="secondary" block pendingLabel={t.common.loading}>
+            {t.pending.checkStatus}
           </Button>
         </form>
       </div>

@@ -51,13 +51,13 @@ export const v13Sections = {
     fromUs: "علينا",
     nothing: "لا شيء",
     count: {
-      one: "دفعة واحدة",
-      two: "دفعتان",
-      few: "{n} دفعات",
-      many: "{n} دفعة",
-      other: "{n} دفعة",
+      one: "قسط واحد",
+      two: "قسطان",
+      few: "{n} أقساط",
+      many: "{n} قسطًا",
+      other: "{n} قسط",
     },
-    jump: "عرض دفعات {date}",
+    jump: "عرض أقساط {date}",
   },
 
   /** `flow`, items 7–8 — segmented instalment bar and the payment highlight. */
@@ -128,11 +128,11 @@ export const v13Sections = {
   agingVisual: {
     tilesLabel: "ملخص الأعمار",
     count: {
-      one: "دفعة واحدة",
-      two: "دفعتان",
-      few: "{n} دفعات",
-      many: "{n} دفعة",
-      other: "{n} دفعة",
+      one: "قسط واحد",
+      two: "قسطان",
+      few: "{n} أقساط",
+      many: "{n} قسطًا",
+      other: "{n} قسط",
     },
     segment: "{bucket}: {amount}",
   },

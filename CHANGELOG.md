@@ -2,6 +2,21 @@
 
 Started at v1.3. Earlier releases (v1.0 – v1.2c) are recorded in `PROGRESS.md` (*Done*, *Decisions*, *Session log*).
 
+## v1.4 — simpler owner flows (unreleased)
+Spec: `docs/V14-SPEC.md` (A–C, D1–D21). One expand-only migration (`20261010000000_v14_open_plans`: `PlanKind.OPEN_ENDED`, `Plan.totalHalalas` nullable, `Plan.expectedEndDate`, `Transaction.planId`), already applied to the live database; no new route group, no new environment variable. Nothing an owner could do before was removed.
+
+### Added
+- **One «+» for everything:** a primary «+ إضافة» item in the owner side nav and the second tab on phones opens a sheet with حركة جديدة · تسجيل دفعة · اتفاقية جديدة · جهة جديدة · نشاط جديد · موظف جديد. Staff get حركة جديدة (and تسجيل حضوري when linked to an employee record); an unlinked staff login's «+» goes straight to the entry form.
+- **Categories from the entry form (owner):** «+ إضافة تصنيف» adds a category inline and selects it; «تعديل التصنيفات» shows the direction's categories as chips to hide, the hidden ones as grey chips to re-show, and a link to the full settings page (reorder, rename).
+- **Open agreements (اتفاقية مفتوحة):** an agreement without a schedule — optional ceiling and expected end date — paid by «تسجيل دفعة» on its page; a progress bar when a ceiling is set; closes itself when payments reach the ceiling; «إنهاء» / «إعادة فتح». Its payments are ordinary ledger entries; it never appears in المستحقات, the aging report or reminders; its outstanding amount shows as an informational line on الجهات, the contact card and the statement, outside the balance.
+- **Smaller:** a pending-join-requests badge on حسابات الدخول (summed on المزيد); «شهر مقفل» and the locked-month notice link to إقفال الأشهر, which links back to السجل; «إلغاء الإقفال» asks first; المستحقات links both the party and the agreement and offers the agreement pick-list for a payment not yet due; the attendance empty state links to «إضافة موظف»; the pending page's button reads as the next step («تسجيل الدخول للتحقق من حالة الطلب»).
+
+### Changed
+- **Navigation:** السجل and التقارير are top-level items; the «المالية» heading, «حركة جديدة», the «إضافة» group and «التصنيفات» are gone from the menus (`/owner/settings/categories` stays reachable from the form); the staff group reads «الموظفون والحضور»; `/owner/settings` lands on رمز الانضمام.
+- **«الإضافات» → «الأنشطة»:** every project-meaning «إضافة» reads «نشاط»; the list lives as the «الأنشطة» tab of السجل (`/owner/transactions?tab=activities`; `/owner/projects` redirects there). «الأنشطة الجارية» stays on the home page.
+- **Wording:** a scheduled instalment is «قسط / الأقساط / القسط القادم / قسط متأخر» (status words and countdowns take masculine agreement); «دفعة» is kept for money recorded.
+- The status filter on الاتفاقيات reads «مؤرشفة / منتهية»; staff ledger rows that are open-agreement payments show «سداد اتفاقية» and no edit pencil (owner-only to edit or delete); the empty «مستحقات هذا الأسبوع» card is hidden until the establishment has an agreement.
+
 ## v1.3 — visual pass (unreleased)
 Spec: `docs/V13-SPEC.md`. No schema change, no migration, no new route, no new environment variable; no rule or stored number changed — queries only gained read-only fields (the dashboard's daily series, opening balances and month-to-date comparison, instalment states on plan rows, aging counts, a 12-month attendance read, the clock's server timestamp and grace).
 

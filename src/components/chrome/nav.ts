@@ -1,49 +1,42 @@
 /**
- * Navigation per role, from docs/FRONTEND.md. Items cross into a client
- * component, so an item names its icon instead of carrying the component.
+ * Navigation per role, from docs/FRONTEND.md and docs/V14-SPEC.md §B. Items
+ * cross into a client component, so an item names its icon instead of carrying
+ * the component.
  *
  * The owner's navigation is grouped (v1.2a): headed groups in the side nav,
  * five fixed tabs plus المزيد on phones. Staff and admin keep a flat list, which
  * AppShell receives as a single unheaded group.
+ *
+ * v1.4: the entry model (links and the «+» add entry) and the sheet / tab-slot
+ * helpers live in navSlots.ts and are re-exported here.
  */
 import { t } from "@/i18n/ar";
-import type { NavIconName } from "../navIcons";
 
-export type NavItem = { href: string; label: string; icon: NavIconName };
+import { ADD_SLOT, addEntry, addRows, isLink, type NavEntry, type NavGroup, type NavItem, type TabSlot } from "./navSlots";
 
-export type NavGroup = {
-  key: string;
-  /** Null: no heading (الرئيسية, and the staff/admin lists). */
-  label: string | null;
-  /** New in v1.2a: collapsed in the side nav until the owner first uses it. */
-  collapsible: boolean;
-  items: NavItem[];
-};
+export * from "./navSlots";
 
 export const OWNER_NAV_GROUPS: NavGroup[] = [
   {
     key: "home",
     label: null,
     collapsible: false,
-    items: [{ href: "/owner", label: t.nav.home, icon: "home" }],
+    items: [{ href: "/owner", label: t.nav.home, icon: "home", exact: true }],
   },
   {
-    key: "finance",
-    label: t.navGroup.finance,
+    key: "add",
+    label: null,
+    collapsible: false,
+    items: [addEntry(addRows("OWNER"))],
+  },
+  // D16 (a): السجل and التقارير are top-level, no heading.
+  {
+    key: "ledger",
+    label: null,
     collapsible: false,
     items: [
-      { href: "/owner/transactions/new", label: t.navItem.newEntry, icon: "add" },
-      { href: "/owner/transactions", label: t.nav.ledger, icon: "ledger" },
+      { href: "/owner/transactions", label: t.nav.ledger, icon: "ledger", also: ["/owner/projects"] },
       { href: "/owner/reports", label: t.nav.reports, icon: "reports" },
-    ],
-  },
-  {
-    key: "additions",
-    label: t.navGroup.additions,
-    collapsible: true,
-    items: [
-      { href: "/owner/projects", label: t.navItem.projectsList, icon: "projects" },
-      { href: "/owner/projects/new", label: t.navItem.projectNew, icon: "projectNew" },
     ],
   },
   {
@@ -53,7 +46,7 @@ export const OWNER_NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/owner/parties", label: t.navItem.parties, icon: "parties" },
       { href: "/owner/plans", label: t.navItem.plans, icon: "plans" },
-      { href: "/owner/dues", label: t.navItem.dues, icon: "dues" },
+      { href: "/owner/dues", label: t.navItem.dues, icon: "dues", badge: t.navItem.overdueBadge },
     ],
   },
   {
@@ -63,7 +56,7 @@ export const OWNER_NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/owner/staff", label: t.navItem.staffList, icon: "staff" },
       { href: "/owner/staff/attendance", label: t.navItem.attendance, icon: "attendance" },
-      { href: "/owner/staff/logins", label: t.navItem.logins, icon: "logins" },
+      { href: "/owner/staff/logins", label: t.navItem.logins, icon: "logins", badge: t.navItem.pendingBadge },
     ],
   },
   {
@@ -71,7 +64,6 @@ export const OWNER_NAV_GROUPS: NavGroup[] = [
     label: t.navGroup.settings,
     collapsible: false,
     items: [
-      { href: "/owner/settings/categories", label: t.navItem.categories, icon: "categories" },
       { href: "/owner/settings/join-code", label: t.navItem.joinCode, icon: "joinCode" },
       { href: "/owner/settings/locks", label: t.navItem.locks, icon: "locks" },
       { href: "/owner/settings/reminders", label: t.navItem.reminders, icon: "reminders" },
@@ -81,25 +73,20 @@ export const OWNER_NAV_GROUPS: NavGroup[] = [
 ];
 
 /**
- * The owner's phone tab bar, in order, before المزيد. Every other owner item
- * lives in the المزيد sheet.
+ * The owner's phone tab bar, in order, before المزيد (B2, D13: the «+» sits
+ * where «حركة جديدة» was). Every other owner item lives in the المزيد sheet.
  */
-export const OWNER_TAB_HREFS = [
-  "/owner",
-  "/owner/transactions/new",
-  "/owner/transactions",
-  "/owner/dues",
-];
+export const OWNER_TAB_HREFS: TabSlot[] = ["/owner", ADD_SLOT, "/owner/transactions", "/owner/dues"];
 
 /**
- * Spec §1: الرئيسية | حركة جديدة | السجل | حضوري | حسابي, where «حضوري» is
- * only for a staff login linked to an employee (the staff layout looks the link
- * up; the /staff/me pages re-check it — hiding the item is not the control).
+ * B2: الرئيسية | + | السجل | [حضوري] | حسابي, where «حضوري» is only for a staff
+ * login linked to an employee (the staff layout looks the link up; the
+ * /staff/me pages re-check it — hiding the item is not the control).
  */
-export function staffNav(linked: boolean): NavItem[] {
+export function staffNav(linked: boolean): NavEntry[] {
   return [
     { href: "/staff", label: t.nav.home, icon: "home" },
-    { href: "/staff/transactions/new", label: t.navItem.newEntry, icon: "add" },
+    addEntry(addRows("STAFF", linked)),
     { href: "/staff/transactions", label: t.nav.ledger, icon: "ledger" },
     ...(linked ? [{ href: "/staff/me", label: t.myAttendance.title, icon: "attendance" as const }] : []),
     { href: "/staff/account", label: t.nav.account, icon: "account" },
@@ -107,7 +94,7 @@ export function staffNav(linked: boolean): NavItem[] {
 }
 
 /** An unlinked staff login's nav. */
-export const STAFF_NAV: NavItem[] = staffNav(false);
+export const STAFF_NAV: NavEntry[] = staffNav(false);
 
 export const ADMIN_NAV: NavItem[] = [
   { href: "/admin", label: t.nav.requests, icon: "requests" },
@@ -116,34 +103,50 @@ export const ADMIN_NAV: NavItem[] = [
 ];
 
 /** A flat list as one unheaded, always-open group. */
-export function singleGroup(items: NavItem[]): NavGroup[] {
+export function singleGroup(items: NavEntry[]): NavGroup[] {
   return [{ key: "main", label: null, collapsible: false, items }];
 }
 
+/** Every link of a role, in order — never an add entry. */
 export function navItems(groups: NavGroup[]): NavItem[] {
-  return groups.flatMap((g) => g.items);
+  return groups.flatMap((g) => g.items.filter(isLink));
+}
+
+function prefixMatch(pathname: string, prefix: string): boolean {
+  return pathname === prefix || pathname.startsWith(`${prefix}/`);
+}
+
+/** The length of the longest prefix of `item` that `pathname` falls under, or -1. */
+function matchLength(pathname: string, item: NavItem): number {
+  if (item.exact) return pathname === item.href ? item.href.length : -1;
+  let best = prefixMatch(pathname, item.href) ? item.href.length : -1;
+  for (const also of item.also ?? []) {
+    if (prefixMatch(pathname, also) && also.length > best) best = also.length;
+  }
+  return best;
 }
 
 /**
- * The longest matching href wins, so /owner/transactions/new highlights حركة
- * جديدة rather than both it and السجل. Run it over every item of a role
- * (`navItems(groups)`), never group by group, or each group would get its own
- * winner.
+ * The longest matching href wins, so /owner/transactions/abc/edit highlights
+ * السجل alone. Run it over every link of a role (`navItems(groups)`), never
+ * group by group, or each group would get its own winner. It only ever sees
+ * links, so the «+» can never come back from it.
  */
 export function activeHref(pathname: string, items: NavItem[]): string | null {
   let best: string | null = null;
+  let bestLength = -1;
   for (const item of items) {
-    const matches =
-      pathname === item.href || pathname.startsWith(`${item.href}/`);
-    if (matches && (best === null || item.href.length > best.length)) {
+    const length = matchLength(pathname, item);
+    if (length > bestLength) {
       best = item.href;
+      bestLength = length;
     }
   }
   return best;
 }
 
-/** The key of the group holding `href`, or null. */
+/** The key of the group holding the link `href`, or null. */
 export function groupOf(groups: NavGroup[], href: string | null): string | null {
   if (href === null) return null;
-  return groups.find((g) => g.items.some((i) => i.href === href))?.key ?? null;
+  return groups.find((g) => g.items.some((i) => isLink(i) && i.href === href))?.key ?? null;
 }

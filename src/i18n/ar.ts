@@ -136,6 +136,8 @@ export const t = {
     byAdmin: "يتولى مدير النظام مراجعة طلبكم واعتماده.",
     byOwner: "يتولى صاحب المنشأة مراجعة طلبكم واعتماده.",
     hint: "يمكنكم تسجيل الدخول لاحقًا للاطلاع على حالة الطلب.",
+    /** v1.4 (D17, c16): the page's only button — it still signs out, worded as the next step. */
+    checkStatus: "تسجيل الدخول للتحقق من حالة الطلب",
   },
 
   direction: {
@@ -201,6 +203,8 @@ export const t = {
     emptyTitle: "لا توجد حركات",
     emptyHint: "ابدأ بإضافة أول حركة.",
     emptyFiltered: "لا توجد حركات مطابقة للتصفية.",
+    /** v1.4 (D17, c12): staff ledger row that is an open-agreement payment (no pencil). */
+    openPlanPaymentBadge: "سداد اتفاقية",
   },
 
   dashboard: {
@@ -300,6 +304,9 @@ export const t = {
     unlocked: "مفتوح",
     lockedBy: "أقفله",
     currentMonthHint: "لا يمكن إقفال الشهر الحالي أو شهر قادم.",
+    /** v1.4 (D17, c4/c19): the locks page's link back to the ledger, and the confirm on «إلغاء الإقفال» only. */
+    backToLedger: "العودة إلى السجل",
+    unlockConfirm: "سيُفتح الشهر للإضافة والتعديل من جديد لكل المستخدمين. هل تريد المتابعة؟",
   },
 
   admin: {

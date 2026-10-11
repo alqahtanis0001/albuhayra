@@ -3,90 +3,31 @@ import "server-only";
 import { allocate } from "@/lib/allocation";
 import { dateToISO, todayISO } from "@/lib/dates";
 import { db } from "@/lib/db";
-import {
-  dayOffset,
-  instalmentStatus,
-  planStatus,
-  type InstalmentStatus,
-  type PlanStatus,
-} from "@/lib/instalments";
+import { dayOffset, instalmentStatus, planStatus } from "@/lib/instalments";
 import { displayName, NAME_SELECT } from "@/lib/names";
 import { planTitleOf } from "@/lib/payroll";
 import type { DirectionValue, PartyTypeValue } from "@/lib/validation";
+
+import { asScheduled, type PlanKindValue, type ScheduledKind } from "./kind";
+import { receivedByPlan, toOpenRow } from "./openQueries";
+import type { PlanDetail, PlanFilter, PlanRow, ScheduledPlanRow } from "./types";
 
 /**
  * الاتفاقيات — reads (docs/BACKEND.md → v1.2a → Plans, W7, W8). Every `where`
  * starts with the page's `establishmentId`; a foreign id reads as missing
  * (rule 11). Statuses are derived here from the server's `todayISO()` and
- * passed down — no client decides "today". Dues live in `./dues.ts`.
+ * passed down — no client decides "today". Dues live in `./dues.ts`; the
+ * exported shapes live in `./types.ts` (v1.4) and are re-exported here.
+ *
+ * v1.4 (D6): these two reads are scheduled-plan reads. An OPEN_ENDED row has no
+ * instalments and may have no total, so the kind branch runs **before** any
+ * total is read (`asScheduled`), and a STANDARD / SALARY row without a total
+ * throws — never `?? 0`.
  */
 
-export type NextDue = {
-  instalmentId: string;
-  periodYm: string | null;
-  dueDate: string;
-  remainingHalalas: number;
-  status: InstalmentStatus;
-  dayOffset: number;
-};
-
-export type PlanRow = {
-  id: string;
-  title: string;
-  partyId: string;
-  partyName: string;
-  partyType: PartyTypeValue;
-  direction: DirectionValue;
-  startDate: string;
-  totalHalalas: number;
-  paidHalalas: number;
-  remainingHalalas: number;
-  status: PlanStatus;
-  instalmentCount: number;
-  paidCount: number;
-  nextDue: NextDue | null;
-  /** v1.3 item 7: each instalment's derived status, in schedule order (the list card's bar). */
-  instalmentStatuses: InstalmentStatus[];
-  /** v1.2b: SALARY plans are managed from the employee profile (D1); title derived (X13). */
-  kind: "STANDARD" | "SALARY";
-  employeeId: string | null;
-};
-
-export type PlanPayment = { transactionId: string; date: string; amountHalalas: number; createdByName: string };
-
-export type PlanInstalment = {
-  id: string;
-  seq: number;
-  /** v1.2b: the month of a SALARY row — shown instead of `seq`. */
-  periodYm: string | null;
-  dueDate: string;
-  amountDueHalalas: number;
-  paidHalalas: number;
-  remainingHalalas: number;
-  status: InstalmentStatus;
-  dayOffset: number;
-  /** Paid, or referenced by any entry (deleted included): read-only on edit. */
-  fixed: boolean;
-  /** Payments recorded **against** this instalment (allocation may spread them). */
-  payments: PlanPayment[];
-};
-
-export type PlanDetail = PlanRow & {
-  categoryId: string;
-  categoryNameAr: string;
-  reminderDays: number;
-  notes: string | null;
-  /** Riyadh date of the archive/cancel instant. */
-  closedAt: string | null;
-  canCancel: boolean;
-  overpaidHalalas: number;
-  instalments: PlanInstalment[];
-  /** v1.2c C10: what the owner's «تذكير» button needs — never the address itself. */
-  partyRemindersOptIn: boolean;
-  partyHasEmail: boolean;
-};
-
-export type PlanFilter = { direction?: DirectionValue; status?: PlanStatus; partyId?: string };
+export type {
+  NextDue, OpenPlanRow, PlanDetail, PlanFilter, PlanInstalment, PlanPayment, PlanRow, ScheduledPlanRow,
+} from "./types";
 
 const PLAN_SELECT = {
   id: true,
@@ -99,6 +40,7 @@ const PLAN_SELECT = {
   state: true,
   kind: true,
   employeeId: true,
+  expectedEndDate: true,
   party: { select: { name: true, type: true } },
   employee: { select: { status: true } },
 } as const;
@@ -116,22 +58,27 @@ async function instalmentsOf(establishmentId: string, planIds: string[]): Promis
   });
 }
 
-type PlanRead = {
+/** A row as the database hands it over: any kind, total possibly null. */
+type AnyPlanRead = {
   id: string;
   title: string;
   partyId: string;
   direction: DirectionValue;
   startDate: Date;
-  totalHalalas: number;
+  totalHalalas: number | null;
   reminderDays: number;
   state: "OPEN" | "ARCHIVED" | "CANCELLED";
-  kind: "STANDARD" | "SALARY";
+  kind: PlanKindValue;
   employeeId: string | null;
+  expectedEndDate: Date | null;
   party: { name: string; type: PartyTypeValue };
   employee: { status: "ACTIVE" | "ENDED" } | null;
 };
 
-function toRow(plan: PlanRead, rows: InstalmentRead[], today: string): PlanRow {
+/** What `toRow` works on: narrowed by `asScheduled`. */
+type PlanRead = Omit<AnyPlanRead, "kind" | "totalHalalas"> & { kind: ScheduledKind; totalHalalas: number };
+
+function toRow(plan: PlanRead, rows: InstalmentRead[], today: string): ScheduledPlanRow {
   const startDate = dateToISO(plan.startDate);
   const paidHalalas = rows.reduce((s, r) => s + r.paidHalalas, 0);
   const next = plan.state === "OPEN" ? rows.find((r) => r.paidHalalas < r.amountDueHalalas) : undefined;
@@ -178,7 +125,7 @@ export async function listPlans(
   filter: PlanFilter = {},
   today: string = todayISO(),
 ): Promise<PlanRow[]> {
-  const plans = await db.plan.findMany({
+  const plans: AnyPlanRead[] = await db.plan.findMany({
     where: {
       establishmentId,
       ...(filter.direction ? { direction: filter.direction } : {}),
@@ -187,25 +134,36 @@ export async function listPlans(
     select: PLAN_SELECT,
     orderBy: [{ startDate: "desc" }, { createdAt: "desc" }],
   });
-  const rows = await instalmentsOf(establishmentId, plans.map((p) => p.id));
+  // D6 / P17: the kind branch comes first — an open-ended row never reaches `toRow`.
+  const open = plans.filter((p) => p.kind === "OPEN_ENDED");
+  const scheduled = plans.filter((p) => p.kind !== "OPEN_ENDED").map(asScheduled);
+  const [rows, received] = await Promise.all([
+    instalmentsOf(establishmentId, scheduled.map((p) => p.id)),
+    receivedByPlan(establishmentId, open.map((p) => p.id)),
+  ]);
+  const byId = new Map<string, PlanRow>();
+  for (const p of scheduled) byId.set(p.id, toRow(p, rows.filter((r) => r.planId === p.id), today));
+  for (const p of open) byId.set(p.id, toOpenRow(p, received.get(p.id) ?? 0));
   return plans
-    .map((p) => toRow(p, rows.filter((r) => r.planId === p.id), today))
+    .map((p) => byId.get(p.id)!)
     .filter((p) => !filter.status || p.status === filter.status);
 }
 
+/** A scheduled plan only: an open-ended id reads as missing here (its pages ask the open read first). */
 export async function getPlan(
   establishmentId: string,
   id: string,
   today: string = todayISO(),
 ): Promise<PlanDetail | null> {
-  const plan = await db.plan.findFirst({
-    where: { establishmentId, id },
+  const found = await db.plan.findFirst({
+    where: { establishmentId, id, kind: { not: "OPEN_ENDED" } },
     select: {
       ...PLAN_SELECT, categoryId: true, notes: true, closedAt: true, category: { select: { nameAr: true } },
       party: { select: { name: true, type: true, remindersOptIn: true, email: true } },
     },
   });
-  if (!plan) return null;
+  if (!found) return null;
+  const plan = asScheduled(found);
 
   const rows = await instalmentsOf(establishmentId, [plan.id]);
   const ids = rows.map((r) => r.id);

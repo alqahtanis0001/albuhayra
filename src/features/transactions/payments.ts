@@ -3,12 +3,14 @@ import "server-only";
 import type { Prisma } from "@/generated/prisma";
 import { isStaffHiddenPlan } from "@/features/payroll/privacy";
 import { bumpRevision, ConcurrentChangeError, reallocatePlan } from "@/features/plans/allocate";
+import { scheduledTotal } from "@/features/plans/kind";
 import type { AuthedUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { canEditTransactions } from "@/lib/permissions";
 import type { TransactionInput } from "@/lib/validation";
 
 import { checkLinks, linkColumns } from "./links";
+import { resolveOpenPlanEdit } from "./openPlanPayments";
 
 /**
  * The payment path of the three ledger mutations (docs/BACKEND.md → v1.2a →
@@ -28,12 +30,14 @@ export type EntryResolution =
 
 const refuse = (key: string, field?: string): Refusal => ({ ok: false, key, field });
 
-type Existing = {
+export type Existing = {
   id: string;
   amountHalalas: number;
   partyId: string | null;
   projectId: string | null;
   instalmentId: string | null;
+  /** v1.4: set on an open-plan payment (D9). */
+  planId: string | null;
 };
 
 /**
@@ -49,6 +53,8 @@ export async function resolveEntry(
   input: TransactionInput,
   existing?: Existing,
 ): Promise<EntryResolution> {
+  // v1.4 D9 / P5: an open-plan payment's edit has its own rules (OWNER only, P4) — before the instalment refusal.
+  if (existing?.planId) return resolveOpenPlanEdit(establishmentId, user, input, existing);
   const linkedId = existing?.instalmentId ?? null;
   if (existing && input.instalmentId && input.instalmentId !== linkedId) {
     return refuse("err.paymentLinkFixed", "instalmentId");
@@ -70,9 +76,11 @@ export async function resolveEntry(
   // V4: revision in the same read as state/total/direction, before any sum.
   const plan = await db.plan.findFirst({
     where: { establishmentId, id: instalment.planId },
-    select: { id: true, state: true, revision: true, totalHalalas: true, direction: true, partyId: true },
+    select: { id: true, state: true, revision: true, totalHalalas: true, direction: true, partyId: true, kind: true },
   });
   if (!plan) return refuse("err.instalmentInvalid", "instalmentId");
+  // v1.4 P15: an instalment on an OPEN_ENDED plan is a corrupt row (D4) — refused like a missing id, never a throw.
+  if (plan.kind === "OPEN_ENDED") return refuse("err.instalmentInvalid", "instalmentId");
   // v1.2b ruling 2: STAFF never pay a salary agreement — answered exactly like a missing id (N2).
   if (user.role === "STAFF" && (await isStaffHiddenPlan(establishmentId, plan.id))) return refuse("err.instalmentInvalid", "instalmentId");
   // Confirmed reading 2: an ARCHIVED plan's payments may be corrected, never added.
@@ -97,7 +105,7 @@ export async function resolveEntry(
     },
     _sum: { amountHalalas: true },
   });
-  const remaining = plan.totalHalalas - Number(others._sum.amountHalalas ?? 0);
+  const remaining = scheduledTotal(plan.totalHalalas, plan.id) - Number(others._sum.amountHalalas ?? 0);
   if (input.amountHalalas > remaining) return refuse("err.paymentExceedsRemaining", "amountHalalas");
 
   const bad = await checkLinks(establishmentId, { projectId: input.projectId }, existing);
@@ -116,16 +124,27 @@ export async function resolveEntry(
   };
 }
 
-/** The plan a stored payment belongs to, for `deleteTransaction`. */
-export async function paymentOf(establishmentId: string, instalmentId: string | null): Promise<PaymentRef | null> {
-  if (!instalmentId) return null;
-  const instalment = await db.instalment.findFirst({
-    where: { establishmentId, id: instalmentId },
-    select: { planId: true },
-  });
-  if (!instalment) return null;
+/**
+ * The plan a stored payment belongs to, for `deleteTransaction`. v1.4 (P13):
+ * an open-plan payment (`planId`) bumps its plan too, so a delete racing a
+ * payment cannot leave an auto-close standing on a stale sum; the delete
+ * itself never changes the plan's state (C4).
+ */
+export async function paymentOf(
+  establishmentId: string,
+  links: { instalmentId: string | null; planId: string | null },
+): Promise<PaymentRef | null> {
+  let planId = links.planId;
+  if (!planId && links.instalmentId) {
+    const instalment = await db.instalment.findFirst({
+      where: { establishmentId, id: links.instalmentId },
+      select: { planId: true },
+    });
+    planId = instalment?.planId ?? null;
+  }
+  if (!planId) return null;
   const plan = await db.plan.findFirst({
-    where: { establishmentId, id: instalment.planId },
+    where: { establishmentId, id: planId },
     select: { id: true, revision: true },
   });
   return plan ? { planId: plan.id, revision: plan.revision } : null;

@@ -9,6 +9,13 @@ It is an internal ledger only. There is **no** invoicing, VAT, ZATCA, receipts o
 - **Owner**: signs up, waits for admin approval, then gets one establishment. Records entries, sees the dashboard and reports, exports to Excel, locks past months, and manages staff.
 - **Staff**: signs up with the owner's join code and waits for the owner's approval. Can always add entries. Can edit only if the owner allows it, and can never delete.
 
+**Finding your way around (v1.4)**
+- Owner navigation: **الرئيسية · «+ إضافة» · السجل · التقارير · العملاء والالتزامات (الجهات، الاتفاقيات، المستحقات) · الموظفون والحضور (الموظفون، الحضور، حسابات الدخول) · الإعدادات (رمز الانضمام، إقفال الأشهر، التذكيرات، حسابي)**. On a phone the bar is **الرئيسية | إضافة | السجل | المستحقات | المزيد**.
+- The one **«+»** opens a sheet with everything you can add: حركة جديدة · تسجيل دفعة · اتفاقية جديدة · جهة جديدة · نشاط جديد · موظف جديد. Staff see حركة جديدة (and تسجيل حضوري when linked to an employee record).
+- **السجل** has two tabs: **الحركات** (the ledger) and **الأنشطة** (named cost items with their own costs and budget — called «الإضافات» before v1.4).
+- **Categories** are added and hidden straight from the entry form («+ إضافة تصنيف», «تعديل التصنيفات»); renaming and reordering stay in `/owner/settings/categories`.
+- An **اتفاقية مفتوحة** is an agreement without a schedule: an optional ceiling, payments recorded as they arrive, closed automatically when the ceiling is reached. Scheduled agreements are unchanged, and a scheduled row is called a **قسط**.
+
 **Stack:** Next.js (App Router) · TypeScript · Tailwind CSS · PostgreSQL on [Neon](https://neon.tech) via Prisma · hosted on [Render](https://render.com).
 
 ---
@@ -133,5 +140,6 @@ The exact callback paths and variable names will be written here when v1.1 is bu
 ## Project files worth knowing
 - `CLAUDE.md`: the rules the project is built by.
 - `PROGRESS.md`: current state, decisions and known issues.
-- `docs/BACKEND.md`, `docs/FRONTEND.md`: the specification.
+- `docs/BACKEND.md`, `docs/FRONTEND.md`: the specification; `docs/V12-SPEC.md`, `docs/V13-SPEC.md`, `docs/V14-SPEC.md`: the product owner's release specs (they win).
+- `CHANGELOG.md`: what each release added or changed, from v1.3.
 - `render.yaml`: the Render Blueprint.

@@ -5,6 +5,9 @@ import { dateToISO, todayISO } from "@/lib/dates";
 import { db } from "@/lib/db";
 import { planTitleOf } from "@/lib/payroll";
 
+import { scheduledTotal } from "@/features/plans/kind";
+import { openPlansRemaining } from "@/features/plans/openRemaining";
+
 import { getParty, type PartyDetail } from "./queries";
 
 /**
@@ -15,6 +18,8 @@ import { getParty, type PartyDetail } from "./queries";
  *   PAYMENT   per linked non-deleted entry: IN −amount, OUT +amount
  *   WRITE_OFF on an archived plan's closedAt (Riyadh date), cancelling the rest
  * Invariant (tested on real SQL): closing = owedToUs − owedByUs from listParties.
+ * v1.4 (D10): OPEN_ENDED plans are excluded explicitly — nothing to owe without
+ * a schedule; their payments reach `other` as party entries with no instalment.
  */
 
 export type StatementKind = "PLAN" | "PAYMENT" | "WRITE_OFF";
@@ -37,6 +42,13 @@ export type PartyStatement = {
   other: LedgerRow[];
   /** More than 50 exist: the page says so and links to the filtered ledger (W11). */
   otherCapped: boolean;
+  /**
+   * v1.4 D10 (user's addition): Σ (total − received, clamped at 0) over the
+   * party's OPEN open-ended plans with a ceiling — one informational line,
+   * never part of `rows` or `closingBalanceHalalas`; null = hide. The same
+   * helper the party rows use (M4).
+   */
+  openPlansRemainingHalalas: number | null;
 };
 
 export const STATEMENT_OTHER_LIMIT = 50;
@@ -50,7 +62,7 @@ export async function getPartyStatement(establishmentId: string, partyId: string
   if (!party) return null;
 
   const plans = await db.plan.findMany({
-    where: { establishmentId, partyId: party.id, state: { in: ["OPEN", "ARCHIVED"] } },
+    where: { establishmentId, partyId: party.id, state: { in: ["OPEN", "ARCHIVED"] }, kind: { not: "OPEN_ENDED" } },
     select: { id: true, title: true, kind: true, direction: true, totalHalalas: true, startDate: true, state: true, closedAt: true, createdAt: true },
   });
   const instalments = plans.length
@@ -71,13 +83,14 @@ export async function getPartyStatement(establishmentId: string, partyId: string
   for (const plan of plans) {
     const sign = plan.direction === "IN" ? 1 : -1;
     const title = planTitleOf(plan, party.name); // X13
+    const total = scheduledTotal(plan.totalHalalas, plan.id); // D6
     unsorted.push({
       date: dateToISO(plan.startDate),
       kind: "PLAN",
       planId: plan.id,
       planTitle: title,
       transactionId: null,
-      deltaHalalas: sign * plan.totalHalalas,
+      deltaHalalas: sign * total,
       sortKey: plan.createdAt.toISOString(),
     });
     let paid = 0;
@@ -93,7 +106,7 @@ export async function getPartyStatement(establishmentId: string, partyId: string
         sortKey: p.createdAt.toISOString(),
       });
     }
-    const rest = plan.totalHalalas - paid;
+    const rest = total - paid;
     if (plan.state === "ARCHIVED" && rest !== 0 && plan.closedAt) {
       unsorted.push({
         date: todayISO(plan.closedAt),
@@ -119,10 +132,10 @@ export async function getPartyStatement(establishmentId: string, partyId: string
     return { ...row, balanceHalalas: balance };
   });
 
-  const other = await recentTransactions(establishmentId, STATEMENT_OTHER_LIMIT + 1, {
-    partyId: party.id,
-    instalmentId: null,
-  });
+  const [other, openPlansRemainingHalalas] = await Promise.all([
+    recentTransactions(establishmentId, STATEMENT_OTHER_LIMIT + 1, { partyId: party.id, instalmentId: null }),
+    openPlansRemaining(establishmentId, party.id),
+  ]);
 
   return {
     party,
@@ -130,5 +143,6 @@ export async function getPartyStatement(establishmentId: string, partyId: string
     closingBalanceHalalas: balance,
     other: other.slice(0, STATEMENT_OTHER_LIMIT),
     otherCapped: other.length > STATEMENT_OTHER_LIMIT,
+    openPlansRemainingHalalas,
   };
 }

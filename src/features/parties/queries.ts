@@ -1,5 +1,6 @@
 import "server-only";
 
+import { openPlansRemainingByParty } from "@/features/plans/openRemaining";
 import { todayISO } from "@/lib/dates";
 import { db } from "@/lib/db";
 import type { DirectionValue, PartyTypeValue } from "@/lib/validation";
@@ -29,6 +30,12 @@ export type PartyRow = {
   employeeId: string | null;
   /** v1.2c C9: the owner opted this party in to client reminders. */
   remindersOptIn: boolean;
+  /**
+   * v1.4 (D17 c6, M4): Σ max(0, total − received) over the party's OPEN
+   * open-ended plans with a ceiling; null = none → the line is hidden.
+   * Informational, outside لنا / علينا (D10).
+   */
+  openPlansRemainingHalalas: number | null;
 };
 
 export type PartyDetail = PartyRow & {
@@ -65,6 +72,8 @@ type Balance = { owedToUsHalalas: number; owedByUsHalalas: number };
  * Σ(amountDue − paid) over the instalments of OPEN plans, split by the plan's
  * direction. Two scoped reads instead of a nested one, so the gate sees both.
  * `Number()` because Postgres widens `sum(int4)` to bigint (v1.2a V3).
+ * v1.4 (C5, D10, P9): an OPEN_ENDED plan counts as history but never as a
+ * balance — the kind check below is explicit (D4-tested).
  */
 async function balances(
   establishmentId: string,
@@ -76,11 +85,11 @@ async function balances(
 
   const plans = await db.plan.findMany({
     where: { establishmentId, partyId: { in: partyIds } },
-    select: { id: true, partyId: true, direction: true, state: true },
+    select: { id: true, partyId: true, direction: true, state: true, kind: true },
   });
   for (const plan of plans) withPlans.add(plan.partyId);
 
-  const open = plans.filter((p) => p.state === "OPEN");
+  const open = plans.filter((p) => p.state === "OPEN" && p.kind !== "OPEN_ENDED");
   if (open.length === 0) return { balance, withPlans };
 
   const sums = await db.instalment.groupBy({
@@ -136,9 +145,10 @@ async function toRows(
   parties: SelectedParty[],
 ): Promise<PartyRow[]> {
   const ids = parties.map((p) => p.id);
-  const [{ balance, withPlans }, withTransactions] = await Promise.all([
+  const [{ balance, withPlans }, withTransactions, openRemaining] = await Promise.all([
     balances(establishmentId, ids),
     partiesWithTransactions(establishmentId, ids),
+    openPlansRemainingByParty(establishmentId, ids),
   ]);
   return parties.map(({ employee, ...p }) => ({
     ...p,
@@ -146,6 +156,7 @@ async function toRows(
     owedToUsHalalas: balance.get(p.id)?.owedToUsHalalas ?? 0,
     owedByUsHalalas: balance.get(p.id)?.owedByUsHalalas ?? 0,
     hasHistory: withPlans.has(p.id) || withTransactions.has(p.id),
+    openPlansRemainingHalalas: openRemaining.get(p.id) ?? null,
   }));
 }
 

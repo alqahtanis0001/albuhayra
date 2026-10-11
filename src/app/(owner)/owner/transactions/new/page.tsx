@@ -66,6 +66,7 @@ export default async function OwnerNewTransactionPage({
         // حفظ returns to the plan (payment) or the إضافة («تسجيل تكلفة»).
         doneHref={doneHref}
         notice={notice}
+        manageCategories // v1.4 A2: owner only — decided here, on the server (D12).
         payment={
           pay
             ? { direction: pay.direction, amountHalalas: pay.instalmentRemainingHalalas, categoryId: pay.categoryId }

@@ -15,6 +15,7 @@ import { z } from "zod";
 
 import { assertUnlocked } from "@/features/locks/assertUnlocked";
 import { checkCategory, EXISTING_SELECT, snapshot, withSalaryHidden } from "@/features/transactions/links";
+import { recordOpenPlanPaymentFor, type OpenPaymentState } from "@/features/transactions/openPlanPayments";
 import { CONFLICT, inEntryTransaction, paymentOf, resolveEntry } from "@/features/transactions/payments";
 import { writeAudit } from "@/lib/audit";
 import { requireCanEdit, requireMember, requireOwner } from "@/lib/auth";
@@ -212,8 +213,8 @@ export async function deleteTransaction(
   ]);
   if (locked) return { ok: false, error: locked };
 
-  // A payment's plan is re-allocated after the soft delete (un-pays).
-  const payment = await paymentOf(establishmentId, existing.instalmentId);
+  // A payment's plan is re-allocated after the soft delete (un-pays); an open plan's is bumped (P13).
+  const payment = await paymentOf(establishmentId, existing);
   const changed = await inEntryTransaction(payment, establishmentId, user.id, async (tx) => {
     const { count } = await tx.transaction.updateMany({
       where: { establishmentId, id: existing.id, deletedAt: null },
@@ -237,4 +238,9 @@ export async function deleteTransaction(
 
   revalidateLedger();
   return { ok: true, data: null };
+}
+
+/** v1.4 D7: a payment on an open-ended agreement — OWNER only; the body lives in openPlanPayments.ts. */
+export async function recordOpenPlanPayment(planId: string, _prev: OpenPaymentState, formData: FormData) {
+  return recordOpenPlanPaymentFor(planId, formData);
 }

@@ -14,13 +14,13 @@ import { Footer } from "./Footer";
 import { BottomTabs, SideNav, type Badges } from "./RoleNav";
 import { RouteTransition } from "./RouteTransition";
 import { TopBar } from "./TopBar";
-import type { NavGroup } from "./nav";
+import type { NavGroup, TabSlot } from "./nav";
 
 export type AppShellProps = {
   groups: NavGroup[];
-  /** Phone tab bar hrefs; the rest go to المزيد. Omit: every item is a tab. */
-  tabHrefs?: string[];
-  /** Count badges by item href (v1.2a: overdue on /owner/dues); 0 hides one. */
+  /** Phone tab bar slots (hrefs, or ADD_SLOT for the «+»); the rest go to المزيد. Omit: every entry is a tab. */
+  tabHrefs?: TabSlot[];
+  /** Count badges by item href (v1.2a: overdue on /owner/dues; v1.4: pending joins on /owner/staff/logins); 0 hides one. */
   badges?: Badges;
   userName: string;
   establishmentName?: string | null;

@@ -24,6 +24,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { MoneyText } from "@/components/MoneyText";
 import { Sparkline } from "@/components/Sparkline";
 import { TBody, Table, Td, Th, Tr } from "@/components/Table";
+import { OpenPlansRemainingLine } from "@/features/parties/components/PartyBits";
 import type { PartyStatement, StatementRow } from "@/features/parties/statement";
 import { t } from "@/i18n/ar";
 import { formatSAR } from "@/lib/money";
@@ -143,6 +144,8 @@ export function PartyStatementView({ statement }: { statement: PartyStatement })
             <BalanceWords halalas={statement.closingBalanceHalalas} />
           </span>
         </div>
+        {/* v1.4 D10 (user): one informational line, outside the balance, screen only. */}
+        <OpenPlansRemainingLine halalas={statement.openPlansRemainingHalalas} className="mt-1 block" />
       </Card>
 
       {other.length > 0 ? (

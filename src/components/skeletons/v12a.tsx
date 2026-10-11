@@ -76,18 +76,6 @@ function ProjectCardBones() {
   );
 }
 
-/** /owner/projects: heading + add, status tabs, cards. */
-export function ProjectsSkeleton() {
-  return (
-    <SkeletonPage>
-      <SkeletonHeader action />
-      <SkeletonTabs count={4} />
-      {Array.from({ length: 3 }, (_, i) => (
-        <ProjectCardBones key={i} />
-      ))}
-    </SkeletonPage>
-  );
-}
 
 /** /owner/projects/[id]: header, totals, by category, its entries. */
 export function ProjectDetailSkeleton() {

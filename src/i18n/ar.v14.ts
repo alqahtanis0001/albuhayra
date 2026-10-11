@@ -22,6 +22,9 @@ export const v14Sections = {
     hide: "إخفاء التصنيف {name}",
     hidden: "تم إخفاء التصنيف",
     chipsLabel: "التصنيفات النشطة",
+    /** D17 c5: grey chips of the direction's hidden categories, each with an «إظهار» control. */
+    hiddenChipsLabel: "التصنيفات المخفية",
+    show: "إظهار",
     done: "تم",
     more: "المزيد (إعادة ترتيب، إعادة تسمية، إظهار)",
   },
@@ -96,7 +99,7 @@ export const v14Sections = {
 
   /** v1.4 error keys. Merged into `t.err` by ar.ts. */
   errV14: {
-    planBothLinks: "لا يمكن ربط الحركة بدفعة وباتفاقية مفتوحة معًا",
+    planBothLinks: "لا يمكن ربط الحركة بقسط وباتفاقية مفتوحة معًا",
     planNotOpenEnded: "هذه الاتفاقية ليست مفتوحة",
     planKindFixed: "لا يمكن تغيير نوع الاتفاقية",
     expectedEndBeforeStart: "تاريخ الانتهاء المتوقع لا يسبق تاريخ البدء",

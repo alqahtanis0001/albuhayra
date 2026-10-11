@@ -20,21 +20,25 @@ import {
   type ActionResult,
   type DirectionValue,
 } from "@/lib/validation";
-import { createCategory } from "@/features/settings/actions";
+import { createCategory, type CategoryCreated } from "@/features/settings/actions";
 
 type State = ActionResult<null> | null;
+/** v1.4 D12: `createCategory` returns the row (the entry form selects it; this page only refreshes). */
+type AddState = ActionResult<CategoryCreated> | null;
 
 type BoundAction = (prev: State, formData: FormData) => Promise<ActionResult<null>>;
 
-function check(formData: FormData): State {
+function check(formData: FormData): ReturnType<typeof invalid> | null {
   const parsed = CategoryInputSchema.safeParse(Object.fromEntries(formData));
   return parsed.success ? null : invalid(parsed.error);
 }
 
 export function AddCategoryForm({ type }: { type: DirectionValue }) {
   const [state, action, pending] = useActionState(
-    async (prev: State, formData: FormData): Promise<State> =>
-      check(formData) ?? createCategory(prev, formData),
+    // The previous state is never read by the action; `null` keeps the two
+    // result shapes apart without widening SettingsState.
+    async (_prev: AddState, formData: FormData): Promise<AddState> =>
+      check(formData) ?? createCategory(null, formData),
     null,
   );
   const fieldErrors = state && !state.ok ? state.fieldErrors : undefined;
