@@ -129,3 +129,21 @@ export const MONTH_NAMES_AR = [
 export function monthNameAr(month: number): string {
   return MONTH_NAMES_AR[month - 1] ?? "";
 }
+
+/** Weekday names, Sunday first — the same words as `t.weekday` (src/i18n/ar.v12b.ts), kept here so this module stays free of the i18n import. */
+const WEEKDAYS_AR = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"] as const;
+
+/**
+ * v1.4 part 3 (D29 R13): the line under a native date input — «الأحد 11-10-2026»:
+ * weekday first, then DD-MM-YYYY with hyphens, Gregorian, Western digits. The
+ * weekday is the calendar day's own, independent of the machine's zone (the
+ * ISO string is read as UTC midnight). Anything that is not `YYYY-MM-DD` → null,
+ * so an empty or half-typed field shows nothing.
+ */
+export function dateCaption(iso: string): string | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return null;
+  const date = new Date(`${iso}T00:00:00Z`);
+  if (Number.isNaN(date.getTime()) || dateToISO(date) !== iso) return null;
+  const [year, month, day] = iso.split("-");
+  return `${WEEKDAYS_AR[date.getUTCDay()]} ${day}-${month}-${year}`;
+}
