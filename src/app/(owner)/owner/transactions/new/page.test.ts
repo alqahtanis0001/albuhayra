@@ -56,7 +56,9 @@ const { default: OwnerNewTransactionPage } = await import("./page");
 const PAY = {
   planId: "plan_1", instalmentId: "i_1", direction: "OUT", partyId: "party_1", partyName: "شركة مراد",
   instalmentRemainingHalalas: 1000, planRemainingHalalas: 1000, categoryId: "cat_1", planTitle: "عقد", seq: 1, periodYm: null,
+  kind: "STANDARD", employeeId: null,
 };
+const SALARY = { ...PAY, kind: "SALARY", employeeId: "emp_1", periodYm: "2026-10", planTitle: "راتب شهري — سعد" };
 
 async function render(params: Record<string, string | string[] | undefined>): Promise<string> {
   return renderToStaticMarkup(await OwnerNewTransactionPage({ searchParams: Promise.resolve(params) }));
@@ -119,5 +121,25 @@ describe("/owner/transactions/new — doneHref and subtitle (R4, R16)", () => {
     const out = await render({ instalmentId: "i_1" });
     expect(out).toContain('data-done="/owner/plans/plan_1?paid=i_1&amp;saved=1"');
     expect(out).not.toContain(t.transaction.newSubtitle);
+  });
+});
+
+/** v1.4 part 3 — D29 R6: a salary month is «صرف راتب» and returns to the employee page. */
+describe("/owner/transactions/new — a SALARY instalment (R6)", () => {
+  it("titles the page «صرف راتب» and returns to /owner/staff/{employeeId}?saved=1", async () => {
+    h.pay = SALARY;
+    const out = await render({ instalmentId: "i_1" });
+    expect(out).toContain(`<h1 class="text-xl font-semibold text-gray-900">${t.employees.paySalary}</h1>`);
+    expect(out).toContain('data-done="/owner/staff/emp_1?saved=1"');
+    expect(out).not.toContain(t.payment.title);
+  });
+
+  it("a STANDARD instalment keeps «تسجيل دفعة» and the plan; a salary without an employee falls back to the plan", async () => {
+    h.pay = PAY;
+    const standard = await render({ instalmentId: "i_1" });
+    expect(standard).toContain(`<h1 class="text-xl font-semibold text-gray-900">${t.payment.title}</h1>`);
+    expect(standard).toContain('data-done="/owner/plans/plan_1?paid=i_1&amp;saved=1"');
+    h.pay = { ...SALARY, employeeId: null };
+    expect(await render({ instalmentId: "i_1" })).toContain('data-done="/owner/plans/plan_1?paid=i_1&amp;saved=1"');
   });
 });

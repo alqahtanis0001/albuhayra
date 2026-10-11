@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { t } from "@/i18n/ar";
 
-import { ReportFilters } from "./ReportFilters";
+import { ReportFilters, type ReportFiltersRange } from "./ReportFilters";
 import { afterDateTyped, afterMonthChoice, monthOptions, monthRange } from "./reportMonths";
 import { ReportTabs } from "./ReportTabs";
 
@@ -27,7 +27,7 @@ vi.mock("@/features/reports/components/ReportTables", () => ({ ReportTables: () 
 
 const { default: OwnerReportsPage } = await import("@/app/(owner)/owner/reports/(summary)/page");
 
-const RANGE = { from: "2026-10-01", to: "2026-10-31", month: "2026-10" };
+const RANGE: ReportFiltersRange = { from: "2026-10-01", to: "2026-10-31", month: "2026-10" };
 const render = (range = RANGE, partyId = "") =>
   renderToStaticMarkup(
     createElement(ReportFilters, { range, basePath: "/owner/reports", parties: [{ id: "p1", name: "محمد", active: true }], partyId }),

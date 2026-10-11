@@ -47,11 +47,15 @@ export default async function OwnerNewTransactionPage({
       ? await getInstalmentForPayment(establishmentId, sp.instalmentId)
       : null;
   const notice = sp.instalmentId !== undefined && !pay ? "err.instalmentInvalid" : undefined;
-  // R4: every landing page shows «تم حفظ الحركة» from `?saved=1`.
+  // R4: every landing page shows «تم حفظ الحركة» from `?saved=1`. R6: a salary
+  // payment returns to the employee page, not the system-managed salary plan.
+  const salary = pay?.kind === "SALARY";
   const doneHref = withSaved(
-    pay
-      ? `/owner/plans/${pay.planId}?paid=${encodeURIComponent(pay.instalmentId)}`
-      : presetProjectId
+    salary && pay.employeeId
+      ? `/owner/staff/${pay.employeeId}`
+      : pay
+        ? `/owner/plans/${pay.planId}?paid=${encodeURIComponent(pay.instalmentId)}`
+        : presetProjectId
         ? `/owner/projects/${presetProjectId}`
         : "/owner/transactions",
   );
@@ -59,7 +63,7 @@ export default async function OwnerNewTransactionPage({
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-xl font-semibold text-gray-900">
-        {pay ? t.payment.title : t.transaction.newTitle}
+        {salary ? t.employees.paySalary : pay ? t.payment.title : t.transaction.newTitle}
       </h1>
       {pay ? null : <p className="-mt-2 text-sm text-gray-600">{t.transaction.newSubtitle}</p>}
       <TransactionForm

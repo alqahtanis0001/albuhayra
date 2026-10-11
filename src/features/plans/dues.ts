@@ -157,6 +157,7 @@ export async function getInstalmentForPayment(
       plan: {
         select: {
           title: true, kind: true, state: true, direction: true, partyId: true, categoryId: true, totalHalalas: true,
+          employeeId: true, // R6 (D31h): the salary payment returns to the employee page.
           party: { select: { name: true } },
         },
       },
@@ -181,6 +182,7 @@ export async function getInstalmentForPayment(
     planRemainingHalalas: scheduledTotal(row.plan.totalHalalas, row.planId) - Number(paid._sum.amountHalalas ?? 0),
     kind: scheduledKind(row.plan.kind, row.planId),
     periodYm: row.periodYm,
+    employeeId: row.plan.employeeId ?? null,
   };
 }
 

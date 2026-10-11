@@ -9,6 +9,12 @@
  * Staff see only the party, this instalment's remaining and the rollover line
  * (W2): no plan title, no plan remaining, no link to owner pages. The staff
  * pages never fetch those fields, so they cannot be passed here by mistake.
+ *
+ * v1.4 part 3 (D29 R6, D31i): a salary month — `plan.periodYm` is set only on
+ * a SALARY instalment — is worded as a salary: «راتب شهر {month} — {name}»,
+ * «المتبقي من راتب الشهر», «الرواتب القادمة» (plan remaining − this month's,
+ * hidden at 0) and the salary rollover line; never «القسط n». Owner only, since
+ * staff pages pass no `plan`.
  */
 import Link from "next/link";
 
@@ -32,8 +38,22 @@ export type PaymentBannerProps =
     })
   | (Common & { mode: "edit"; plan?: OwnerPlan });
 
+/** R6: a payment on a salary month (periodYm set) is worded as a salary, not an instalment. */
+export function isSalaryPayment(props: PaymentBannerProps): boolean {
+  return props.mode === "new" && Boolean(props.plan?.periodYm);
+}
+
+/** R6: what is left on the plan beyond this month; hidden when nothing is. */
+export function upcomingHalalas(planRemaining: number, instalmentRemaining: number): number | null {
+  const upcoming = planRemaining - instalmentRemaining;
+  return upcoming > 0 ? upcoming : null;
+}
+
 export function PaymentBanner(props: PaymentBannerProps) {
   const { direction, partyId, partyName, plan } = props;
+  const salary = isSalaryPayment(props);
+  const upcoming =
+    props.mode === "new" && props.plan ? upcomingHalalas(props.plan.planRemainingHalalas, props.instalmentRemainingHalalas) : null;
   return (
     <section className="flex flex-col gap-2 rounded-xl border border-accent-line bg-accent-soft p-4 text-sm text-gray-900">
       <h2 className="text-base font-semibold text-accent-dark">
@@ -42,7 +62,7 @@ export function PaymentBanner(props: PaymentBannerProps) {
       {props.mode === "new" && props.plan ? (
         <p>
           {props.plan.periodYm
-            ? `${props.plan.planTitle} · ${periodLabel(props.plan.periodYm)}`
+            ? t.payment.salaryTitle.replace("{month}", periodLabel(props.plan.periodYm)).replace("{name}", partyName)
             : t.payment.forInstalment
                 .replace("{seq}", String(props.plan.seq))
                 .replace("{title}", props.plan.planTitle)}
@@ -58,11 +78,11 @@ export function PaymentBanner(props: PaymentBannerProps) {
         </dd>
         {props.mode === "new" ? (
           <>
-            <dt className="text-gray-700">{t.payment.remaining}</dt>
+            <dt className="text-gray-700">{salary ? t.payment.salaryRemaining : t.payment.remaining}</dt>
             <dd>
               <MoneyText halalas={props.instalmentRemainingHalalas} />
             </dd>
-            {props.plan ? (
+            {props.plan && !salary ? (
               <>
                 <dt className="text-gray-700">{t.payment.planRemaining}</dt>
                 <dd>
@@ -70,11 +90,21 @@ export function PaymentBanner(props: PaymentBannerProps) {
                 </dd>
               </>
             ) : null}
+            {salary && upcoming !== null ? (
+              <>
+                <dt className="text-gray-700">{t.payment.upcomingSalaries}</dt>
+                <dd>
+                  <MoneyText halalas={upcoming} />
+                </dd>
+              </>
+            ) : null}
           </>
         ) : null}
       </dl>
 
-      {props.mode === "new" ? <p className="text-xs text-gray-700">{t.payment.rollsOver}</p> : null}
+      {props.mode === "new" ? (
+        <p className="text-xs text-gray-700">{salary ? t.payment.salaryRollsOver : t.payment.rollsOver}</p>
+      ) : null}
       {plan ? (
         <Link
           href={`/owner/plans/${plan.planId}`}
