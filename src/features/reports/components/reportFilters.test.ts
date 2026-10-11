@@ -3,6 +3,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
+import { AGING_HREF, REPORTS_HREF } from "@/app/(owner)/owner/transactions/(list)/ledgerTab";
 import { t } from "@/i18n/ar";
 
 import { ReportFilters, type ReportFiltersRange } from "./ReportFilters";
@@ -24,14 +25,32 @@ vi.mock("@/features/reports/queries", () => ({
   getReport: async () => ({ from: "2026-10-01", to: "2026-10-31", inRows: [], outRows: [], totalIn: 0, totalOut: 0, net: 0, party: undefined }),
 }));
 vi.mock("@/features/reports/components/ReportTables", () => ({ ReportTables: () => createElement("table", { id: "report" }) }));
+// v1.5 (B2): the report body moved into السجل's «التقارير» tab (ReportsTab), which also loads the aging report.
+vi.mock("@/features/payroll/generate", () => ({ ensureSalaryInstalments: async () => undefined }));
+vi.mock("@/features/reports/aging", () => ({ getAgingReport: async () => null }));
 
-const { default: OwnerReportsPage } = await import("@/app/(owner)/owner/reports/(summary)/page");
+const { loadReportsTab, ReportsTab } = await import("@/app/(owner)/owner/transactions/(list)/ReportsTab");
 
 const RANGE: ReportFiltersRange = { from: "2026-10-01", to: "2026-10-31", month: "2026-10" };
 const render = (range = RANGE, partyId = "") =>
   renderToStaticMarkup(
     createElement(ReportFilters, { range, basePath: "/owner/reports", parties: [{ id: "p1", name: "محمد", active: true }], partyId }),
   );
+
+describe("ReportFilters hidden fields (v1.5 D24)", () => {
+  it("carries tab=reports as a hidden field inside the one form, so a GET submit stays on the tab", () => {
+    const html = renderToStaticMarkup(
+      createElement(ReportFilters, { range: RANGE, basePath: "/owner/transactions", hiddenFields: [["tab", "reports"]], parties: [], partyId: "" }),
+    );
+    expect(/<form [^>]*>/.exec(html)?.[0]).toMatch(/\baction="\/owner\/transactions"/);
+    expect(html).toMatch(/<form [^>]*><input type="hidden" name="tab" value="reports"\/>/);
+    expect(html.match(/type="hidden"/g)).toHaveLength(1);
+  });
+
+  it("without hiddenFields there is no hidden input", () => {
+    expect(render()).not.toContain('type="hidden"');
+  });
+});
 
 describe("ReportFilters (R11)", () => {
   it("is one GET form with exactly one submit, labelled «عرض»", () => {
@@ -104,9 +123,11 @@ describe("the month ↔ range helpers (pure)", () => {
   });
 });
 
-describe("the summary page order and the aging tab label", () => {
+describe("the category report order and the aging tab label", () => {
   it("renders the filters after the report on phones (order-last) while the DOM keeps them first", async () => {
-    const html = renderToStaticMarkup(await OwnerReportsPage({ searchParams: Promise.resolve({ month: "2026-10" }) }));
+    // v1.5: rendered as the reports tab's body (was the /owner/reports page).
+    const data = await loadReportsTab("est_1", { tab: "reports", month: "2026-10" });
+    const html = renderToStaticMarkup(createElement(ReportsTab, { data, establishmentName: "منشأة" }));
     expect(html).toMatch(/<div class="no-print order-last md:order-none"><form/);
     expect(html.indexOf("<form")).toBeLessThan(html.indexOf('id="report"'));
     expect(html.match(/<form/g)).toHaveLength(1);
@@ -117,5 +138,14 @@ describe("the summary page order and the aging tab label", () => {
     const html = renderToStaticMarkup(createElement(ReportTabs, { active: "category" }));
     expect(html).toContain(t.aging.tab);
     expect(t.aging.tab).toBe("المتأخرات حسب المدة");
+  });
+
+  it("v1.5 D24: the sub-tab strip points into السجل's reports tab, labelled «نوع التقرير»", () => {
+    const html = renderToStaticMarkup(createElement(ReportTabs, { active: "aging" }));
+    expect(html).toContain(`aria-label="${t.reportsTabs.label}"`);
+    const hrefs = [...html.matchAll(/<a [^>]*href="([^"]+)"/g)].map((m) => m[1]!.replaceAll("&amp;", "&"));
+    expect(hrefs).toEqual([REPORTS_HREF, AGING_HREF]);
+    expect(html).toMatch(new RegExp(`<a aria-current="page"[^>]*>${t.aging.tab}</a>`));
+    expect(html).toContain(`>${t.reportFilter.byCategoryTab}</a>`);
   });
 });

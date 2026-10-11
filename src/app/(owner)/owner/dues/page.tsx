@@ -55,7 +55,7 @@ export default async function DuesPage() {
         id="dues-overdue"
         className="overflow-hidden rounded-xl border border-money-out bg-white"
       >
-        <h2 className="flex items-center gap-2 bg-money-out px-4 py-3 text-base font-semibold text-white">
+        <h2 className="flex items-center gap-2 bg-money-out px-4 py-3 text-base font-semibold text-on-accent">
           <AlertIcon size={18} />
           {t.dues.overdue}
           {dues.overdue.length > 0 ? (

@@ -11,7 +11,6 @@ import {
   SkeletonPage,
   SkeletonRows,
   SkeletonStatCards,
-  SkeletonTabs,
 } from "./Skeleton";
 
 /** /owner: quick actions, four stat cards, this week's dues, الإضافات الجارية, balance by method, the chart, top OUT, recent. */
@@ -112,39 +111,6 @@ export function EntryFormSkeleton({ mode }: { mode: "new" | "edit" }) {
       ))}
       <Bone onBody className="h-11 w-32 rounded-lg" />
       <SkeletonButtons onBody count={mode === "new" ? 2 : 1} />
-    </SkeletonPage>
-  );
-}
-
-/** /owner/reports: tabs (v1.2c), range picker, party filter (v1.2c), export + print, two category tables. */
-export function ReportsSkeleton() {
-  return (
-    <SkeletonPage>
-      <SkeletonHeader />
-      <SkeletonTabs count={2} />
-      <SkeletonCard className="grid gap-3 p-4 sm:grid-cols-2">
-        <div className="flex flex-col gap-3">
-          <SkeletonField />
-          <SkeletonButtons />
-        </div>
-        <div className="flex flex-col gap-3">
-          <Bone className="h-4 w-28" />
-          <SkeletonField />
-          <SkeletonField />
-          <SkeletonButtons />
-        </div>
-      </SkeletonCard>
-      {/* v1.2c: «بحسب الجهة». */}
-      <SkeletonCard className="p-4">
-        <SkeletonField />
-      </SkeletonCard>
-      <SkeletonButtons onBody count={2} />
-      <SkeletonCard title>
-        <SkeletonRows count={4} />
-      </SkeletonCard>
-      <SkeletonCard title>
-        <SkeletonRows count={4} />
-      </SkeletonCard>
     </SkeletonPage>
   );
 }

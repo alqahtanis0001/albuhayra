@@ -54,7 +54,7 @@ export default async function StaffLedgerPage({
         <h1 className="text-xl font-semibold text-gray-900">{t.ledger.title}</h1>
         <Link
           href={`${BASE}/new`}
-          className="no-print inline-flex min-h-11 items-center gap-2 rounded-lg bg-accent px-4 font-medium text-white hover:bg-accent-dark"
+          className="no-print inline-flex min-h-11 items-center gap-2 rounded-lg bg-accent px-4 font-medium text-on-accent hover:bg-accent-dark"
         >
           <PlusIcon size={18} />
           {t.transaction.addButton}

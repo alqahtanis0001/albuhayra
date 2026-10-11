@@ -48,7 +48,7 @@ export function ExpenseDonut({ slices, totalHalalas }: { slices: DonutEntry[]; t
               outerRadius="100%"
               startAngle={90}
               endAngle={-270}
-              stroke="#fff"
+              stroke="var(--color-white)"
               strokeWidth={2}
               isAnimationActive={!reduced}
               animationDuration={600}

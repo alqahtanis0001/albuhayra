@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
 
 import { AppShell } from "@/components/chrome/AppShell";
-import { OWNER_NAV_GROUPS, OWNER_TAB_HREFS } from "@/components/chrome/nav";
+import { OWNER_TAB_HREFS, ownerNavGroups } from "@/components/chrome/nav";
+import { hasSalaryEmployees } from "@/features/employees/salaryPick";
 import { countPendingStaff } from "@/features/establishments/queries";
 import { ensureSalaryInstalments } from "@/features/payroll/generate";
 import { getOverdueCount } from "@/features/plans/dues";
@@ -18,21 +19,24 @@ export default async function OwnerLayout({ children }: { children: ReactNode })
   await ensureSalaryInstalments(establishmentId);
   // The المستحقات badge: overdue instalments, from the server's today; the
   // حسابات الدخول badge (v1.4 c10): pending join requests, a count only. Fresh
-  // on every navigation; stale in between (accepted, V12).
-  const [overdue, pendingStaff] = await Promise.all([
+  // on every navigation; stale in between (accepted, V12). v1.5 (D15, D21):
+  // whether the «+» sheet offers «صرف راتب» — one scoped boolean.
+  const [overdue, pendingStaff, salaried] = await Promise.all([
     getOverdueCount(establishmentId),
     countPendingStaff(establishmentId),
+    hasSalaryEmployees(establishmentId),
   ]);
   const badges = { "/owner/dues": overdue, "/owner/staff/logins": pendingStaff };
 
   return (
     <AppShell
-      groups={OWNER_NAV_GROUPS}
+      groups={ownerNavGroups({ hasSalaryEmployees: salaried })}
       tabHrefs={OWNER_TAB_HREFS}
       badges={badges}
       userName={user.displayName}
       establishmentName={user.establishmentName}
       accountHref="/owner/settings/account"
+      role="OWNER"
     >
       {children}
     </AppShell>

@@ -1,0 +1,63 @@
+# v1.5 — brief for `home` (spec §A, D2–D10)
+
+Ready for go: yes (after the reviewer's pre-code pass)
+
+Read `progress/v15/brief-common.md` first, then open `docs/mocks/v15-overview-wheel.html` in Playwright, watch the draw, tap a segment, a dot, a row, «إظهار الكل», «إعادة العرض». That page is the approved look; match it (sizes, radii, widths, gaps, delays, dimming, centre text) using our tokens instead of its hexes.
+
+## You own
+`src/features/dashboard/**` (queries, pure helpers, components, tests); `src/app/(owner)/owner/page.tsx`; `src/components/Wheel*.tsx` (new); values of `t.wheel`, `t.attention`, `t.homeDetails`; append-only cases for your new reads in `src/features/transactions/scoping.test.ts`. You may *read* `src/features/plans/**`, `src/features/parties/**`, `src/features/payroll/**`, `src/lib/**` and call their exported server functions; changing them is someone else's job (ask the lead).
+
+## Before the token layer lands (D13)
+Build the reads, the pure geometry and all tests first. Visual code uses only existing token classes/vars. When the lead tells you the layer has landed, use the tokens `theme` names (`--color-track`, `--color-gold`, …) for the rings; never a hex.
+
+## H1 — reads (A1 ring 3, dial; A2)
+Add read-only fields to `getOwnerDashboard` (or a sibling `getOwnerOverview(establishmentId, today)` called from the page — your choice; keep `queries.ts` under ~250 lines by splitting into `overviewReads.ts`):
+- `commitments: { toUsHalalas, fromUsHalalas, salariesHalalas }` — **D2**: لنا = Σ `owedToUsHalalas` of `listParties(establishmentId)`; علينا = Σ `owedByUsHalalas` of the rows with `type !== "EMPLOYEE"`; رواتب الشهر = Σ remaining of unpaid instalments of OPEN `SALARY` plans due in the current Riyadh month. Reuse `listParties` (do not re-derive balances) so "ring 3 sums equal listParties totals" holds by construction, and pin it with a test on one fixture.
+- `dial: DialEvent[]` — unpaid instalments of OPEN, non-`OPEN_ENDED` plans with `dueDate ≤ today + 29` (overdue included): `{ instalmentId, planId, employeeId | null, partyName, kind: "IN" | "OUT" | "SALARY", remainingHalalas, dueDate, dayOffset }`. Model it on `getDues`' `unpaidUntil` (same `where`, same kind exclusion — an OPEN_ENDED plan with a stray instalment row must yield nothing, V14 D4).
+- For A2: `getDues()` already gives overdue / this week with لنا/علينا totals; pending join names come from `listPendingStaffNames`; the salary row needs the next unpaid SALARY instalment due in [today, today + 10] (from `dial` — no extra read).
+- Every new read: `establishmentId` first in `where`; a scoping-gate case each.
+
+## H2 — pure geometry `src/features/dashboard/wheel.ts` (D3, D5, D6, D7) + `wheel.test.ts`
+Rings (from the mock): ring 1 r = 88, w = 24; ring 2 r = 122, w = 26; ring 3 r = 155, w = 22; dial track r = 180; viewBox 400, centre 200; GAP = 3° at each end of an arc; badges at 215°. Functions (names are suggestions):
+- `ringArcs(values, gap)` → `[a0, a1]` per value; arcs proportional; Σ spans = 360 − 2·gap·n (pin it); a non-zero value never gets a span below a **minimum visible arc** (choose and record, e.g. 4° after gaps, borrowed proportionally from the others); zero values get no arc; all-zero → the empty ring (D: `--track`).
+- `ring2Slices(topOut, monthOut)` → top 5 + «أخرى» (= monthOut − Σ top 5, only when > 0) — the same numbers the donut shows (reuse `visuals.ts`' slice builder if it fits).
+- `dayAngle(dayOffset)` (0..29 → 360·d/30); `overdueAngles(n)` (evenly in [−14°, −2°], most overdue furthest from today); `dotRadius(amount, max)` (√ scale, clamp [4, 10]); `HIT_RADIUS = 14`; `clusterDots(events, max = 40)` (by day, count, sum, dominant kind; overdue → one hollow cluster).
+- `segmentHref(…)` for every navigation target of **D4** (ring 1 IN/OUT with this month's `from`/`to`, ring 2 category / «أخرى», ring 3 CUSTOMER / SUPPLIER / staff, plan dot, salary dot → employee page, cluster → `/owner/dues`).
+- `focusReducer(state, action)` for **D5**: tap segment (focus or, when already focused, navigate), tap row (focus ring), clear, Escape; returns `{ focused, navigateTo }`. Dimming = every mark not in the focus gets opacity 0.18.
+- `centreText(state, data)` — default: الرصيد الإجمالي + «الصافي ±X · ↑/↓ N٪» (the **same** numbers as the money cards: net = `monthNetHalalas`, % from `Momentum`'s rule — reuse its helper, do not re-derive); segment focus: its name + amount + ring name; row focus: the ring's focus title + total + sub (`t.wheel.ringNFocus*`); empty: «لا توجد بيانات بعد».
+Tests listed in A1 each with a recorded mutation: arc sum, minimum arc, day → angle incl. overdue placement, dot size bounds, cluster rule (40 vs 41), focus/dim, every navigation target, empty state, ring 3 = listParties totals.
+
+## H3 — the wheel UI `src/components/Wheel*.tsx` (client) (A1, D5, D6)
+- Server computes everything (geometry included, or the inputs plus the pure helpers — keep the client small: types and constants only, no `server-only`, no validation barrel). Card titled `t.wheel.title`, the hint under it, the SVG (`role="group"` + `aria-label={t.wheel.aria}`), the four numbered rows (buttons; titles, texts and **live** values with the mock's swatches), and the two buttons «إعادة العرض» / «إظهار الكل».
+- Segments and dots are focusable buttons (D5) with `aria-label` from `t.wheel.segment` / the dot labels (plural forms). Visible focus ring (gold in the mock — use the focus token). Enter/Space activate; Escape clears. A dot's invisible hit circle r = 14 sits on top of the visible dot.
+- Animation: CSS only (D6) — `pathLength="1"`, `stroke-dasharray:1`, keyframes to `stroke-dashoffset:0`, delays 0 / 0.8 / 1.6 / 2.4 s, +0.12 s per segment, dots pop, rows light at +0.3 s; resting state = final frame; `@media (prefers-reduced-motion: reduce)` and `@media print` → no animation, everything lit. «إعادة العرض» bumps a React `key`. Put the keyframes in the component (a `<style>` with the nonce is **not** available — use Tailwind arbitrary `animate-[…]` with keyframes `theme` adds to `globals.css` on your request, or inline `style={{ animation… }}` referencing keyframes that you ask `theme` to add). Ask `theme` early for the keyframes you need (`wheel-draw`, `wheel-pop`, `wheel-lit`).
+- Empty establishment (no entries, no commitments, no dues): every ring one full `--track` circle, centre «لا توجد بيانات بعد», no animation, rows still explain.
+- Width: the SVG is `max-w-[360px] w-full mx-auto` and never narrower than 315 px on a 390 px phone (D3's hit-area guarantee) — check the card padding at 360 px too.
+
+## H4 — «يحتاج انتباهك» (A2, D8)
+New `AttentionCard` replaces `OverdueStrip`, `WeekDues` and `PendingJoinNotice` on the home (delete the unused components and their tests, or keep what other screens import — check with grep). Rows in D8 order, each a link with a 44 px target, hidden when empty; card hidden when no row; heading badge = number of rows (`t.attention.badge` for sr text). Overdue row in the money-out colour with the alert icon (it replaces the red strip); week row with لنا/علينا totals (`t.dues.toUs/fromUs`); pending row with the names; salary row «الرواتب بعد N يومًا» → `/owner/staff?pick=salary` (built by `nav`). Tests: each row's presence rule (incl. salary window 10 vs 11 days, 0 → «الرواتب اليوم»), the badge count, the hidden-when-empty rule, the links.
+
+## H5 — details disclosure and recent (A3, A4, D9, D10)
+- `HomeDetails` (client): native `<details>` titled «التفاصيل والرسوم» holding the six-month card (with its waterfall tab), the expense donut (with its table), balance by method, الأنشطة الجارية — the existing components, unchanged. Remembered per device in localStorage exactly like `entryDetailsState.ts` (own key, try/catch); with nothing stored: open at ≥ 768 px, closed below (D9: server renders closed; a CSS rule shows the body at `md` until hydration, so desktop never flashes). Print shows the body whatever the state. Tests: the stored-choice rule, the default by width, print CSS present.
+- Recent: 5 rows (`RECENT_COUNT` → 5) with «عرض الكل» → `/owner/transactions`.
+- Home order exactly: quick actions → first-run card → 4 money cards → wheel → يحتاج انتباهك → آخر الحركات → التفاصيل والرسوم. Pin the order in a page-level test (mock the reads).
+
+## Done means
+H1–H5 green and reviewed, the home looks like the mock at 390 and 1280 px in light **and** dark (screenshots into `progress/v15/qa/home-*.png` from a static harness that renders the components with fixture data — no database), bundles measured (`/owner` growth recorded; cap +40 KB gz), recording complete.
+
+## Amendments after the pre-code review (lead, binding)
+- **Dial (D18, replaces the D3 numbers in H2):** `dayAngle(d) = 6 + 11·d`; same-day dues always merge into one day-dot (count, sum, dominant kind); a day with one due is that due's dot; overdue: ≤ 2 hollow dots in [−26°, −6°], ≥ 3 → one hollow cluster; `clusterDots` still enforces ≤ 40 marks. Overdue read: the 2 most recent + a count/sum aggregate (D35).
+- **Dimming (D16/D19, replaces "every mark not in the focus"):** focused segment → its whole ring at 1, other rings and the dial 0.18; focused dot → dial at 1; navigate only on re-activation of the same id. Tests pin exactly that.
+- **Ring 3 (D22, replaces D2 in H1):** رواتب = Σ remaining of unpaid OPEN SALARY instalments due ≤ end of this month; علينا = Σ `owedByUs` (all `listParties()` rows) − Σ remaining of all OPEN SALARY instalments; لنا = Σ `owedToUs`. Pin: علينا + رواتب = Σ owedByUs, لنا = Σ owedToUs.
+- **Targets (D23):** multi-due day-dot → `/owner/dues` if day ≤ 6, else the single plan (salary → employee) if all one plan, else `/owner/plans`; overdue cluster → `/owner/dues`; ring 3 keeps `?type=CUSTOMER` / `?type=SUPPLIER`.
+- **Reads (D26):** `getOwnerOverview(establishmentId, today)` in the existing stub `src/features/dashboard/overviewReads.ts` (mandatory; keep `import "server-only";` first); gate cases only under the "v1.5 home" marker at the end of `scoping.test.ts`.
+- **Client split (D25):** `wheel.ts` is client-safe (no `server-only`; `import type` only from `@/lib/validation`; values only from `@/lib/dates`, `@/lib/money`, `@/lib/plural`, `../visuals`). Client props: names, amounts, ids, dates, hrefs — nothing else (no email, no reminders flags).
+- **Keyboard and size (D27):** one Tab stop with roving tabindex (arrows ring 1 → 2 → 3 → dial, Home/End, Enter/Space, Escape), focus halo drawn in SVG with `var(--focus-ring)`, sr-only `aria-live="polite"` line mirroring the centre (+ `t.wheel.openHint` after a first activation); SVG full-bleed in the card (no inline padding on its wrapper) — pin the class.
+- **Empty and print (D28):** the centre says «لا توجد بيانات بعد» only with no entry, all rings zero and no dial marks; otherwise a zero ring is one full `--track` circle. `@media print` → marks at opacity 1; «إعادة العرض» / «إظهار الكل» `no-print`.
+- **Amounts (D29):** SVG text in whole riyals (en-US grouping); rows, aria-labels and the live line exact via `formatSAR` + `t.common.currency`. Centre sub: `momentum()` from `visuals.ts` → `t.wheel.arrow*` + `formatPercent(|pct|)`; capped → `centreSubCapped`; `pct === null` → `centreSubNoPct`.
+- **Animation (D30):** keyframes in `globals.css` (ask `theme` for `wheel-draw`, `wheel-pop`, `wheel-lit`, or name them and `theme` adds them) under `@media screen and (prefers-reduced-motion: no-preference)`; `backwards` fills on SVG marks and rows only.
+- **«يحتاج انتباهك» (D34):** the week row excludes SALARY instalments.
+- **Details (D20, replaces `<details>` in H5):** a `<button aria-expanded aria-controls>` + body; wrapper gets `data-open` only after mount from `home:detailsOpen` (D31) or the user's toggle; the screen-only CSS of D20 (ask `theme` to add it to `globals.css`, or put it in a `<style>` in the component — inline styles are allowed by the CSP); sections passed as server-rendered `children` (D25, source test that `HomeDetails.tsx` imports none of them). recharts inside the hidden body: check the chart renders after opening on a phone.
+- **Recent (D21):** `OWNER_RECENT_COUNT = 5` for the owner; staff `RECENT_COUNT` stays 10 (test it); `RecentTransactions` gets an optional `viewAllHref`.
+- **recharts colours (D32, from `theme`'s list):** `SixMonthChart`'s grid stroke, axis ticks/lines, tooltip box/label/items/cursor and legend take token values (`var(--color-…)`); `ExpenseDonut`'s `stroke="#fff"` becomes a token. Static test that the props are passed.
+- Existing pins to update: `FirstRunCard.test.ts:117`, `pendingJoinNotice.test.ts:33` (both read `page.tsx`).

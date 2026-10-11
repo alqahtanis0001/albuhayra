@@ -25,7 +25,7 @@ export default async function VerifyPage() {
           </p>
           <Link
             href="/login"
-            className="flex min-h-11 items-center justify-center rounded-lg bg-accent px-4 font-medium text-white hover:bg-accent-dark"
+            className="flex min-h-11 items-center justify-center rounded-lg bg-accent px-4 font-medium text-on-accent hover:bg-accent-dark"
           >
             {t.auth.loginSubmit}
           </Link>

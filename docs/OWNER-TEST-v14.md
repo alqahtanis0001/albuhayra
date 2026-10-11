@@ -142,3 +142,19 @@ The lead replayed tasks 2, 4, 6, 10 and 13 as أبو فهد at 390 px against th
 Measured on the same run: the toast box never intersects «حفظ» at 390 px (R3); the ledger's newest row top is 413 px of 844 after a save (R4); every date field shows its caption «الأحد 11-10-2026» (R13); the dues strip is a two-column grid, page `scrollWidth` = 390 (R15); «إقفال» asks «سيُقفل سبتمبر 2026: …» (R12); the report renders above its one «عرض» form and the tab reads «المتأخرات حسب المدة» (R11). One note for the live deploy: an establishment created before part 3 keeps «دفعة من عميل» until the data migration runs — on this local stack it was applied by hand after the fact, which is exactly what `migrate deploy` does on Render.
 
 After `qa-visual` (D34) the save notice moved into the page flow and success toasts lost their ✕; re-shot at 390 px on the release build: the form toast sits at y = 93 with nothing tappable inside it and «حفظ» at y = 759; the ledger's «تم حفظ الحركة» strip at y = 219 overlaps no link or button (`abu-fahd-p3-reshoot-*.jpg`).
+
+---
+
+## (g) Re-run after v1.5 (2026-10-11, branch `claude/v15-wheel-nav-theme` at `e2131b9`)
+
+`qa-visual` replayed tasks 1, 6 and 10 and two new tasks as أبو فهد at 390 px through the same driver (`progress/v14/owner-test/driver/server.mjs`; journal `progress/v15/qa/owner-test/journal.txt`; screenshots `progress/v15/qa/owner-test/abu-fahd-v15-*.jpg`), in a fresh establishment created through the real forms (owner approved from `/admin`, سعد's join request pending before task 1; tasks 2–5 and 8 run as setup with the same counts as (f)). Same tap rule: goto / tap / fill / select count one each.
+
+| # | Task | Taps before → after | What changed on the path |
+|---|---|---|---|
+| 1 | أول مرة أفتح، وش أسوي؟ | 5 → **5** | Login (4), then the curiosity tap now lands on something he can read: «يحتاج انتباهك ① طلب انضمام من سعد العتيبي» → «دخول الموظفين» with «قبول / رفض» (004) instead of the unexplained «1» on «المزيد». Hesitation: on day one the empty wheel fills a screen («لا توجد بيانات بعد», four rows about حلقات and إطار, «إعادة العرض» that does nothing) before he reaches that card (002, 003) — "وش هالدائرة؟ ما فيها شي". |
+| 6 | كم باقي على محمد؟ | 2 → **4** (2 by the old route) | On the home, row 3 of the wheel already reads «لنا من العملاء 4,000.00» after one tap (الرئيسية) — "هذا محمد، ما عندي غيره". To see محمد by name he taps the row (it only dims the wheel: "ضغطت وما فتح شي"), then the green outer arc twice → «محمد · عميل · لنا: 4,000.00» (014–018). Nothing on screen says the second tap opens. The (f) route «المستحقات» → «كم باقي على عميل؟ افتح الجهات» still takes 2 (019). |
+| 10 | أبي أصرف راتب سعد | 5 → **4** | «إضافة» → «صرف راتب — دفع راتب موظف عن هذا الشهر» → «اختر الموظف لصرف راتبه: سعد العتيبي · 4,000.00» → «راتب شهر أكتوبر 2026 — سعد العتيبي» prefilled → «حفظ» → سعد's page with «تم حفظ الحركة» (020–023). No hesitation; the «الموظفون» detour through «المزيد» is gone. |
+| 11 | وين التقارير؟ أبي أطبع مصروف الشهر | 5 → **5** (3 once in «السجل») | He opened «المزيد» first, where «التقارير» used to be, found nothing and closed it (2 wasted, 024). «السجل» → «التقارير» → «طباعة» (report first, one «عرض» form under it; 025, 026). Shorter for what he wanted in (a): «السجل» already shows «طباعة» above this month's list (2 taps). |
+| new | الشاشة قوية بالليل، أبيها غامقة | — → **4** (2 direct) | Looked for a setting in «المزيد» (2 wasted), then tried the small screen icon in the top bar: the first tap changed it to a sun and nothing else ("ما تغير شي"), the second turned everything dark (027–029); it stayed dark on the next page. |
+
+Measured on the same run: no horizontal scroll at 390 on any screen; the «+» sheet's seven rows are 56–72 px and fit at 390×844; the salary pick lists only payable employees; every date and amount in Western digits; the dark ledger toast «تم حفظ الحركة» and the delete dialog stay readable (`qa-dark-checks-*.jpg`).

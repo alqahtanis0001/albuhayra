@@ -11,7 +11,7 @@ import type { ReactNode } from "react";
 type Variant = "primary" | "secondary";
 
 const VARIANTS: Record<Variant, string> = {
-  primary: "bg-accent text-white border-accent hover:bg-accent-dark hover:border-accent-dark",
+  primary: "bg-accent text-on-accent border-accent hover:bg-accent-dark hover:border-accent-dark",
   secondary: "bg-white text-gray-900 border-gray-300 hover:bg-gray-200 hover:border-gray-400",
 };
 

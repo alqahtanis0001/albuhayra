@@ -5,14 +5,21 @@ import { LinkButton } from "@/components/LinkButton";
 import { Tabs } from "@/components/Tabs";
 import { PlusIcon } from "@/components/icons";
 import { EmployeeList } from "@/features/employees/components/EmployeeList";
+import { SalaryPickBanner, SalaryPickList } from "@/features/employees/components/SalaryPickList";
 import { listEmployees } from "@/features/employees/queries";
+import { listSalaryPick } from "@/features/employees/salaryPick";
+import { isSalaryPick } from "@/features/employees/salaryPickRules";
 import { ensureSalaryInstalments } from "@/features/payroll/generate";
 import { t } from "@/i18n/ar";
 import { requireOwner } from "@/lib/auth";
 
 export const metadata: Metadata = { title: t.employees.title };
 
-/** الموظفون: نشطون (default) or سابقون via ?status=ENDED; anything else = نشطون. */
+/**
+ * الموظفون: نشطون (default) or سابقون via ?status=ENDED; anything else = نشطون.
+ * v1.5 (B3, D21): `?pick=salary` is the «صرف راتب» pick list — ACTIVE only, no
+ * tabs and no «موظف جديد»; without it the page is unchanged.
+ */
 export default async function EmployeesPage({
   searchParams,
 }: {
@@ -20,7 +27,22 @@ export default async function EmployeesPage({
 }) {
   const { establishmentId } = await requireOwner();
   await ensureSalaryInstalments(establishmentId);
-  const status = (await searchParams).status === "ENDED" ? "ENDED" : "ACTIVE";
+  const raw = await searchParams;
+
+  if (isSalaryPick(raw.pick)) {
+    const picks = await listSalaryPick(establishmentId);
+    return (
+      <div className="flex flex-col gap-4">
+        <h1 className="text-xl font-semibold text-gray-900">{t.employees.title}</h1>
+        <SalaryPickBanner />
+        <div className="rounded-xl border border-gray-200 bg-white">
+          <SalaryPickList rows={picks} />
+        </div>
+      </div>
+    );
+  }
+
+  const status = raw.status === "ENDED" ? "ENDED" : "ACTIVE";
   const rows = await listEmployees(establishmentId, { status });
 
   return (

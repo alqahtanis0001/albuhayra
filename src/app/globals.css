@@ -59,6 +59,239 @@
   --radius-2xl: 0.125rem;
 }
 
+/* v1.5 tokens (docs/V15-SPEC.md C1). `static`, so every variable is emitted
+   even when only SVG/JS reads it (var(--color-gold) in a .tsx is not a class
+   Tailwind can see). Light values: the ones in use before v1.5 (the top bar,
+   PALETTE in src/components/visualPalette.ts, recharts' own grid/cursor grey
+   #ccc, the page backgrounds below) or, for the wheel, the approved mock
+   (docs/mocks/v15-overview-wheel.html). Dark values: the blocks further down.
+   - on-accent          text/icons on a saturated fill (accent, money-in/out,
+                        red-800 hover): white in light, deep ink in dark,
+                        because the dark accent is a light green (≥ 4.5:1 both)
+   - on-accent-muted    a caption on accent (the «+» primary row)
+   - on-gold            text on a gold mark (the wheel's dial counts): ink in
+                        both themes (gray-900's light value; on-accent's dark)
+   - topbar*            the green band: stays deep green with white in dark
+   - track              an empty ring / grid track
+   - gold … chart-*     chart and wheel marks (shapes, never text)
+   - page*, nav-pulse, paid-*, progress, ripple, backdrop: the raw colours of
+                        the rules below, now tokens so dark can redefine them */
+@theme static {
+  --color-on-accent: #ffffff;
+  --color-on-accent-muted: rgb(255 255 255 / 0.85);
+  --color-on-gold: #171717;
+  --color-topbar: #006c35;
+  --color-topbar-dark: #004d26;
+  --color-on-topbar: #ffffff;
+  --color-gold: #c9a227;
+  --color-gold-2: #e3cf7e;
+  --color-accent-2: #2e8b57;
+  --color-accent-3: #8fb5a0;
+  --color-chart-muted: #c9d1cc;
+  --color-track: #e8ede9;
+  --color-chart-amber: #b45309;
+  --color-chart-blue: #1d4ed8;
+  --color-chart-teal: #0f766e;
+  --color-chart-grey: #737373;
+  --color-chart-grid: #cccccc;
+  --color-page: #f4f6f5;
+  --color-page-veil: rgb(244 246 245 / 0.5);
+  --color-nav-pulse: #d2e7da;
+  --color-paid-wash: #c9e7d3;
+  --color-paid-static: #dcf3e4;
+  --color-progress: #a7cdb6;
+  --color-ripple: rgb(255 255 255 / 0.35);
+  --color-backdrop: rgb(0 0 0 / 0.5);
+}
+
+:root {
+  color-scheme: light;
+  --page-art-auth: url(/brand/zakham-bg-v3/auth-bg.svg);
+  --page-art-app: url(/brand/zakham-bg-v3/app-bg.svg);
+  --page-blend: normal;
+  --wordmark-light: inline;
+  --wordmark-dark: none;
+}
+
+/* The wordmark pair on the auth card and the root 404 (v1.5 C1, D33): the
+   green file in light, the white one in dark — two <img>s, never redrawn,
+   switched by the same tokens as everything else (so the cookie and "system"
+   both work, and print keeps the green one). */
+.wordmark-light {
+  display: var(--wordmark-light);
+}
+.wordmark-dark {
+  display: var(--wordmark-dark);
+}
+
+/* Dark theme (docs/V15-SPEC.md C1–C3, D11, D32). The same values twice: an
+   explicit choice (data-theme="dark", from the `theme` cookie) and "system"
+   (no data-theme, the OS asks for dark). Both sit inside @media screen, so
+   print never sees them and is light by construction. Tailwind utilities read
+   these variables, so every bg-gray-50, text-gray-900, bg-accent … flips with
+   no component change. `white` is the card/input surface (bg-white); text on
+   a fill uses on-accent / on-topbar instead of text-white. Contrast pairs and
+   measured ratios: progress/v15/theme.md. src/lib/tokenLint.test.ts pins that
+   both blocks are identical and light values unchanged. */
+@media screen {
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    /* زخم tokens */
+    --color-accent: #3daa6b;
+    --color-accent-dark: #5fbf88;
+    --color-accent-soft: #183324;
+    --color-accent-line: #1f4430;
+    --color-money-in: #4cc27e;
+    --color-money-in-soft: #112a1b;
+    --color-money-out: #f08a7e;
+    --color-money-out-soft: #2e1816;
+    --color-gray-50: #0e1411;
+    --color-gray-100: #1e2a22;
+    --color-gray-200: #243129;
+    --color-gray-300: #34443a;
+    --color-gray-400: #5b6b62;
+    --color-gray-500: #9aaba1;
+    --color-gray-600: #afbdb5;
+    --color-gray-700: #c3cfc8;
+    --color-gray-800: #d6e0da;
+    --color-gray-900: #e9efea;
+    --color-tint-in: #17402a;
+    --color-tint-out: #4a2320;
+    --color-tint-amber: #45370f;
+    --color-tint-blue: #1c3150;
+    --color-tint-teal: #133f39;
+    --color-tint-grey: #2f3b34;
+    --color-heat-1: #17301f;
+    --color-heat-2: #1d4630;
+    --color-heat-3: #245c3e;
+    --color-heat-4: #2d7550;
+    --color-on-accent: #0e1411;
+    --color-on-accent-muted: rgb(14 20 17 / 0.85);
+    --color-on-gold: #0e1411;
+    --color-topbar: #14532d;
+    --color-topbar-dark: #0c3a20;
+    --color-on-topbar: #ffffff;
+    --color-gold: #d8b64a;
+    --color-gold-2: #9c8a3f;
+    --color-accent-2: #5fbf88;
+    --color-accent-3: #5e8e73;
+    --color-chart-muted: #4a5750;
+    --color-track: #2a362e;
+    --color-chart-amber: #e0a050;
+    --color-chart-blue: #7aa2f0;
+    --color-chart-teal: #3fbfaf;
+    --color-chart-grey: #8a9890;
+    --color-chart-grid: #34443a;
+    --color-page: #0e1411;
+    --color-page-veil: rgb(14 20 17 / 0);
+    --page-blend: multiply;
+    --wordmark-light: none;
+    --wordmark-dark: inline;
+    --color-nav-pulse: #1f4230;
+    --color-paid-wash: #1d4630;
+    --color-paid-static: #1a3a27;
+    --color-progress: #5fbf88;
+    --color-ripple: rgb(14 20 17 / 0.2);
+    --color-backdrop: rgb(0 0 0 / 0.65);
+    /* Tailwind's default palette, only the steps in use (light values untouched) */
+    --color-white: #172019;
+    --color-amber-50: #3a2e10;
+    --color-amber-300: #7a5e1c;
+    --color-amber-500: #b8862b;
+    --color-amber-700: #c98a2a;
+    --color-amber-800: #f2c76b;
+    --color-amber-900: #f7d58a;
+    --color-orange-100: #4a2e14;
+    --color-orange-600: #c9672f;
+    --color-red-200: #5a2622;
+    --color-red-300: #7a3530;
+    --color-red-700: #d04a3f;
+    --color-red-800: #f5a398;
+    --color-red-900: #e86b60;
+    --color-green-200: #1f4a30;
+    --color-green-300: #2b6342;
+  }
+}
+@media screen and (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    /* زخم tokens */
+    --color-accent: #3daa6b;
+    --color-accent-dark: #5fbf88;
+    --color-accent-soft: #183324;
+    --color-accent-line: #1f4430;
+    --color-money-in: #4cc27e;
+    --color-money-in-soft: #112a1b;
+    --color-money-out: #f08a7e;
+    --color-money-out-soft: #2e1816;
+    --color-gray-50: #0e1411;
+    --color-gray-100: #1e2a22;
+    --color-gray-200: #243129;
+    --color-gray-300: #34443a;
+    --color-gray-400: #5b6b62;
+    --color-gray-500: #9aaba1;
+    --color-gray-600: #afbdb5;
+    --color-gray-700: #c3cfc8;
+    --color-gray-800: #d6e0da;
+    --color-gray-900: #e9efea;
+    --color-tint-in: #17402a;
+    --color-tint-out: #4a2320;
+    --color-tint-amber: #45370f;
+    --color-tint-blue: #1c3150;
+    --color-tint-teal: #133f39;
+    --color-tint-grey: #2f3b34;
+    --color-heat-1: #17301f;
+    --color-heat-2: #1d4630;
+    --color-heat-3: #245c3e;
+    --color-heat-4: #2d7550;
+    --color-on-accent: #0e1411;
+    --color-on-accent-muted: rgb(14 20 17 / 0.85);
+    --color-on-gold: #0e1411;
+    --color-topbar: #14532d;
+    --color-topbar-dark: #0c3a20;
+    --color-on-topbar: #ffffff;
+    --color-gold: #d8b64a;
+    --color-gold-2: #9c8a3f;
+    --color-accent-2: #5fbf88;
+    --color-accent-3: #5e8e73;
+    --color-chart-muted: #4a5750;
+    --color-track: #2a362e;
+    --color-chart-amber: #e0a050;
+    --color-chart-blue: #7aa2f0;
+    --color-chart-teal: #3fbfaf;
+    --color-chart-grey: #8a9890;
+    --color-chart-grid: #34443a;
+    --color-page: #0e1411;
+    --color-page-veil: rgb(14 20 17 / 0);
+    --page-blend: multiply;
+    --wordmark-light: none;
+    --wordmark-dark: inline;
+    --color-nav-pulse: #1f4230;
+    --color-paid-wash: #1d4630;
+    --color-paid-static: #1a3a27;
+    --color-progress: #5fbf88;
+    --color-ripple: rgb(14 20 17 / 0.2);
+    --color-backdrop: rgb(0 0 0 / 0.65);
+    /* Tailwind's default palette, only the steps in use (light values untouched) */
+    --color-white: #172019;
+    --color-amber-50: #3a2e10;
+    --color-amber-300: #7a5e1c;
+    --color-amber-500: #b8862b;
+    --color-amber-700: #c98a2a;
+    --color-amber-800: #f2c76b;
+    --color-amber-900: #f7d58a;
+    --color-orange-100: #4a2e14;
+    --color-orange-600: #c9672f;
+    --color-red-200: #5a2622;
+    --color-red-300: #7a3530;
+    --color-red-700: #d04a3f;
+    --color-red-800: #f5a398;
+    --color-red-900: #e86b60;
+    --color-green-200: #1f4a30;
+    --color-green-300: #2b6342;
+  }
+}
+
 html {
   -webkit-text-size-adjust: 100%;
 }
@@ -77,7 +310,8 @@ body {
    with the art one viewport tall at the top — the same first screen as
    `cover`, then the plain base colour below. Hidden in print (see @media print). */
 .auth-bg {
-  background: #f4f6f5 url(/brand/zakham-bg-v3/auth-bg.svg) center / cover no-repeat fixed;
+  background: var(--color-page) var(--page-art-auth) center / cover no-repeat fixed;
+  background-blend-mode: var(--page-blend);
 }
 /* The app art gets a 50% veil of its own base colour: form hints (gray-500)
    and field errors (money-out) sit straight on it, and at full strength its
@@ -86,9 +320,15 @@ body {
    (measured at 390–1920 px widths). */
 .app-bg {
   background:
-    linear-gradient(rgb(244 246 245 / 0.5), rgb(244 246 245 / 0.5)) center top / cover no-repeat fixed,
-    #f4f6f5 url(/brand/zakham-bg-v3/app-bg.svg) center top / cover no-repeat fixed;
+    linear-gradient(var(--color-page-veil), var(--color-page-veil)) center top / cover no-repeat fixed,
+    var(--color-page) var(--page-art-app) center top / cover no-repeat fixed;
+  background-blend-mode: var(--page-blend);
 }
+/* Dark theme (v1.5 C3): the same girih files, never edited, multiplied onto the
+   dark page colour (--page-blend: multiply, veil transparent). The art's
+   near-white ground leaves the page colour as it is and its lattice, washes
+   and rules come out a shade darker — an engraved pattern that can only add
+   contrast to the text above it. */
 @supports (-webkit-touch-callout: none) {
   .auth-bg,
   .app-bg {
@@ -121,7 +361,7 @@ body {
 }
 
 dialog::backdrop {
-  background: rgb(0 0 0 / 0.5);
+  background: var(--color-backdrop);
 }
 
 /* Route transitions (docs/FRONTEND.md, Motion v1.1d). Only the content area
@@ -211,7 +451,7 @@ dialog::backdrop {
   position: absolute;
   z-index: -1;
   border-radius: 9999px;
-  background: rgb(255 255 255 / 0.35);
+  background: var(--color-ripple);
   pointer-events: none;
   transform: scale(0);
   animation: btn-ripple 450ms ease-out forwards;
@@ -229,7 +469,7 @@ dialog::backdrop {
    motion. */
 @keyframes nav-pulse {
   50% {
-    background-color: #d2e7da;
+    background-color: var(--color-nav-pulse);
   }
 }
 @media screen and (prefers-reduced-motion: no-preference) {
@@ -274,7 +514,7 @@ dialog::backdrop {
   z-index: 50;
   block-size: 3px;
   inline-size: 100%;
-  background: var(--color-accent-line);
+  background: var(--color-progress);
   visibility: hidden;
   pointer-events: none;
 }
@@ -330,7 +570,7 @@ dialog::backdrop {
 }
 @keyframes v13-paid-wash {
   from {
-    background-color: #c9e7d3;
+    background-color: var(--color-paid-wash);
   }
 }
 @keyframes v13-draw-in {
@@ -375,7 +615,7 @@ dialog::backdrop {
   /* Static and visible: a light green row with a green bar on the inline-start
      edge (right, in RTL). money-in-soft alone is 1.04:1 on white. */
   .v13-paid {
-    background-color: #dcf3e4;
+    background-color: var(--color-paid-static);
     /* Physical right = inline start: the UI is RTL-only (no English UI, CLAUDE.md). */
     box-shadow: inset -4px 0 0 var(--color-money-in);
   }
@@ -414,6 +654,58 @@ dialog::backdrop {
     animation: v14-fade-out 200ms ease-out forwards;
   }
 }
+/* v1.5 overview wheel (docs/V15-SPEC.md A1, D6, D30; built by `home`). Keyframes
+   only: the elements carry the animation shorthand (motion-safe:, inline
+   delays, `backwards` fill — D30's exception to the no-fill rule, on SVG marks
+   and the explanation rows only). The resting state is the end state, so print
+   and reduced motion show the finished wheel.
+   - wheel-draw  a ring segment draws in (pathLength="1", dasharray 1)
+   - wheel-pop   a dial dot pops in (transform-box: fill-box; origin centre)
+   - wheel-lit   an explanation row lights up as its ring finishes */
+@media screen and (prefers-reduced-motion: no-preference) {
+  @keyframes wheel-draw {
+    from {
+      stroke-dashoffset: 1;
+    }
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+  @keyframes wheel-pop {
+    from {
+      opacity: 0;
+      scale: 0.2;
+    }
+    to {
+      opacity: 1;
+      scale: 1;
+    }
+  }
+  @keyframes wheel-lit {
+    from {
+      opacity: 0.35;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+}
+
+/* v1.5 «التفاصيل والرسوم» (D20): a button + body, not <details>. data-open is
+   set only once the client knows the stored choice; until then the width
+   decides (closed on phones, open from md), so desktop never flashes closed.
+   Screen only: print matches neither rule and always shows the body. */
+@media screen and (width < 48rem) {
+  .home-details:not([data-open="true"]) .home-details-body {
+    display: none;
+  }
+}
+@media screen and (width >= 48rem) {
+  .home-details[data-open="false"] .home-details-body {
+    display: none;
+  }
+}
+
 .sr-only-screen {
   position: absolute;
   width: 1px;
@@ -459,6 +751,11 @@ dialog::backdrop {
 }
 
 @media print {
+  /* v1.5: print is always light. The dark blocks are screen-only, so every
+     token already holds its light value here; this pins the UA side too. */
+  :root {
+    color-scheme: light;
+  }
   /* Fills print even with "Background graphics" off. Inherited, so once here. */
   html {
     print-color-adjust: exact;

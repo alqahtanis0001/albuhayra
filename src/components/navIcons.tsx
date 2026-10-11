@@ -48,6 +48,14 @@ export const FileTextIcon = (p: IconProps) => (
   </Svg>
 );
 
+/** A wallet with its clasp: «صرف راتب» (v1.5 D37). */
+export const WalletIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M17 6.5V4.5H5.5A2 2 0 0 0 3.5 6.5v12h17v-12H5.5" />
+    <path d="M20.5 10.5H16a2 2 0 0 0 0 4h4.5" />
+  </Svg>
+);
+
 export const CalendarIcon = (p: IconProps) => (
   <Svg {...p}>
     <rect x="3.5" y="5" width="17" height="15.5" rx="1.5" />
@@ -113,6 +121,7 @@ export const NAV_ICONS = {
   parties: ContactsIcon,
   plans: FileTextIcon,
   dues: CalendarIcon,
+  salary: WalletIcon,
   attendance: ClockIcon,
   logins: KeyIcon,
   categories: TagIcon,

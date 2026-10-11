@@ -1,91 +1,22 @@
-import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
-import { listPartyOptions } from "@/features/parties/queries";
-import { PrintButton } from "@/features/reports/components/PrintButton";
-import { PrintFooter } from "@/features/reports/components/PrintFooter";
-import { PrintHeader } from "@/features/reports/components/PrintHeader";
-import { ReportFilters } from "@/features/reports/components/ReportFilters";
-import { ReportTables } from "@/features/reports/components/ReportTables";
-import { ReportTabs } from "@/features/reports/components/ReportTabs";
-import { parseReportRange } from "@/features/reports/components/reportRange";
-import { getReport } from "@/features/reports/queries";
-import { t } from "@/i18n/ar";
 import { requireOwner } from "@/lib/auth";
-import { todayISO } from "@/lib/dates";
-import { ReportPartyFilterSchema } from "@/lib/validation";
 
-export const metadata: Metadata = { title: t.reports.title };
-
-const BASE = "/owner/reports";
+import { reportsRedirectHref } from "../../transactions/(list)/ledgerTab";
 
 /**
- * The report by category, optionally for one party (C16). A party id that is
- * malformed, unknown or another establishment's shows `invalidParty` and no
- * report at all — never the unfiltered one in its place.
+ * v1.5 (docs/V15-SPEC.md B2, D14): the report now lives in the «التقارير» tab
+ * of السجل. Old links and bookmarks land here and are sent on with their query
+ * (`month`, `from`, `to`, `partyId` …) kept. No loading.tsx of its own (v1.4
+ * D13); the owner segment's loading.tsx still streams first, so the browser
+ * gets a client-side redirect, landing in the same place (D42 N2). `redirect()`
+ * throws, so it sits outside any try/catch.
  */
-export default async function OwnerReportsPage({
+export default async function ReportsRedirectPage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const { user, establishmentId } = await requireOwner();
-  const raw = await searchParams;
-  const range = parseReportRange(raw);
-  const rawParty = typeof raw.partyId === "string" ? raw.partyId : "";
-  const filter = ReportPartyFilterSchema.safeParse({ partyId: rawParty });
-  const partyId = filter.success ? filter.data.partyId : undefined;
-
-  const [parties, report] = await Promise.all([
-    listPartyOptions(establishmentId),
-    filter.success ? getReport(establishmentId, range.from, range.to, partyId) : null,
-  ]);
-
-  const exportHref = `/api/export?from=${range.from}&to=${range.to}${
-    partyId ? `&partyId=${encodeURIComponent(partyId)}` : ""
-  }`;
-
-  return (
-    <div className="flex flex-col gap-4">
-      <h1 className="no-print text-xl font-semibold text-gray-900">
-        {t.reports.title}
-      </h1>
-      <ReportTabs active="category" />
-
-      <PrintHeader
-        establishmentName={user.establishmentName}
-        from={range.from}
-        to={range.to}
-        subject={report?.party?.name}
-        printedAt={todayISO()}
-      />
-
-      {/* R11: one GET form; on phones the report renders first (order-last), from md the DOM order holds. */}
-      <div className="no-print order-last md:order-none">
-        <ReportFilters range={range} basePath={BASE} parties={parties} partyId={rawParty} />
-      </div>
-
-      {report ? (
-        <>
-          <div className="no-print flex flex-wrap gap-2">
-            {/* A plain link: the route streams a file, so it needs no client code. */}
-            <a
-              href={exportHref}
-              className="inline-flex min-h-11 items-center rounded-lg border border-gray-300 bg-white px-4 text-sm font-medium text-gray-900 hover:bg-gray-50"
-            >
-              {t.common.exportExcel}
-            </a>
-            <PrintButton />
-          </div>
-
-          <ReportTables report={report} />
-        </>
-      ) : (
-        <p role="status" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
-          {t.reportFilter.invalidParty}
-        </p>
-      )}
-
-      <PrintFooter />
-    </div>
-  );
+  await requireOwner();
+  redirect(reportsRedirectHref(await searchParams, "category"));
 }

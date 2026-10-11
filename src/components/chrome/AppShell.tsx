@@ -8,6 +8,7 @@
 import type { ReactNode } from "react";
 
 import { t } from "@/i18n/ar";
+import { homePathFor, type Role } from "@/lib/permissions";
 
 import { NavProgress, NavProgressProvider } from "../NavProgress";
 import { Footer } from "./Footer";
@@ -25,6 +26,8 @@ export type AppShellProps = {
   userName: string;
   establishmentName?: string | null;
   accountHref: string;
+  /** v1.5 (B1): picks where the top bar's wordmark links (`homePathFor`). */
+  role: Role;
   children: ReactNode;
 };
 
@@ -35,6 +38,7 @@ export function AppShell({
   userName,
   establishmentName,
   accountHref,
+  role,
   children,
 }: AppShellProps) {
   return (
@@ -53,6 +57,7 @@ export function AppShell({
           userName={userName}
           establishmentName={establishmentName}
           accountHref={accountHref}
+          homeHref={homePathFor(role)}
         />
 
         <div className="flex flex-1">

@@ -6,6 +6,9 @@
  * month; typing a date selects «فترة مخصصة». The server parser is untouched
  * and prefers a valid `?month=`, so a hand-typed URL behaves as before. No
  * validation import (D32 B1): the zod barrel stays out of this route.
+ *
+ * v1.5 (D24): the form lives inside السجل's «التقارير» tab, so it carries that
+ * tab as hidden fields (`hiddenFields`) — a GET submit stays on the tab.
  */
 import { useState } from "react";
 
@@ -27,11 +30,14 @@ export type ReportFiltersRange = {
 export function ReportFilters({
   range,
   basePath,
+  hiddenFields = [],
   parties,
   partyId,
 }: {
   range: ReportFiltersRange;
   basePath: string;
+  /** Name/value pairs submitted unchanged with the filters (v1.5: `tab=reports`). */
+  hiddenFields?: Array<[string, string]>;
   parties: { id: string; name: string; active: boolean }[];
   /** The id in the URL, echoed back even when refused, so the select shows it. */
   partyId: string;
@@ -45,6 +51,9 @@ export function ReportFilters({
 
   return (
     <form method="get" action={basePath} className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4">
+      {hiddenFields.map(([name, value]) => (
+        <input key={name} type="hidden" name={name} value={value} />
+      ))}
       <div className="grid gap-3 sm:grid-cols-2">
         <Select
           label={t.reports.month}

@@ -24,7 +24,7 @@ export default async function StaffNotFound() {
       <p className="mt-2 text-sm text-gray-600">{t.notFound.body}</p>
       <Link
         href={role ? homePathFor(role) : "/login"}
-        className="mt-4 inline-flex min-h-11 items-center rounded-lg bg-accent px-4 font-medium text-white hover:bg-accent-dark"
+        className="mt-4 inline-flex min-h-11 items-center rounded-lg bg-accent px-4 font-medium text-on-accent hover:bg-accent-dark"
       >
         {role ? t.notFound.backHome : t.notFound.toLogin}
       </Link>

@@ -27,7 +27,15 @@ import { requireOwner } from "@/lib/auth";
 import { todayISO } from "@/lib/dates";
 
 import { ActivitiesTab } from "./ActivitiesTab";
-import { ACTIVITIES_HREF, ledgerTab, parseActivitiesStatus, type LedgerTab } from "./ledgerTab";
+import {
+  ACTIVITIES_HREF,
+  REPORTS_HREF,
+  ledgerTab,
+  parseActivitiesStatus,
+  reportKind,
+  type LedgerTab,
+} from "./ledgerTab";
+import { loadReportsTab, ReportsTab } from "./ReportsTab";
 
 const BASE = "/owner/transactions";
 
@@ -36,25 +44,37 @@ export async function generateMetadata({
 }: {
   searchParams: Promise<RawSearchParams>;
 }): Promise<Metadata> {
-  const tab = ledgerTab((await searchParams).tab);
-  return { title: tab === "activities" ? t.projects.listTitle : t.ledger.title };
+  const raw = await searchParams;
+  const tab = ledgerTab(raw.tab);
+  if (tab === "activities") return { title: t.projects.listTitle };
+  if (tab === "reports") return { title: reportKind(raw.report) === "aging" ? t.aging.title : t.reports.title };
+  return { title: t.ledger.title };
 }
 
-/** The h1, the tab's add button (and R11's «طباعة» on the entries tab) and the two-tab strip (v1.4 B3). */
+const ADD_BUTTON: Record<LedgerTab, { href: string; label: string }> = {
+  entries: { href: "/owner/transactions/new", label: t.transaction.addButton },
+  activities: { href: "/owner/projects/new", label: t.projects.add },
+  // D42 (QV-N11): the same words as the entries tab, one tab apart.
+  reports: { href: "/owner/transactions/new", label: t.transaction.addButton },
+};
+
+/**
+ * The h1, the tab's add button (and R11's «طباعة» on the entries tab) and the
+ * three-tab strip (v1.4 B3, v1.5 B2). On the reports tab the whole header row
+ * is `no-print`: the report's own PrintHeader is the one heading that prints
+ * (D24), and an empty row would still take the column's gap (D42, QV-N1).
+ */
 function Header({ tab }: { tab: LedgerTab }) {
-  const add =
-    tab === "activities"
-      ? { href: "/owner/projects/new", label: t.projects.add }
-      : { href: "/owner/transactions/new", label: t.transaction.addButton };
+  const add = ADD_BUTTON[tab];
   return (
     <>
-      <div className="flex items-center justify-between gap-2">
+      <div className={`${tab === "reports" ? "no-print " : ""}flex items-center justify-between gap-2`}>
         <h1 className="text-xl font-semibold text-gray-900">{t.ledger.title}</h1>
         <div className="no-print flex flex-wrap items-center gap-2">
           {tab === "entries" ? <PrintButton /> : null}
           <Link
             href={add.href}
-            className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-accent px-4 font-medium text-white hover:bg-accent-dark"
+            className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-accent px-4 font-medium text-on-accent hover:bg-accent-dark"
           >
             <PlusIcon size={18} />
             {add.label}
@@ -67,6 +87,7 @@ function Header({ tab }: { tab: LedgerTab }) {
         tabs={[
           { key: "entries", label: t.ledgerTabs.entries, href: BASE },
           { key: "activities", label: t.ledgerTabs.activities, href: ACTIVITIES_HREF },
+          { key: "reports", label: t.reportsTabs.tab, href: REPORTS_HREF },
         ]}
       />
     </>
@@ -92,6 +113,17 @@ export default async function OwnerLedgerPage({
       <div className="flex flex-col gap-4">
         <Header tab={tab} />
         <ActivitiesTab rows={rows} status={status} />
+      </div>
+    );
+  }
+
+  if (tab === "reports") {
+    // B2: the former /owner/reports pages, inside the tab; no ledger query runs.
+    const data = await loadReportsTab(establishmentId, raw);
+    return (
+      <div className="flex flex-col gap-4">
+        <Header tab={tab} />
+        <ReportsTab data={data} establishmentName={user.establishmentName} />
       </div>
     );
   }

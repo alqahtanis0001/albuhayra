@@ -2,6 +2,22 @@
 
 Started at v1.3. Earlier releases (v1.0 – v1.2c) are recorded in `PROGRESS.md` (*Done*, *Decisions*, *Session log*).
 
+## v1.5 — home overview wheel, nav tidy-up, dark theme (2026-10-11)
+Spec: `docs/V15-SPEC.md` (A–C from the product owner, Decisions D1–D41). No schema change, no migration, no new environment variable. Light mode looks exactly as before (checked pixel for pixel); nothing an owner or staff member could do before was removed.
+
+### Added
+- **«نظرة شاملة على المنشأة» on the owner home**, under the money cards: a wheel drawn ring by ring — this month's وارد / صادر, the صادر by category (top five + «أخرى»), commitments (لنا من العملاء · علينا للموردين · رواتب الشهر), and around it the next 30 days with one dot per instalment or salary day (overdue as hollow red dots just before «اليوم»). Tap a part to see its name and amount in the centre, tap again to open it (the ledger filtered to that month or category, الجهات, الموظفون, the agreement or the employee). Four numbered rows underneath explain each ring with live amounts; they are also what screen readers and the printout use. Keyboard: one Tab stop, arrows move between parts. Still under reduced motion and in print.
+- **«يحتاج انتباهك»**: one card for overdue instalments, this week's instalments (لنا / علينا), pending join requests and «الرواتب بعد N يومًا» (within 10 days), each row a link, with a count in the heading. It replaces the red overdue strip, the «مستحقات هذا الأسبوع» card and the join-request notice.
+- **«التفاصيل والرسوم»**: the six-month chart, the expense donut, balance by method and الأنشطة الجارية fold into one section — closed on phones, open on larger screens, remembered per device, always open in print. «آخر الحركات» shows 5 entries + «عرض الكل».
+- **Dark mode:** a sun/moon button in the top bar (every role) cycles فاتح → داكن → حسب الجهاز (default). The choice is kept on the device and in a cookie, so pages open in the right theme without a flash. Every colour, chart, badge, dialog and the background art follow it; buttons in dark are light green with dark labels for contrast; printing is always light.
+- **«صرف راتب»** in the «+» sheet opens the employees list in pick mode («اختر الموظف لصرف راتبه») and goes straight to this month's salary payment.
+
+### Changed
+- **التقارير moved inside السجل** as a third tab, with sub-tabs «حسب التصنيف» and «المتأخرات حسب المدة»; old links redirect there and keep their dates. Print and Excel are unchanged. It is no longer a separate menu item.
+- **The «+» sheet** has seven rows, each with a one-line caption under its name.
+- **The زخم logo** in the top bar links to the role's home.
+- On phones narrower than 375 px the establishment name in the top bar is visually hidden (still read by screen readers) to make room for the theme button.
+
 ## v1.4 — simpler owner flows (unreleased)
 Spec: `docs/V14-SPEC.md` (A–C, D1–D31). Shipped in three parts (part 1: A/B/C and the UX rulings; part 2: forms and first run; part 3: wording and first day, after the owner usability test). One expand-only migration (`20261010000000_v14_open_plans`: `PlanKind.OPEN_ENDED`, `Plan.totalHalalas` nullable, `Plan.expectedEndDate`, `Transaction.planId`), already applied to the live database; no new route group, no new environment variable. Nothing an owner could do before was removed.
 
