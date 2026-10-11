@@ -74,6 +74,8 @@ function Row({ row, primary, onSame }: { row: AddRow; primary: boolean; onSame: 
     >
       <Icon size={primary ? 22 : 24} />
       {row.label}
+      {/* v1.4 part 3 (R16): the row's second line — content, so it stays readable (no aria-hidden). */}
+      {row.hint ? <span className="text-[11px] font-normal text-gray-500">{row.hint}</span> : null}
       <LinkPending />
     </Link>
   );

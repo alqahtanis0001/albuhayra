@@ -194,7 +194,7 @@ const {
   setCategoryActive,
   changeOwnPassword,
 } = await import("@/features/settings/actions");
-const { listStaff, getJoinCode, countPendingStaff } = await import(
+const { listStaff, getJoinCode, countPendingStaff, listPendingStaffNames } = await import(
   "@/features/establishments/queries"
 );
 const { listCategories } = await import("@/features/settings/queries");
@@ -1194,6 +1194,19 @@ describe("the staff and settings reads scope every call", () => {
     expect(await countPendingStaff(EST)).toBe(2);
     expect(observedPairs()).toEqual(new Set(["user.count"]));
     expect(harness.calls[0].args).toEqual({ where: { establishmentId: EST, role: "STAFF", status: "PENDING" } });
+    expect(failures()).toEqual([]);
+    record();
+  });
+
+  // v1.4 part 3 (D29 R9, `flows`): the home notice's names — scoped, names only, newest first.
+  it("listPendingStaffNames", async () => {
+    harness.responses.set("user.findMany", [{ firstName: "سعد", middleName: null, lastName: "العتيبي", legacyName: null }]);
+    expect(await listPendingStaffNames(EST)).toEqual(["سعد العتيبي"]);
+    expect(observedPairs()).toEqual(new Set(["user.findMany"]));
+    const call = harness.calls[0]!;
+    expect(call.args.where).toEqual({ establishmentId: EST, role: "STAFF", status: "PENDING" });
+    expect(Object.keys(call.args.select as object).sort()).toEqual(["firstName", "lastName", "legacyName", "middleName"]);
+    expect(call.args.orderBy).toEqual({ createdAt: "desc" });
     expect(failures()).toEqual([]);
     record();
   });

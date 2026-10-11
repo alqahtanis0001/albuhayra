@@ -26,8 +26,8 @@ export type NavItem = {
   badge?: PluralForms;
 };
 
-/** One row of the «+» sheet (B1). */
-export type AddRow = { href: string; label: string; icon: NavIconName };
+/** One row of the «+» sheet (B1). `hint` (v1.4 part 3 R16): a second, smaller line under the label. */
+export type AddRow = { href: string; label: string; icon: NavIconName; hint?: string };
 
 /** The «+» entry: opens AddSheet. No `href` by construction. */
 export type AddEntry = { kind: "add"; label: string; rows: AddRow[] };
@@ -66,7 +66,7 @@ export function addRows(role: Role, linked = false): AddRow[] {
       { href: "/owner/plans?pick=payment", label: t.addSheet.recordPayment, icon: "dues" },
       { href: "/owner/plans/new", label: t.plans.add, icon: "plans" },
       { href: "/owner/parties/new", label: t.addSheet.newParty, icon: "parties" },
-      { href: "/owner/projects/new", label: t.addSheet.newProject, icon: "projectNew" },
+      { href: "/owner/projects/new", label: t.addSheet.newProject, icon: "projectNew", hint: t.addSheet.newProjectHint },
       { href: "/owner/staff/new", label: t.addSheet.newEmployee, icon: "staff" },
     ];
   }

@@ -14,10 +14,15 @@
  * Every control here carries `form="__none"` — an id no element has — which
  * detaches it from the surrounding <form>, so FormData holds only the contract
  * fields (the builder's count, frequency and per-row inputs are UI state).
+ *
+ * v1.4 part 3 (D29 R14): «عدد الأقساط» and «تاريخ أول قسط» (default and
+ * minimum: the plan's start date) sit above «توليد»; the generator uses the
+ * chosen first date; one hint says every row stays editable afterwards.
  */
 import { useState } from "react";
 
 import { Button } from "@/components/Button";
+import { DateField } from "@/components/DateField";
 import { Input } from "@/components/Input";
 import { MoneyText } from "@/components/MoneyText";
 import { Select } from "@/components/Select";
@@ -31,6 +36,11 @@ import { draftSum, fromSchedule, newKey, type DraftRow } from "./scheduleDraft";
 
 const FREQUENCIES: ScheduleFrequency[] = ["MONTHLY", "WEEKLY", "EVERY_N_DAYS"];
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
+
+/** R14: the first due date never precedes the start date — empty or earlier falls back to it. */
+export function effectiveFirstDate(firstDate: string, startDate: string): string {
+  return ISO.test(firstDate) && firstDate >= startDate ? firstDate : startDate;
+}
 
 export function ScheduleBuilder({
   totalHalalas,
@@ -50,6 +60,8 @@ export function ScheduleBuilder({
 }) {
   const [mode, setMode] = useState<"equal" | "custom">(equalDisabled ? "custom" : "equal");
   const [count, setCount] = useState("12");
+  const [firstDate, setFirstDate] = useState(startDate);
+  const first = effectiveFirstDate(firstDate, startDate);
   const [frequency, setFrequency] = useState<ScheduleFrequency>("MONTHLY");
   const [everyDays, setEveryDays] = useState("30");
   const [problem, setProblem] = useState<string | null>(null);
@@ -73,7 +85,7 @@ export function ScheduleBuilder({
             count: n,
             frequency,
             everyDays: frequency === "EVERY_N_DAYS" ? Number(everyDays) : undefined,
-            firstDueDate: startDate,
+            firstDueDate: first,
           });
     if (!built) return setProblem(errorMessage("err.scheduleInvalid"));
     setProblem(null);
@@ -130,6 +142,14 @@ export function ScheduleBuilder({
             value={count}
             onChange={(e) => setCount(e.target.value)}
           />
+          <DateField
+            label={t.schedule.firstDate}
+            name="scheduleFirstDate"
+            form="__none"
+            min={startDate || undefined}
+            value={first}
+            onChange={(e) => setFirstDate(e.target.value)}
+          />
           <Select
             label={t.schedule.frequency}
             id="scheduleFrequency"
@@ -160,6 +180,7 @@ export function ScheduleBuilder({
             >
               {t.schedule.generate}
             </Button>
+            <p className="mt-2 text-xs text-gray-600">{t.schedule.editHint}</p>
           </div>
           {problem ? (
             <p role="alert" className="text-sm font-medium text-money-out sm:col-span-3">

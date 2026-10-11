@@ -5,6 +5,9 @@
  * Rendered on the server from `getDues` (grouping in ../ribbon.ts); a tile
  * with rows is a button that `RibbonJump` wires to scroll to and highlight
  * them. Hidden in print — the lists below carry the same numbers.
+ * v1.4 part 3 (D29 R15, D31f): on phones the tiles are a two-column grid —
+ * nothing clips at 390 px; from sm the scroll strip as before. `RibbonJump`
+ * is unchanged.
  */
 import type { ReactNode } from "react";
 
@@ -17,6 +20,8 @@ import { tileDate, weekdayAr, type RibbonDay, type RibbonTotals } from "../ribbo
 import { RibbonJump } from "./RibbonJump";
 
 const RIBBON_ID = "dues-ribbon";
+/** R15: a two-column grid on phones, the snap strip from sm. */
+export const RIBBON_LIST = "grid grid-cols-2 gap-2 pb-1 sm:-mx-1 sm:flex sm:snap-x sm:overflow-x-auto sm:px-1";
 
 function Totals({ totals }: { totals: RibbonTotals }) {
   if (totals.count === 0) return <span className="text-xs text-gray-600">{t.duesRibbon.nothing}</span>;
@@ -56,7 +61,7 @@ function Tile({
       <Totals totals={totals} />
     </span>
   );
-  const shape = `flex h-full w-36 flex-col rounded-lg border bg-white p-2.5 ${className}`;
+  const shape = `flex h-full w-full flex-col rounded-lg border bg-white p-2.5 sm:w-36 ${className}`;
   if (totals.count === 0) return <div className={shape}>{body}</div>;
   return (
     <button
@@ -74,8 +79,8 @@ function Tile({
 export function WeekRibbon({ overdue, days }: { overdue: RibbonTotals; days: RibbonDay[] }) {
   return (
     <section id={RIBBON_ID} aria-label={t.duesRibbon.label} className="no-print">
-      <ul className="-mx-1 flex snap-x gap-2 overflow-x-auto px-1 pb-1">
-        <li className="shrink-0 snap-start">
+      <ul className={RIBBON_LIST}>
+        <li className="sm:shrink-0 sm:snap-start">
           <Tile
             jump="overdue"
             dateLabel={t.duesRibbon.overdue}
@@ -85,7 +90,7 @@ export function WeekRibbon({ overdue, days }: { overdue: RibbonTotals; days: Rib
           />
         </li>
         {days.map((day) => (
-          <li key={day.date} className="shrink-0 snap-start">
+          <li key={day.date} className="sm:shrink-0 sm:snap-start">
             <Tile
               jump={day.date}
               dateLabel={`${day.isToday ? t.duesRibbon.today : weekdayAr(day.date)} ${tileDate(day.date)}`}

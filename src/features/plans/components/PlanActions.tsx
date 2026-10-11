@@ -41,7 +41,8 @@ export function PlanActions({ planId, canCancel }: { planId: string; canCancel: 
           {t.plans.archive}
         </Button>
         {canCancel ? (
-          <Button variant="danger" pending={pending} onClick={() => setConfirm("cancel")}>
+          {/* v1.4 part 3 (R15): secondary, not a red primary — the dialog keeps its danger tone. */}
+          <Button variant="secondary" pending={pending} onClick={() => setConfirm("cancel")}>
             {t.plans.cancel}
           </Button>
         ) : null}

@@ -71,3 +71,17 @@ export async function getJoinCode(establishmentId: string): Promise<string | nul
 export async function countPendingStaff(establishmentId: string): Promise<number> {
   return db.user.count({ where: { establishmentId, role: "STAFF", status: "PENDING" } });
 }
+
+/**
+ * v1.4 part 3 (D29 R9): the owner home's «طلب انضمام جديد من {name}» lines —
+ * the pending STAFF names, newest first. Names only: no email, no id, nothing
+ * else leaves this read.
+ */
+export async function listPendingStaffNames(establishmentId: string): Promise<string[]> {
+  const rows = await db.user.findMany({
+    where: { establishmentId, role: "STAFF", status: "PENDING" },
+    select: NAME_SELECT,
+    orderBy: { createdAt: "desc" },
+  });
+  return rows.map((row) => fullName(row));
+}
