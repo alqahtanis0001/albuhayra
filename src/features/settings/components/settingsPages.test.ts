@@ -114,10 +114,6 @@ describe("c4 — lock links for the owner, none for staff", () => {
     expect(out).toContain(t.settings.backToLedger);
     expect(out).toContain('href="/owner/transactions"');
     expect(out.indexOf("<h1")).toBeLessThan(out.indexOf(t.settings.backToLedger));
-    // v1.4 part 3 (R16, words): the subtitle sits under the h1; the card's own hint stays.
-    expect(out).toContain(t.settings.locksSubtitle);
-    expect(out.indexOf("<h1")).toBeLessThan(out.indexOf(t.settings.locksSubtitle));
-    expect(out.indexOf(t.settings.locksSubtitle)).toBeLessThan(out.indexOf(t.settings.backToLedger));
   });
 });
 
@@ -162,5 +158,16 @@ describe("c19 → R12 — «إلغاء الإقفال» and «إقفال» both 
     const source = readFileSync("src/features/settings/components/LockCell.tsx", "utf8");
     expect(source).toMatch(/<ConfirmDialog[\s\S]*?title=\{dialog\.title\}[\s\S]*?message=\{dialog\.message\}[\s\S]*?tone="accent"/);
     expect(source).toMatch(/pressTarget\(row\.locked\) === "confirm" \? setConfirm\(true\) : toggle\(\)/);
+  });
+});
+
+// v1.4 part 3 (D29 R16, `words`): the locks page subtitle. Appended block (D32 S1).
+describe("R16 — the locks page subtitle", () => {
+  it("sits under the h1, before the way back; the card's own hint sentence stays", async () => {
+    const out = html(await LocksSettingsPage());
+    expect(out).toContain(t.settings.locksSubtitle);
+    expect(out.indexOf("<h1")).toBeLessThan(out.indexOf(t.settings.locksSubtitle));
+    expect(out.indexOf(t.settings.locksSubtitle)).toBeLessThan(out.indexOf(t.settings.backToLedger));
+    expect(out).toContain(t.settings.locksHint);
   });
 });

@@ -43,6 +43,7 @@ describe("StaffTab (R5)", () => {
     const link = out.match(STAFF_LINK)?.[0] ?? "";
     expect(link).toContain("min-h-11");
     expect(out.match(new RegExp(STAFF_LINK.source, "g"))?.length).toBe(1);
+    expect(out.split(`>${t.navItem.staffList}</a>`).length - 1).toBe(1);
     expect(out.indexOf(t.navItem.staffList)).toBeLessThan(out.indexOf("سعد العتيبي"));
     expect(out).not.toContain(t.settings.noStaff);
   });

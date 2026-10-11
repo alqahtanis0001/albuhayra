@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { EmptyState } from "@/components/EmptyState";
 import { Pagination } from "@/components/Pagination";
+import { SavedNotice } from "@/components/SavedNotice";
 import { listLocks } from "@/features/locks/queries";
 import { CategoryRing } from "@/features/projects/components/CategoryRing";
 import { ProjectActions } from "@/features/projects/components/ProjectActions";
@@ -45,8 +46,9 @@ export default async function ProjectPage({
   const project = await getProject(establishmentId, id);
   if (!project) notFound();
 
-  // Only the page number is taken from the URL.
-  const { page } = parseLedgerFilters(await searchParams);
+  // Only the page number is taken from the URL (and R4's ?saved=1 flag, consumed by the notice).
+  const raw = await searchParams;
+  const { page } = parseLedgerFilters(raw);
   const [ledger, locks] = await Promise.all([
     listTransactions(establishmentId, { projectId: project.id, page }),
     listLocks(establishmentId),
@@ -63,6 +65,9 @@ export default async function ProjectPage({
         subject={project.name}
         printedAt={todayISO()}
       />
+
+      {/* R4: «تسجيل تكلفة» lands here with ?saved=1 (D32 S3b). */}
+      <SavedNotice saved={raw.saved === "1"} />
 
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2">

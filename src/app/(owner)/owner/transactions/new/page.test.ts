@@ -113,6 +113,7 @@ describe("/owner/transactions/new — doneHref and subtitle (R4, R16)", () => {
     expect(await render({ projectId: "proj_1" })).toContain('data-done="/owner/projects/proj_1?saved=1"');
   });
 
+  // D32 S3a: the plan page mounts no SavedNotice — its PaymentRecorded strips the whole query and shows the toast.
   it("a STANDARD instalment payment returns to the plan with ?paid= and ?saved=1, and no subtitle", async () => {
     h.pay = PAY;
     const out = await render({ instalmentId: "i_1" });

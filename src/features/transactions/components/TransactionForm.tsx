@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/Button";
 import { FormToast } from "@/components/FormToast";
 import { DateField } from "@/components/DateField";
-import { withSaved } from "@/components/savedParam";
+import { withSaved } from "@/components/SavedNotice";
 import { Select } from "@/components/Select";
 import { Toast } from "@/components/Toast";
 import { errorMessage, t } from "@/i18n/ar";
@@ -82,9 +82,7 @@ export function TransactionForm({
   const [linkKey, setLinkKey] = useState(0); // Remounts the link fields (inside EntryDetails) after «حفظ وإضافة أخرى».
   const [date, setDate] = useState(initial?.date ?? today);
   const startAmount = initial?.amountHalalas ?? payment?.amountHalalas;
-  const [amount, setAmount] = useState(
-    startAmount === undefined ? "" : (startAmount / 100).toFixed(2),
-  );
+  const [amount, setAmount] = useState(startAmount === undefined ? "" : (startAmount / 100).toFixed(2));
   // Controlled, not defaultValue: when the direction flips, the option list is
   // replaced and an uncontrolled select can keep a stale DOM value — including a
   // retired category, which the server would then reject as a direction

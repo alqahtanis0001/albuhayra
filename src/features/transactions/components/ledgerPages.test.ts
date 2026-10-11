@@ -22,6 +22,7 @@ vi.mock("@/features/transactions/queries", () => ({
   listTransactions: async () => ({ rows: [], total: 0, filterTotals: { inHalalas: 0, outHalalas: 0, netHalalas: 0 }, page: 1, pageSize: 50 }),
 }));
 
+const { hasAnyFilter, parseLedgerFilters } = await import("./ledgerParams");
 const { default: OwnerLedgerPage } = await import("@/app/(owner)/owner/transactions/(list)/page");
 const { default: StaffLedgerPage } = await import("@/app/(staff)/staff/transactions/(list)/page");
 
@@ -42,5 +43,19 @@ describe("the two ledgers and ?saved=1 (R4)", () => {
 
   it("the activities tab never shows it (no entry lands there)", async () => {
     expect(await owner({ tab: "activities", saved: "1" })).not.toContain(t.transaction.saved);
+  });
+});
+
+describe("the ledgers tolerate ?saved=1 (D32 S3c)", () => {
+  it("the filter schema strips it and hasAnyFilter stays false", () => {
+    const filters = parseLedgerFilters({ saved: "1" });
+    expect("saved" in filters).toBe(false);
+    expect(hasAnyFilter(filters)).toBe(false);
+    expect(hasAnyFilter(parseLedgerFilters({ saved: "1", from: "2026-10-01" }))).toBe(true);
+  });
+
+  it("neither ledger offers «مسح التصفية» for the flag alone", async () => {
+    expect(await owner({ saved: "1" })).not.toContain(t.common.clearFilters);
+    expect(await staff({ saved: "1" })).not.toContain(t.common.clearFilters);
   });
 });

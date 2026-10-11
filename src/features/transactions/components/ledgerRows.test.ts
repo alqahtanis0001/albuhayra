@@ -55,16 +55,20 @@ const render = (basePath: string, rows: LedgerRow[], permissions = { canEdit: tr
 describe("c4 — the «شهر مقفل» badge links to the locks page on the owner ledger only", () => {
   it("owner: badge + link, in both layouts", () => {
     const out = render("/owner/transactions", [row()]);
-    expect(out.match(new RegExp(t.lock.badge, "g"))).toHaveLength(2); // phone card + table row
+    // v1.4 part 3 (R15): the badge element itself — the owner's hint line/title name no «شهر مقفل»,
+    // but the staff title does, so count the badge's closing tag, not the phrase.
+    expect(out.match(new RegExp(`${t.lock.badge}</span>`, "g"))).toHaveLength(2); // phone card + table row
     expect(out.match(/href="\/owner\/settings\/locks"/g)).toHaveLength(2);
     expect(out).toContain(t.navItem.locks);
-    // Locked means no pencil and no delete, for everyone.
-    expect(out).not.toContain(t.common.edit);
+    // Locked means no pencil and no delete, for everyone. (R15's hint line says «لا يمكن
+    // التعديل», so the pencil is matched as a control's text, not as the bare word.)
+    expect(out).not.toContain(`>${t.common.edit}<`);
+    expect(out).not.toMatch(/href="[^"]*\/edit"/);
   });
 
   it("staff: the badge, and no link to an owner page", () => {
     const out = render("/staff/transactions", [row()], { canEdit: true, canDelete: false });
-    expect(out.match(new RegExp(t.lock.badge, "g"))).toHaveLength(2);
+    expect(out.match(new RegExp(`${t.lock.badge}</span>`, "g"))).toHaveLength(2);
     expect(out).not.toContain("/owner/settings/locks");
     expect(out).not.toContain(t.navItem.locks);
   });
