@@ -170,6 +170,23 @@ export function liveText(c: CentreText): string {
   return [c.label, amount, c.sub].filter(Boolean).join(" — ");
 }
 
+/** D42 (QV-S3): «اضغط مرة أخرى للفتح» shows after an activation while a mark — never a row — is focused. */
+export function showOpenHint(state: FocusState): boolean {
+  return state.activated && state.focused?.kind === "mark";
+}
+
+/** D27 + D42 (N6): the sr-only live line — the centre, then «. » and the hint when it shows. */
+export function liveLine(state: FocusState, centre: CentreText, hint: string): string {
+  if (!state.focused) return "";
+  const line = liveText(centre);
+  return showOpenHint(state) ? `${line}. ${hint}` : line;
+}
+
+/** D42 (QV-S2): Escape anywhere in the card — a segment, a dot or an explanation row — clears the focus. */
+export function cardKeyAction(key: string): FocusAction | null {
+  return key === "Escape" ? { type: "escape" } : null;
+}
+
 /** The roving order: ring 1 → 2 → 3 → dial marks (D27). */
 export function rovingIds(model: WheelModel): Array<{ id: string; ring: Layer; href: string }> {
   const segs = model.rings.flatMap((r) => r.segments.map((s) => ({ id: s.id, ring: s.ring as Layer, href: s.href })));

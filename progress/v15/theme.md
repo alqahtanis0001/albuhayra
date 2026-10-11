@@ -11,7 +11,7 @@ Your own running notes. Only you write here. The lead merges it into PROGRESS.md
 | T1 token layer (C1) | `src/app/globals.css`, `src/lib/themeCss.test.ts` (new, 91 cases) | tsc 0; vitest 126 files / 1794, 1 failing = `nav`'s in-flight `SalaryPickList.test.ts` (mine all green; 121 / 1734 all green earlier); build exit 0; bundles `progress/v15/bundles-theme.json` max +4.2 KB gz (`/owner`, from `home`'s in-flight code — CSS adds no JS) | token names and lists below |
 | T2 toggle + SSR (C2, D11, D32) | `src/lib/theme.ts` (new), `src/app/layout.tsx`, `src/components/chrome/ThemeToggle.tsx` (server wrapper, new), `ThemeToggleButton.tsx` (client, new); tests `src/lib/theme.test.ts` (21), `src/components/chrome/themeToggle.test.ts` (9) | ✓ (final gates below) | `nav` mounted `<ThemeToggle />` in TopBar |
 | T3 everything reads tokens (C3, D33) | `visualPalette.ts` (PALETTE → `var(--color-…)`, same keys), `globals.css` (girih in dark, wordmark pair, `--color-on-gold`), `AuthCard.tsx`, `src/app/not-found.tsx` (white wordmark in dark), `text-white` → `text-on-accent` in `Button`, `LinkButton`, the three `not-found`s, `verify`, staff home + ledger, admin establishments, owner dues, `ScheduleBuilder`, `DirectionToggle`, `ForgotForm`; `LedgerArt` `#fff` → `var(--color-white)` | ✓ | recharts props were on `home`'s list |
-| T4 tests (C4) | `src/lib/tokenLint.test.ts` (21), `src/lib/themeCss.test.ts` (10), `src/lib/themeContrast.test.ts` (101), helper `src/lib/themeCssParse.ts` (test-only parser, not imported by the app) | ✓ | |
+| T4 tests (C4) | `src/lib/tokenLint.test.ts` (21), `src/lib/themeCss.test.ts` (10), `src/lib/themeContrast.test.ts` (101), helpers `src/lib/themeCss.testkit.ts` + `src/lib/tokenLint.testkit.ts` (test-only, not imported by the app; renamed in D43, below) | ✓ | |
 
 ## T1 — the token layer (done)
 
@@ -153,6 +153,36 @@ M1 light `--color-accent` #006c35 → #006c36 → "keeps every pre-v1.5 colour t
   - Mutation: `bg-sky-100` added to `AuthCard` (scratch tree) → "every one is redefined in the dark block" failed with `--color-sky-100 (src/features/auth/components/AuthCard.tsx)`.
 - `tokenLint.test.ts` now has 33 cases (218 lines).
 
+### QA — D42 N4
+- The button already carried `title={label}` (same text as its `aria-label`) from T2. It is now pinned: `themeToggle.test.ts` "hover title equals the accessible name" × 3 modes. Mutation: `title` removed → all 3 cases failed (restored). The cycle is unchanged (light → dark → system, §C2), still pinned by `theme.test.ts`.
+
+### qa-tests survivors — D43 (all killed now; re-mutated the qa-tests way)
+- **T01 — a click must advance the cycle.** New `src/components/chrome/themeToggleClick.test.ts` (5 cases). It stubs React's `useState`/`useEffect`, calls the component as a function and fires `onClick` against stub `window`/`document`. It checks the cycle from each state, plus the stored value, the attribute and the cookie.
+  - Mutation: the click re-applies `current` → the 4 "from X a click chooses Y" cases failed.
+- **T02 — `Secure` on https.** Same file: https gives `; Secure`, http gives none.
+  - Mutation: `secure: false` → that case failed.
+- **T13 — the literal keys.** `theme.test.ts` now pins `THEME_COOKIE` = `"theme"` and `THEME_STORAGE_KEY` = `"ui:theme"`, and the storage stub compares against the literal.
+  - Mutation: key → `"theme"` → the key case + 3 storage cases failed.
+- **T11 (NOTE, pinned anyway).** The layout's `themeColor` per scheme must equal `--color-topbar` light / dark (`themeCss.test.ts`).
+  - Mutation: dark → `#000000` → that case failed.
+- **Brittle layout test loosened.** The source is compared whitespace-free, with trailing commas dropped. The spread may be inline or go through one local assigned from `parseTheme((await cookies()).get(THEME_COOKIE)?.value)`.
+  - Proof: a multi-line reformat with the local renamed → passed; the inline form → passed; reading the wrong cookie → failed.
+- **Token lint** (rules moved to `tokenLint.testkit.ts`; both helpers renamed `*.testkit.ts` and skipped by the lint like tests, because their regex literals hold quote characters the comment stripper cannot see past). Each was re-mutated on `Badge.tsx:10` in a scratch tree, as qa-tests did:
+  - **T06:** `_` added to the hex lookbehind → `shadow-[0_0_0_1px_#ffffff]` → "finds no hard-coded colour" failed.
+  - **T07:** named colours inside arbitrary values (`fill-[white]`, `bg-[color:red]`, `[--focus-ring:white]`) → `fill-[white]` failed it.
+  - **T08:** `black` colour classes are flagged unless their variant chain ends in `backdrop:` (my ruling: the only use is a modal's `backdrop:bg-black/50`, which dims the page in both themes, and the unlayered `dialog::backdrop` rule paints `--color-backdrop` over it anyway) → `text-black` failed it; `backdrop:bg-black/50` passes.
+  - **T10:** `drop-shadow`, `text-shadow`, `inset-ring` and `inset-shadow` are added to the palette-coverage utilities (compound names first, with a guard case) → `drop-shadow-sky-100` → "every one is redefined in the dark block" failed.
+  - **T09 (NOTE):** `color-mix(` is flagged in TS too.
+- New fixtures: 9 "flags" + 3 "does not flag". `tokenLint.test.ts` now has 45 cases.
+
+### Reviewer round 4 — R4-T1 (SHOULD, fixed)
+- The lint skips `*.testkit.ts`, so `tokenLint.test.ts` now closes that hatch by name with two cases.
+- **(a) Only the two helpers may exist.** `src/lib/themeCss.testkit.ts` and `src/lib/tokenLint.testkit.ts` are an explicit list; any `*.testkit.*` file elsewhere in `src` fails.
+  - Mutation: `src/components/sneaky.testkit.ts` holding `"#fff"` (scratch tree, `TOKEN_LINT_ROOT`) → "the only *.testkit files under src are the two theme helpers" failed. The hex itself was skipped, which is the hole this case closes.
+- **(b) No app file may import a testkit.** Static `from`, dynamic `import()` and `require()` all count; two fixture lines check the matcher.
+  - Mutation: `Badge.tsx` importing `@/lib/tokenLint.testkit` (scratch tree) → "no non-test file imports a .testkit module" failed.
+- `tokenLint.test.ts` now has 47 cases.
+
 ## For nav — mounting the toggle (T2)
 - Import: `import { ThemeToggle } from "./ThemeToggle";` (in `src/components/chrome/TopBar.tsx`; full path `@/components/chrome/ThemeToggle`).
 - Element: `<ThemeToggle />` — **no props**. It is an async server component (reads the `theme` cookie) rendering the client `ThemeToggleButton`; TopBar and AppShell are server components, so it mounts directly. Do not import `ThemeToggleButton` yourself.
@@ -172,4 +202,4 @@ M1 light `--color-accent` #006c35 → #006c36 → "keeps every pre-v1.5 colour t
 ## Questions / requests sent to lead
 - Decision request: `white` = surface in dark + `text-on-accent` (deep ink in dark) on fills + deep-green top bar with white (above). → accepted as D36.
 - `--color-on-gold` was added at `home`'s request (their D40 / R1-H3); its light value is a new token (#171717 = gray-900 light), so it changes no existing pixel.
-- `src/lib/themeCssParse.ts` is a new non-test helper used only by my three tests (block parser, comment stripper, contrast). It lives in `src/lib/**`, the lead's area by CLAUDE.md; tell me if you want it moved.
+- The test-only helpers are now `src/lib/themeCss.testkit.ts` (block parser, comment stripper, contrast) and `src/lib/tokenLint.testkit.ts` (lint rules). They live in `src/lib/**`, the lead's area by CLAUDE.md; tell me if you want them moved.

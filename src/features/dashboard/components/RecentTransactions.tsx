@@ -26,7 +26,8 @@ export function RecentTransactions({
   title?: string;
   viewAllHref?: string;
 }) {
-  const action = viewAllHref ? (
+  // D42 (N12): no «عرض الكل» over an empty list.
+  const action = viewAllHref && rows.length > 0 ? (
     <Link
       href={viewAllHref}
       className="inline-flex min-h-11 items-center text-sm text-accent-dark underline-offset-2 hover:underline"

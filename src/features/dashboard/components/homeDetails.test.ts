@@ -5,9 +5,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { t } from "@/i18n/ar";
 
-import { HomeDetails } from "./HomeDetails";
+import { blocks, stripComments } from "@/lib/themeCss.testkit";
+
+import { HomeDetails, HomeDetailsView } from "./HomeDetails";
 import {
   HOME_DETAILS_KEY,
+  WIDE_QUERY,
+  toggleHomeDetails,
   homeDetailsDataOpen,
   isHomeDetailsOpen,
   readHomeDetailsOpen,
@@ -81,12 +85,43 @@ describe("HomeDetails", () => {
     }
   });
 
-  it("D20: the screen-only CSS hides the body by width until a choice exists; print matches neither rule", () => {
-    const css = readFileSync("src/app/globals.css", "utf8").replace(/\s+/g, " ");
-    expect(css).toContain(
-      '@media screen and (width < 48rem) { .home-details:not([data-open="true"]) .home-details-body { display: none; } }',
-    );
-    expect(css).toContain('@media screen and (width >= 48rem) { .home-details[data-open="false"] .home-details-body { display: none; } }');
-    expect(css).not.toMatch(/@media print[^}]*home-details/);
+  it("D20: the screen-only CSS hides the body by width until a choice exists (parsed, formatting-proof)", () => {
+    const top = blocks(stripComments(readFileSync("src/app/globals.css", "utf8")));
+    const norm = (x: string) => x.replace(/\s+/g, " ").trim();
+    const hides = (media: RegExp, selector: string) =>
+      top.some(
+        (b) => media.test(norm(b.header)) && blocks(b.body).some((r) => norm(r.header) === selector && /display:\s*none/.test(r.body)),
+      );
+    expect(hides(/^@media screen and \((width < 48rem|max-width: 47\.9+rem)\)$/, '.home-details:not([data-open="true"]) .home-details-body')).toBe(true);
+    expect(hides(/^@media screen and \((width >= 48rem|min-width: 48rem)\)$/, '.home-details[data-open="false"] .home-details-body')).toBe(true);
+  });
+
+  it("T12: no print rule and no unscoped rule names the details — print always shows the body", () => {
+    const top = blocks(stripComments(readFileSync("src/app/globals.css", "utf8")));
+    const print = top.filter((b) => /^@media print\b/.test(b.header));
+    expect(print.length).toBeGreaterThan(0);
+    for (const b of print) for (const r of blocks(b.body)) expect(r.header, r.header).not.toMatch(/home-details/);
+    expect(top.filter((b) => !b.header.startsWith("@") && /home-details/.test(b.header))).toEqual([]);
+  });
+
+  it("H25: the media query the client reads is the CSS's own breakpoint", () => {
+    expect(WIDE_QUERY).toBe("(min-width: 48rem)");
+  });
+
+  it("H24: the toggle stores and returns the opposite of what shows now", () => {
+    const store = vi.fn();
+    expect(toggleHomeDetails(null, true, store)).toBe(false);
+    expect(toggleHomeDetails(null, false, store)).toBe(true);
+    expect(toggleHomeDetails(true, false, store)).toBe(false);
+    expect(toggleHomeDetails(false, true, store)).toBe(true);
+    expect(store.mock.calls).toEqual([[false], [true], [false], [true]]);
+  });
+
+  it("H26: the button's aria-expanded and the data-open follow the view's state", () => {
+    const view = (open: boolean, dataOpen: "true" | "false" | undefined) =>
+      renderToStaticMarkup(createElement(HomeDetailsView, { bodyId: "b", open, dataOpen, onToggle: () => undefined, children: "x" }));
+    expect(view(true, "true")).toMatch(/data-open="true"[\s\S]*aria-expanded="true"/);
+    expect(view(false, "false")).toMatch(/data-open="false"[\s\S]*aria-expanded="false"/);
+    expect(view(true, undefined)).not.toContain("data-open");
   });
 });

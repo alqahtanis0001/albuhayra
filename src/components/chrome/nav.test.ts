@@ -51,6 +51,24 @@ const OWNER_HREFS = [
   "/owner/settings/reminders",
   "/owner/settings/account",
 ];
+/**
+ * docs/V15-SPEC.md §B3 verbatim (D43: literals, not keys, so a changed string
+ * fails here): [href, label, caption] in the spec's order.
+ */
+const SPEC_OWNER_ROWS: Array<[string, string, string]> = [
+  ["/owner/transactions/new", "حركة جديدة", "مبلغ دخل أو خرج اليوم"],
+  ["/owner/plans?pick=payment", "دفعة على اتفاقية", "عميل أو مورد دفع قسطًا من اتفاقية قائمة"],
+  ["/owner/staff?pick=salary", "صرف راتب", "دفع راتب موظف عن هذا الشهر"],
+  ["/owner/plans/new", "اتفاقية جديدة", "إنشاء اتفاق/عقد جديد لعميل أو مورد يُدفع على أقساط أو حسب التيسير."],
+  ["/owner/parties/new", "جهة جديدة", "عميل أو مورد تتعامل معه"],
+  ["/owner/staff/new", "موظف جديد", "بياناته وراتبه ودوامه"],
+  ["/owner/projects/new", "نشاط جديد", "مشروع أو مناسبة لها تكاليفها"],
+];
+const SPEC_STAFF_ROWS: Array<[string, string, string]> = [
+  ["/staff/transactions/new", "حركة جديدة", "مبلغ دخل أو خرج اليوم"],
+  ["/staff/me", "تسجيل حضوري", "تسجيل حضورك أو انصرافك"],
+];
+
 /** v1.5 B3: the owner's «+» rows without «صرف راتب» (no salaried employee). */
 const OWNER_ADD_HREFS = [
   "/owner/transactions/new",
@@ -271,13 +289,7 @@ describe("tab bar slots (B2, D13, A7)", () => {
 describe("addRows (B1, D16 b/c; v1.5 B3, D15)", () => {
   it("owner: seven rows in spec order when an employee is salaried, each with its caption", () => {
     expect(addRows("OWNER", { hasSalaryEmployees: true }).map((r) => [r.href, r.label, r.hint])).toEqual([
-      ["/owner/transactions/new", t.addSheet.newEntry, t.addHints.newEntry],
-      ["/owner/plans?pick=payment", t.addSheet.recordPayment, t.addHints.recordPayment],
-      ["/owner/staff?pick=salary", t.employees.paySalary, t.addHints.paySalary],
-      ["/owner/plans/new", t.plans.add, t.addHints.newPlan],
-      ["/owner/parties/new", t.addSheet.newParty, t.addHints.newParty],
-      ["/owner/staff/new", t.addSheet.newEmployee, t.addHints.newEmployee],
-      ["/owner/projects/new", t.addSheet.newProject, t.addSheet.newProjectHint],
+      ...SPEC_OWNER_ROWS,
     ]);
     expect(addRows("OWNER", { hasSalaryEmployees: true }).map((r) => r.href)).toEqual(OWNER_ADD_HREFS_SALARY);
     expect(t.plans.add).toBe("اتفاقية جديدة");
@@ -309,8 +321,7 @@ describe("addRows (B1, D16 b/c; v1.5 B3, D15)", () => {
     expect(addRows("STAFF", { linked: false }).map((r) => r.href)).toEqual(["/staff/transactions/new"]);
     expect(addRows("STAFF", { hasSalaryEmployees: true }).map((r) => r.href)).toEqual(["/staff/transactions/new"]);
     expect(addRows("STAFF", { linked: true }).map((r) => [r.href, r.label, r.hint])).toEqual([
-      ["/staff/transactions/new", "حركة جديدة", t.addHints.newEntry],
-      ["/staff/me", "تسجيل حضوري", t.addHints.myCheckIn],
+      ...SPEC_STAFF_ROWS,
     ]);
     expect(addRows("ADMIN")).toEqual([]);
     expect(addRows("ADMIN", { linked: true, hasSalaryEmployees: true })).toEqual([]);
@@ -348,6 +359,20 @@ describe("AddSheet (B1, D16 c, A9)", () => {
     expect(link).not.toContain("<dialog");
     expect(link).not.toContain("aria-current");
     expect(link).toContain(t.addSheet.tab);
+  });
+});
+
+describe("D42 (QV-S1): the desktop «+» dialog fits short screens", () => {
+  it("the side dialog is capped below the viewport height and scrolls; the phone sheet keeps its own cap", () => {
+    const side = render(createElement(AddSheet, { entry: addEntryOf(ownerNavGroups({ hasSalaryEmployees: true }))!, variant: "side" }), "/owner");
+    const dialog = /<dialog [^>]*class="([^"]+)"/.exec(side)?.[1]?.split(" ") ?? [];
+    expect(dialog).toContain("mt-24");
+    expect(dialog).toContain("max-h-[calc(100dvh-7rem)]");
+    expect(dialog).toContain("overflow-y-auto");
+    const tab = render(createElement(AddSheet, { entry: addEntryOf(OWNER_NAV_GROUPS)!, variant: "tab" }), "/owner");
+    const sheet = /<dialog [^>]*class="([^"]+)"/.exec(tab)?.[1]?.split(" ") ?? [];
+    expect(sheet).toContain("max-h-[85dvh]");
+    expect(sheet).toContain("overflow-y-auto");
   });
 });
 
@@ -480,7 +505,7 @@ describe("B3 — the «+» rows: captions, layout and the 56 px minimum", () => 
   it("«نشاط جديد» is the last owner row, captioned by addSheet.newProjectHint", () => {
     const rows = addRows("OWNER", { hasSalaryEmployees: true });
     expect(rows[6]!.href).toBe("/owner/projects/new");
-    expect(rows[6]!.hint).toBe(t.addSheet.newProjectHint);
+    expect(rows[6]!.hint).toBe("مشروع أو مناسبة لها تكاليفها");
   });
 
   it("every row class carries min-h-14 (56 px); captions are a muted second line, on-accent-muted on the primary row (D33)", () => {
@@ -505,8 +530,9 @@ describe("B3 — the «+» rows: captions, layout and the 56 px minimum", () => 
     expect(html.match(/<li>/g)).toHaveLength(6);
     const primary = new RegExp(`<a class="${PRIMARY_ROW.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&")}" href="/owner/transactions/new"`);
     expect(html).toMatch(primary);
-    expect(html).toContain(`<span class="${PRIMARY_HINT}">${t.addHints.newEntry}</span>`);
-    for (const hint of [t.addHints.recordPayment, t.addHints.paySalary, t.addHints.newPlan, t.addHints.newParty, t.addHints.newEmployee, t.addSheet.newProjectHint]) {
+    const [first, ...rest] = SPEC_OWNER_ROWS.map((row) => row[2]);
+    expect(html).toContain(`<span class="${PRIMARY_HINT}">${first}</span>`);
+    for (const hint of rest) {
       expect(html).toContain(`<span class="${HINT}">${hint}</span>`);
     }
     expect(html.match(new RegExp(`class="${ROW.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&")}"`, "g"))).toHaveLength(6);
@@ -515,7 +541,7 @@ describe("B3 — the «+» rows: captions, layout and the 56 px minimum", () => 
 
   it("a linked staff login's sheet: two rows, both captioned", () => {
     const html = render(createElement(AddSheet, { entry: addEntryOf(singleGroup(staffNav(true)))!, variant: "tab" }), "/staff");
-    expect(html).toContain(`<span class="${PRIMARY_HINT}">${t.addHints.newEntry}</span>`);
-    expect(html).toContain(`<span class="${HINT}">${t.addHints.myCheckIn}</span>`);
+    expect(html).toContain(`<span class="${PRIMARY_HINT}">${SPEC_STAFF_ROWS[0][2]}</span>`);
+    expect(html).toContain(`<span class="${HINT}">${SPEC_STAFF_ROWS[1][2]}</span>`);
   });
 });

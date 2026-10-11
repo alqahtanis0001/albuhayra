@@ -54,21 +54,22 @@ export async function generateMetadata({
 const ADD_BUTTON: Record<LedgerTab, { href: string; label: string }> = {
   entries: { href: "/owner/transactions/new", label: t.transaction.addButton },
   activities: { href: "/owner/projects/new", label: t.projects.add },
-  // D24: the reports tab adds an entry, worded as the «+» sheet's first row.
-  reports: { href: "/owner/transactions/new", label: t.addSheet.newEntry },
+  // D42 (QV-N11): the same words as the entries tab, one tab apart.
+  reports: { href: "/owner/transactions/new", label: t.transaction.addButton },
 };
 
 /**
  * The h1, the tab's add button (and R11's «طباعة» on the entries tab) and the
- * three-tab strip (v1.4 B3, v1.5 B2). On the reports tab the h1 is `no-print`:
- * the report's own PrintHeader is the one heading that prints (D24).
+ * three-tab strip (v1.4 B3, v1.5 B2). On the reports tab the whole header row
+ * is `no-print`: the report's own PrintHeader is the one heading that prints
+ * (D24), and an empty row would still take the column's gap (D42, QV-N1).
  */
 function Header({ tab }: { tab: LedgerTab }) {
   const add = ADD_BUTTON[tab];
   return (
     <>
-      <div className="flex items-center justify-between gap-2">
-        <h1 className={`${tab === "reports" ? "no-print " : ""}text-xl font-semibold text-gray-900`}>{t.ledger.title}</h1>
+      <div className={`${tab === "reports" ? "no-print " : ""}flex items-center justify-between gap-2`}>
+        <h1 className="text-xl font-semibold text-gray-900">{t.ledger.title}</h1>
         <div className="no-print flex flex-wrap items-center gap-2">
           {tab === "entries" ? <PrintButton /> : null}
           <Link

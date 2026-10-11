@@ -15,7 +15,7 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { blocks, decls, only, readThemeCss } from "./themeCssParse";
+import { blocks, decls, only, readThemeCss } from "./themeCss.testkit";
 
 const { css: CSS, top: TOP, screen: SCREEN, system: SYSTEM, theme: THEME, themeStatic: STATIC, darkExplicit: DARK_EXPLICIT, darkSystem: DARK_SYSTEM } =
   readThemeCss();
@@ -160,6 +160,13 @@ describe("dark theme blocks", () => {
       expect(img("white"), file).toMatch(/className="wordmark-dark /);
       expect(img("white"), file).toMatch(/loading="lazy"/);
     }
+  });
+
+  it("the browser bar (layout themeColor) is the top bar's colour in each scheme (D43 T11)", () => {
+    const src = readFileSync(join(process.cwd(), "src/app/layout.tsx"), "utf8");
+    const colour = (scheme: string) => src.match(new RegExp(`prefers-color-scheme: ${scheme}\\)", color: "(#[0-9a-f]{6})"`))?.[1];
+    expect(colour("light")).toBe(STATIC.get("--color-topbar"));
+    expect(colour("dark")).toBe(DARK_EXPLICIT.get("--color-topbar"));
   });
 
   it("live only inside @media screen, so print is light by construction", () => {

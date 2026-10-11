@@ -155,6 +155,36 @@ describe("D40 fixes (R1-H2, R1-H3, R1-H8)", () => {
   });
 });
 
+describe("D42 (QV-S2, QV-S3, N5)", () => {
+  const source = readFileSync("src/components/WheelCard.tsx", "utf8");
+
+  it("QV-S2: the card's keydown handler (ctl.cardKey) sits on the wrapper holding both the wheel and the rows", () => {
+    const open = /<div [^>]*onKeyDown=\{\(e\) => ctl\.cardKey\(e\.key\)\}>/.exec(source);
+    expect(open).not.toBeNull();
+    expect(source.indexOf("<WheelSvg")).toBeGreaterThan(open!.index);
+    expect(source.indexOf("<WheelRows")).toBeGreaterThan(open!.index);
+  });
+
+  it("QV-S3: the visible hint is muted and no-print, gated by the view; absent before any tap", () => {
+    expect(source).toMatch(/\{view\.hintVisible \? <p className="no-print [^"]*text-gray-500[^"]*">\{t\.wheel\.openHint\}<\/p> : null\}/);
+    expect(render(BASE)).not.toContain(`>${t.wheel.openHint}</p>`);
+  });
+
+  it("N5: the empty state hides «إعادة العرض» / «إظهار الكل» and row 4's count; a live wheel keeps both", () => {
+    const zero: WheelInput = {
+      ...BASE, hasEntry: false, monthInHalalas: 0, monthOutHalalas: 0, topOutCategories: [], balanceTotalHalalas: 0,
+      overview: { commitments: { toUsHalalas: 0, fromUsHalalas: 0, salariesHalalas: 0 }, dial: [], overdue: { recent: [], count: 0, totalHalalas: 0 } },
+    };
+    const empty = render(zero);
+    expect(empty).not.toContain(t.wheel.replay);
+    expect(empty).not.toContain(t.wheel.showAll);
+    expect(empty).not.toContain("0 موعد");
+    const live = render(BASE);
+    expect(live).toContain(t.wheel.replay);
+    expect(live).toContain(">موعد واحد<");
+  });
+});
+
 describe("Wheel*.tsx stay small client leaves (D25)", () => {
   it("they import no server-only module and no validation barrel; colours are tokens only", () => {
     for (const file of ["WheelCard.tsx", "WheelSvg.tsx", "WheelRows.tsx"]) {

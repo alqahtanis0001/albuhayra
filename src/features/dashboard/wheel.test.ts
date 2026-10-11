@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   DIAL_DAYS,
   GAP,
+  arcPath,
+  polar,
   HIT_RADIUS,
   MAX_MARKS,
   MIN_ARC,
@@ -126,18 +128,56 @@ describe("the dial", () => {
     expect(three[0]).toMatchObject({ id: "overdue", overdue: true, count: 3, totalHalalas: 300_000, href: "/owner/dues" });
   });
 
-  it("the 40-mark cap: 40 marks pass untouched, a 41st folds into the last mark", () => {
-    // Day merging bounds the real dial at 30 + 2 marks; the guard is pinned with a small max.
-    const busy = Array.from({ length: 41 }, (_, i) => ev({ dayOffset: i % DIAL_DAYS, instalmentId: `x${i}` }));
-    const real = clusterDots(busy, { recent: [ev({ dayOffset: -1 }), ev({ dayOffset: -2 })], count: 2, totalHalalas: 2 });
-    expect(real.length).toBeLessThanOrEqual(MAX_MARKS);
-    expect(real.reduce((s, m) => s + m.count, 0)).toBe(43);
-
+  it("the mark cap (D18, rewritten for D43): exactly `max` marks pass untouched, one more folds the rest into the last", () => {
+    // Day merging bounds the real dial at 30 + 2 marks, so the guard is pinned with a small max;
+    // MAX_MARKS is the value the dial passes.
+    expect(MAX_MARKS).toBe(40);
     const four = [1, 2, 3, 4].map((d) => ev({ dayOffset: d, instalmentId: `y${d}`, remainingHalalas: d }));
-    expect(clusterDots(four, NO_OVERDUE, 4)).toHaveLength(4);
+    expect(clusterDots(four, NO_OVERDUE, 4).map((m) => m.id)).toEqual(["i:y1", "i:y2", "i:y3", "i:y4"]);
     const capped = clusterDots(four, NO_OVERDUE, 3);
     expect(capped).toHaveLength(3);
+    expect(capped.slice(0, 2).map((m) => m.id)).toEqual(["i:y1", "i:y2"]);
     expect(capped[2]).toMatchObject({ count: 2, totalHalalas: 7, href: "/owner/dues" });
+  });
+
+  it("H01: a merged day takes the colour of its largest kind by amount, not by count", () => {
+    const [m] = clusterDots(
+      [
+        ev({ dayOffset: 8, instalmentId: "o1", kind: "OUT", remainingHalalas: 300 }),
+        ev({ dayOffset: 8, instalmentId: "o2", kind: "OUT", remainingHalalas: 300 }),
+        ev({ dayOffset: 8, instalmentId: "s1", kind: "SALARY", remainingHalalas: 700 }),
+      ],
+      NO_OVERDUE,
+    );
+    expect(m).toMatchObject({ count: 3, kind: "SALARY" });
+  });
+
+  it("H02: a tie keeps the earlier kind in IN, OUT, SALARY order", () => {
+    const [m] = clusterDots(
+      [ev({ dayOffset: 9, instalmentId: "t1", kind: "OUT", remainingHalalas: 300 }), ev({ dayOffset: 9, instalmentId: "t2", kind: "IN", remainingHalalas: 300 })],
+      NO_OVERDUE,
+    );
+    expect(m!.kind).toBe("IN");
+  });
+
+  it("H03: the overdue cluster sits at −16°", () => {
+    const [m] = clusterDots([], { recent: [ev({ dayOffset: -1 }), ev({ dayOffset: -2 })], count: 5, totalHalalas: 9 });
+    expect(m!.angle).toBe(-16);
+  });
+});
+
+describe("arcs and the clock face (H04, H05)", () => {
+  it("an arc over 180° takes the large-arc flag, a smaller one does not", () => {
+    expect(arcPath(88, 3, 220)).toContain(" 0 1 1 ");
+    expect(arcPath(88, 3, 150)).toContain(" 0 0 1 ");
+  });
+
+  it("angles run clockwise from the top: 0° is up, 90° is right, 180° is down", () => {
+    const at = (r: number, a: number) => polar(r, a).map((v) => Math.round(v * 1000) / 1000);
+    expect(at(180, 0)).toEqual([200, 20]);
+    expect(at(180, 90)).toEqual([380, 200]);
+    expect(at(180, 180)).toEqual([200, 380]);
+    expect(at(180, 270)).toEqual([20, 200]);
   });
 });
 

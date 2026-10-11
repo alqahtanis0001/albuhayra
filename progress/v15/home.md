@@ -70,3 +70,57 @@ Gates after the fixes: typecheck 0; vitest 133 files / 1896 tests green; build e
 ## Round 2 note
 - `wheelFocus.test.ts`: both `t.wheel.centreSub` and `centreSubCapped` must contain `{arrow}{pct}` (the second isolate opens in `{arrow}` and closes in `{pct}`). Mutation `{arrow} {pct}` in `centreSubCapped` → that case and the capped-string case failed; restored byte-exact (cmp).
 - Gates: typecheck 0; vitest 133 files / 1909 tests; build exit 0 under the lock; `/owner` 328.8 KB gz (+5.1).
+
+## QA fixes (D42, from progress/v15/qa-visual.md)
+| Item | Fix | Test → mutation |
+|---|---|---|
+| QV-S2 | one `onKeyDown` on the card's inner wrapper (holds the SVG and the rows) → `cardKeyAction(key)` (Escape → `escape`); the mark-level Escape branch is gone (it bubbles) | `wheelFocus.test.ts` (row focus + Escape → null) ← `cardKeyAction` returns null failed; `wheelUi.test.ts` source pin (wrapper encloses `<WheelSvg` and `<WheelRows`) ← handler removed failed |
+| QV-S3 | `showOpenHint(state)` = activated && a mark is focused; visible muted `no-print` line under the wheel | pure case (row / clear / Escape hide it) ← "any focus" failed 2; JSX pin ← line removed failed |
+| N5 | empty state: no «إعادة العرض» / «إظهار الكل», row 4 without the count | `wheelUi.test.ts` N5 ← each guard removed failed |
+| N6 | `liveLine(state, centre, hint)` joins with «. » | ← plain space failed |
+| N7 | overdue dot label by kind: `dotOverdueIn` / `dotOverdueOut` / `dotOverdueSalary` | 3 labels pinned ← always Out failed |
+| N12 | `RecentTransactions`: «عرض الكل» only when there are rows | `ownerHome.test.ts` N12 ← guard removed failed |
+
+Gates: typecheck 0; vitest 133 files / 1920 tests; build exit 0 under the lock; `/owner` 328.9 KB gz (+5.2).
+
+## qa-tests (D43)
+Re-checked against the current tree (after D42). New pure seams so the node env drives every interaction: `dashboard/wheelController.ts` (`wheelController(effects)` — activate / row / cardKey / replay / showAll over injected `getState`, `setState`, `push`, `bumpReplay`; `markKeyAction`; `wheelView` → centre, tone, live line, hint, animate), WheelCard now only wires it; `HomeDetailsView` (hook-free markup) + `toggleHomeDetails(remembered, wide, store)`. New test file `dashboard/wheelInteractions.test.ts` (12). Every mutation below was applied in-tree with a cp backup, restored byte-exact.
+
+| # | Test | Mutation → failed |
+|---|---|---|
+| H07 BLOCKER | wheelFocus "ids ↔ amounts ↔ hrefs" (ring 1 and ring 3 rows of `[id, amount, href]`) | swap علينا/رواتب amounts → that case + row-focus total |
+| H18 BLOCKER | wheelInteractions "each row lists its own ring's values" (name → exact amount pairs per row; row 4 count, no amounts) | row 2 lists ring 1 → failed |
+| H20 BLOCKER | overviewReads "unpaid-only" (all 5 instalment reads carry `paidHalalas: { lt: fieldRef }`); scoping zone loop checks it too | drop `...unpaid` from the dial read → unit case and the gate's populated case |
+| H22 BLOCKER | same case | drop `...unpaid` from `overdueWhere` → failed |
+| H01 | wheel "largest kind by amount, not count" | count instead of amount → failed |
+| H02 (note) | wheel "a tie keeps the earlier kind" | `>` → `>=` → failed |
+| H03 | wheel "overdue cluster at −16°" | −26° → failed |
+| H04 | wheel "large-arc flag" | flag always 0 → failed |
+| H05 | wheel "clockwise from the top" (`polar` at 0/90/180/270) | `-angle` → failed |
+| H06 | wheelFocus ids/amounts/hrefs | وارد href → OUT → failed |
+| H08 | wheelFocus D28 (no entry, no dots, one commitment → not empty) | drop the ring clause → failed |
+| H09 (note) | wheelFocus `wholeRiyals(150) = "2"` | round → trunc → failed |
+| H10 | wheelInteractions: second activation calls `push(href)` | push removed → failed |
+| H11 | `replay` bumps + clears; `<WheelSvg key={replay}` pin | `key={0}` → failed; bump removed → failed |
+| H12 | `wheelView` live line ends with «. » + hint | hint dropped → failed |
+| H13 | `cardKey("Escape")` clears from a mark and a row | dispatch removed → failed |
+| H14 | dot fill per kind in the rendered SVG | IN/OUT colours swapped → failed |
+| H15 | overdue dot: `fill-white` + red stroke, no fill var | filled → failed |
+| H16 | «اليوم» circle at cx 200 cy 20 | marker at 180° → failed |
+| H17 | layer opacities `[0.18, 1, 0.18, 0.18]` on a ring-2 focus, dial-only on a dot | opacity fixed 1 → failed |
+| H19 | `WheelRows(...)` called as a function, each button's onClick → `onRow(1..4)` | every row → 1 → failed |
+| H23 | overviewReads mock now projects rows through `select` | drop `employeeId` from the select → dial case failed |
+| H24 | `toggleHomeDetails` stores/returns the opposite | store `!next` → failed |
+| H25 | `WIDE_QUERY === "(min-width: 48rem)"` | 40rem → failed |
+| H26 | `HomeDetailsView` aria-expanded / data-open follow the state | `aria-expanded={false}` → failed |
+| H27 | ownerHome: HomeDetails mocked as `<div id="DETAILS">`, the four sections (project fixture added) inside it, wheel/attention/recent not | الأنشطة moved out → failed |
+| T12 | homeDetails: parsed `@media print` blocks (themeCss.testkit `blocks`) name no `home-details`; no unscoped rule either | a print rule hiding the body → failed |
+| H29 | — | equivalent (the read takes 2), recorded |
+
+Also:
+- Vacuous 40-mark test rewritten: exactly `max` marks pass untouched (ids pinned), `max − 1` folds the rest; `MAX_MARKS === 40`.
+- Brittle pins loosened: D20 CSS now parsed (accepts `width < 48rem` / `max-width: 47.9…rem` and `min-width: 48rem`); ownerHome's variable-name regexes replaced by a behavioural "overview and dues get the same today" (mutation: dues gets another date → failed); the D21 source regexes removed (`recentCounts.test.ts` pins the calls: owner 5 / staff 10, re-mutated); client-safety `server-only` regex accepts either quote; WheelCard pins match the controller wiring.
+- Midnight flake, `scoping.test.ts` "v1.2b CP2 … checkIn": `vi.useFakeTimers({ toFake: ["Date"] })` + `setSystemTime(today 12:00 Riyadh)`, restored in `finally`. Proof: the clock set to 00:00:30 Riyadh reproduces the reported failure (that case + the static sweep).
+- Every earlier mutation re-run after the refactor; moved ones re-targeted (salary scope, empty-no-animation, row-4 count, QV-S2/S3 pins, owner 5) — all fail.
+
+Gates: typecheck 0; vitest 136 files / 1974 tests; build exit 0 under the lock; `/owner` 329.2 KB gz (+5.5).

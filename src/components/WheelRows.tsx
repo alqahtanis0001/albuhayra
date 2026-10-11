@@ -24,9 +24,11 @@ type Value = { key: string; name: string; colour: string | null; halalas?: numbe
 function valuesOf(model: WheelModel, layer: Layer): Value[] {
   if (layer === 4) {
     // D40 (R1-H8): the dial's count, so the row states how many dues it holds.
+    // N5: the D28 empty state has no «0 موعد».
     const n = model.dots.reduce((s, d) => s + d.count, 0);
+    const count: Value[] = model.empty ? [] : [{ key: "count", name: plural(t.wheel.dialCount, n), colour: null }];
     return [
-      { key: "count", name: plural(t.wheel.dialCount, n), colour: null },
+      ...count,
       { key: "overdue", name: t.wheel.legendOverdue, colour: TONE_VAR.red, hollow: true },
       { key: "in", name: t.wheel.legendIn, colour: TONE_VAR.green },
       { key: "out", name: t.wheel.legendOut, colour: TONE_VAR.red },

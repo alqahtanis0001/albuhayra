@@ -84,12 +84,27 @@ export const v15Sections = {
       other: "{n} موعد",
     } satisfies PluralForms,
     /** Dot labels; `{name}` = the party or employee. */
-    dotOverdue: {
-      one: "قسط {name} — متأخر يومًا واحدًا",
-      two: "قسط {name} — متأخر يومين",
-      few: "قسط {name} — متأخر {n} أيام",
-      many: "قسط {name} — متأخر {n} يومًا",
-      other: "قسط {name} — متأخر {n} يوم",
+    /** QV-N7: overdue labels carry the direction like the others. */
+    dotOverdueIn: {
+      one: "قسط لنا من {name} — متأخر يومًا واحدًا",
+      two: "قسط لنا من {name} — متأخر يومين",
+      few: "قسط لنا من {name} — متأخر {n} أيام",
+      many: "قسط لنا من {name} — متأخر {n} يومًا",
+      other: "قسط لنا من {name} — متأخر {n} يوم",
+    } satisfies PluralForms,
+    dotOverdueOut: {
+      one: "قسط علينا لـ{name} — متأخر يومًا واحدًا",
+      two: "قسط علينا لـ{name} — متأخر يومين",
+      few: "قسط علينا لـ{name} — متأخر {n} أيام",
+      many: "قسط علينا لـ{name} — متأخر {n} يومًا",
+      other: "قسط علينا لـ{name} — متأخر {n} يوم",
+    } satisfies PluralForms,
+    dotOverdueSalary: {
+      one: "راتب {name} — متأخر يومًا واحدًا",
+      two: "راتب {name} — متأخر يومين",
+      few: "راتب {name} — متأخر {n} أيام",
+      many: "راتب {name} — متأخر {n} يومًا",
+      other: "راتب {name} — متأخر {n} يوم",
     } satisfies PluralForms,
     dotToday: "قسط {name} — اليوم",
     dotIn: {

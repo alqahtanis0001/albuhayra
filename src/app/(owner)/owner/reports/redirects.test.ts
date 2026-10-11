@@ -62,7 +62,7 @@ describe("the old report URLs redirect into the reports tab", () => {
     expect(calls.requireOwner).toBe(2);
   });
 
-  it("a redirect-only page has no loading.tsx (it must answer 307, not stream)", () => {
+  it("the redirect pages have no loading.tsx of their own (the owner segment's still streams first: a client redirect, D42 N2)", () => {
     const dir = "src/app/(owner)/owner/reports";
     expect(existsSync(`${dir}/(summary)/page.tsx`)).toBe(true);
     expect(existsSync(`${dir}/(summary)/loading.tsx`)).toBe(false);

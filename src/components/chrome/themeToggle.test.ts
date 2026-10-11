@@ -55,6 +55,12 @@ describe("ThemeToggleButton", () => {
     expect(html).toContain('type="button"');
   });
 
+  it.each(["light", "dark", "system"] as const)("hover title equals the accessible name (%s, D42 N4)", (choice) => {
+    const html = renderToStaticMarkup(createElement(ThemeToggleButton, { choice }));
+    expect(html).toContain(`title="${themeLabel(choice)}"`);
+    expect(html).toContain(`aria-label="${themeLabel(choice)}"`);
+  });
+
   it("is a 44 px target in the band's white, with a decorative icon", () => {
     const html = renderToStaticMarkup(createElement(ThemeToggleButton, { choice: "light" }));
     expect(html).toMatch(/class="[^"]*\bmin-h-11\b[^"]*\bmin-w-11\b/);

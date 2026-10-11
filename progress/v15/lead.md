@@ -26,3 +26,8 @@ Rulings where the reviewer offered options: D22 ring 3 keeps salary arrears (ر�
 - home R1: 1 B (D39) / 6 S (bidi isolate, ink on gold, label truncation, zero sides, row-4 count, queries.ts size + staff count pin) — closed R2.
 - theme R1: 0 B / 1 S (lint bypass: named colours, palette classes without dark values) — closed R2.
 - Lead: FRONTEND.md stale `/owner/reports` lines (R1-N3). Open for release prep: unused `ReportsSkeleton`/`AgingReportSkeleton` exports and their stale comments (`skeletons/screens.tsx:119`, `skeletons/v12c.tsx:38`); README nav block; CHANGELOG.
+
+## QA
+- `qa-visual`: 0 B / 3 S / 12 N → D42 (fixed by home/nav/theme; reviewer round 3 closed). Owner-test (g) pasted into `docs/OWNER-TEST-v14.md`: task 1 5→5, 6 2→4 (wheel path; visible open hint added after), 10 5→4, reports 5→5, dark —→4. 371 PNGs converted to JPEG (74 MB → ~17 MB) before commit.
+- `qa-tests`: 53 unlisted mutations, 8 killed / 45 survived (6 BLOCKER test gaps) → D43, dispatched to home/nav/theme. Lead: `src/i18n/v15Wording.test.ts` (9 cases; mutation: `addHints.newParty` → «عميل أو مورد» → "B3: the seven owner rows" failed; restored byte-exact). Incident: qa-tests ran `pkill -f vitest` (~21:00 UTC), which explains nav's transient 18 failures.
+| release prep | v1.5: release prep → merge into main | tsc 0 · 136/1976 · build 0 · max +5.5 KB gz | D42–D44; all reviews closed (rounds 1–4); smoke test on the release build |

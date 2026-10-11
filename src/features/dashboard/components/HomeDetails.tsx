@@ -23,6 +23,7 @@ import {
   isHomeDetailsOpen,
   readHomeDetailsOpen,
   rememberHomeDetailsOpen,
+  toggleHomeDetails,
 } from "./homeDetailsState";
 
 export function HomeDetails({ children }: { children: ReactNode }) {
@@ -40,20 +41,39 @@ export function HomeDetails({ children }: { children: ReactNode }) {
     return () => media.removeEventListener("change", onChange);
   }, []);
 
-  const open = isHomeDetailsOpen(remembered, wide);
-
-  function toggle() {
-    rememberHomeDetailsOpen(!open);
-    setRemembered(!open);
-  }
-
   return (
-    <section className="home-details flex flex-col gap-4" data-open={homeDetailsDataOpen(remembered)}>
+    <HomeDetailsView
+      bodyId={bodyId}
+      open={isHomeDetailsOpen(remembered, wide)}
+      dataOpen={homeDetailsDataOpen(remembered)}
+      onToggle={() => setRemembered(toggleHomeDetails(remembered, wide, rememberHomeDetailsOpen))}
+    >
+      {children}
+    </HomeDetailsView>
+  );
+}
+
+/** The markup, hook-free (D43: rendered with any `open` in the node tests). */
+export function HomeDetailsView({
+  bodyId,
+  open,
+  dataOpen,
+  onToggle,
+  children,
+}: {
+  bodyId: string;
+  open: boolean;
+  dataOpen: "true" | "false" | undefined;
+  onToggle: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <section className="home-details flex flex-col gap-4" data-open={dataOpen}>
       <button
         type="button"
         aria-expanded={open}
         aria-controls={bodyId}
-        onClick={toggle}
+        onClick={onToggle}
         className="no-print flex min-h-11 w-full items-center justify-between gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-start"
       >
         <span className="flex flex-col">

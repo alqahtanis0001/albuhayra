@@ -12,8 +12,11 @@ import {
   LRI,
   PDI,
   centreSub,
+  cardKeyAction,
   centreText,
   clipLabel,
+  liveLine,
+  showOpenHint,
   focusReducer,
   layerOpacity,
   liveText,
@@ -87,6 +90,38 @@ describe("focusReducer (D5, D19)", () => {
   });
 });
 
+describe("D42 (QV-S2, QV-S3, N6)", () => {
+  const act = { type: "activate" as const, id: "r1:IN", ring: 1 as const, href: "/x" };
+
+  it("QV-S2: Escape is the card's one key action, and it clears a focus set from a row", () => {
+    expect(cardKeyAction("Escape")).toEqual({ type: "escape" });
+    expect(cardKeyAction("Enter")).toBeNull();
+    const fromRow = focusReducer(INITIAL_FOCUS, { type: "row", ring: 3 });
+    expect(focusReducer(fromRow, cardKeyAction("Escape")!).focused).toBeNull();
+  });
+
+  it("QV-S3: the visible hint shows after an activation on a mark; a row focus or a clear hides it", () => {
+    expect(showOpenHint(INITIAL_FOCUS)).toBe(false);
+    const marked = focusReducer(INITIAL_FOCUS, act);
+    expect(showOpenHint(marked)).toBe(true);
+    expect(showOpenHint(focusReducer(marked, { type: "row", ring: 2 }))).toBe(false);
+    expect(showOpenHint(focusReducer(marked, { type: "clear" }))).toBe(false);
+    expect(showOpenHint(focusReducer(marked, { type: "escape" }))).toBe(false);
+    // A row focus before any activation never shows it.
+    expect(showOpenHint(focusReducer(INITIAL_FOCUS, { type: "row", ring: 1 }))).toBe(false);
+  });
+
+  it("N6: the live line joins the centre and the hint with «. »; nothing while unfocused", () => {
+    const marked = focusReducer(INITIAL_FOCUS, act);
+    const c = centreText(marked.focused, model, t.wheel);
+    expect(liveLine(marked, c, t.wheel.openHint)).toBe(`${liveText(c)}. ${t.wheel.openHint}`);
+    expect(liveLine(marked, c, t.wheel.openHint).endsWith(`${t.wheel.ring1Name}. ${t.wheel.openHint}`)).toBe(true);
+    const row = focusReducer(marked, { type: "row", ring: 1 });
+    expect(liveLine(row, centreText(row.focused, model, t.wheel), t.wheel.openHint)).not.toContain(t.wheel.openHint);
+    expect(liveLine(INITIAL_FOCUS, c, t.wheel.openHint)).toBe("");
+  });
+});
+
 describe("the centre (D28, D29)", () => {
   it("default: the total balance in whole riyals and the net with momentum's arrow and percent", () => {
     const c = centreText(null, model, t.wheel);
@@ -108,6 +143,9 @@ describe("the centre (D28, D29)", () => {
     const none = buildWheelModel(input({ prevMonthToDateNetHalalas: 0 }), t.wheel);
     expect(centreSub(none, t.wheel)).toBe(`الصافي ${LRI}+3,100${PDI}`);
     expect(wholeRiyals(-49)).toBe("0");
+    // H09: rounded to the nearest riyal, not truncated.
+    expect(wholeRiyals(150)).toBe("2");
+    expect(wholeRiyals(149)).toBe("1");
   });
 
   it("a focused segment: its name, its amount and its ring's name; a dot: its party", () => {
@@ -149,6 +187,9 @@ describe("the centre (D28, D29)", () => {
     expect(centreText(null, empty, t.wheel)).toMatchObject({ label: t.wheel.empty, amount: "" });
     // An entry exists (e.g. a zero month): not empty — the zero rings are --track circles, the centre shows the balance.
     expect(buildWheelModel({ ...zero, hasEntry: true }, t.wheel).empty).toBe(false);
+    // H08: no entry and no dial mark, but one ring has a value (a commitment) — not empty.
+    const ring3Only = { ...zero.overview, commitments: { toUsHalalas: 5_000, fromUsHalalas: 0, salariesHalalas: 0 } };
+    expect(buildWheelModel({ ...zero, overview: ring3Only }, t.wheel).empty).toBe(false);
     // One dial mark is enough to leave the empty state.
     expect(buildWheelModel({ ...zero, overview: { ...zero.overview, dial: [dial({ dayOffset: 2 })] } }, t.wheel).empty).toBe(false);
   });
@@ -167,13 +208,30 @@ describe("the model (D4, D18, D29) and the roving order (D27)", () => {
     ]);
   });
 
+  it("H06/H07: every segment carries its own amount and its own target (ids ↔ amounts ↔ hrefs)", () => {
+    const seg = (ring: 0 | 1 | 2) => model.rings[ring].segments.map((x) => [x.id, x.amountHalalas, x.href]);
+    expect(seg(0)).toEqual([
+      ["r1:IN", 820_000, "/owner/transactions?direction=IN&from=2026-10-01&to=2026-10-31"],
+      ["r1:OUT", 510_000, "/owner/transactions?direction=OUT&from=2026-10-01&to=2026-10-31"],
+    ]);
+    expect(seg(2)).toEqual([
+      ["r3:toUs", 950_000, "/owner/parties?type=CUSTOMER"],
+      ["r3:fromUs", 420_000, "/owner/parties?type=SUPPLIER"],
+      ["r3:salaries", 1_200_000, "/owner/staff"],
+    ]);
+    expect(model.rings[2].segments.map((x) => x.name)).toEqual([t.wheel.toUs, t.wheel.fromUs, t.wheel.salaries]);
+  });
+
   it("dots: overdue hollow first, then by day; salary → the employee; plural labels", () => {
     expect(model.dots.map((d) => [d.id, d.overdue, d.href])).toEqual([
       ["i:o1", true, "/owner/plans/p1"],
       ["i:i4", false, "/owner/plans/p1"],
       ["i:i15", false, "/owner/staff/e1"],
     ]);
-    expect(model.dots[0]!.aria).toBe("قسط النور — متأخر 3 أيام");
+    // D42 (N7): an overdue dot says which way the money goes.
+    expect(model.dots[0]!.aria).toBe("قسط علينا لـالنور — متأخر 3 أيام");
+    expect(dotLabel({ ...model.dots[0]!, kind: "IN" }, t.wheel)).toBe("قسط لنا من النور — متأخر 3 أيام");
+    expect(dotLabel({ ...model.dots[0]!, kind: "SALARY" }, t.wheel)).toBe("راتب النور — متأخر 3 أيام");
     expect(model.dots[2]!.aria).toBe("راتب النور — بعد 15 يومًا");
     expect(dotLabel({ ...model.dots[1]!, dayOffset: 0 }, t.wheel)).toBe("قسط النور — اليوم");
     expect(dotLabel({ ...model.dots[1]!, id: "d:4", count: 2, dueDate: "2026-10-15" }, t.wheel)).toBe("موعدان في 2026-10-15");
@@ -195,12 +253,12 @@ describe("the model (D4, D18, D29) and the roving order (D27)", () => {
 
 describe("client-safety (D25)", () => {
   it("wheel.ts, wheelHrefs.ts, wheelFocus.ts, wheelModel.ts: no server-only, values only from dates/money/plural/visuals", () => {
-    for (const file of ["wheel.ts", "wheelHrefs.ts", "wheelFocus.ts", "wheelModel.ts"]) {
+    for (const file of ["wheel.ts", "wheelHrefs.ts", "wheelFocus.ts", "wheelModel.ts", "wheelController.ts"]) {
       const source = readFileSync(`src/features/dashboard/${file}`, "utf8");
-      expect(source, file).not.toMatch(/^import "server-only";/m);
+      expect(source, file).not.toMatch(/^import\s+["']server-only["']/m);
       const values = [...source.matchAll(/^import (?!type )[^;]*?from "([^"]+)";/gms)].map((m) => m[1]);
       for (const from of values) {
-        expect(["@/lib/dates", "@/lib/money", "@/lib/plural", "./visuals", "./wheel", "./wheelHrefs"], `${file}: ${from}`).toContain(from);
+        expect(["@/lib/dates", "@/lib/money", "@/lib/plural", "./visuals", "./wheel", "./wheelHrefs", "./wheelFocus"], `${file}: ${from}`).toContain(from);
       }
       expect(source, file).not.toMatch(/from "@\/lib\/validation"/);
     }

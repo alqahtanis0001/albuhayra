@@ -2218,19 +2218,27 @@ describe("v1.2b CP2: attendance reads and the day save scope every call", () => 
 
 describe("v1.2b CP2: self-service scopes every call to the session's own employee", () => {
   it("checkIn creates, checkIn updates the owner's row, checkOut", async () => {
-    populateAttendance();
-    expect(await checkIn()).toMatchObject({ ok: true });
-    harness.responses.set("attendanceRecord.findFirst", { ...ATT_RECORD, checkIn: null });
-    expect(await checkIn()).toMatchObject({ ok: true });
-    // R-L9 note 1: the update is compare-and-set on the override flag it read.
-    const cas = harness.calls.filter((c) => c.model === "attendanceRecord" && c.method === "updateMany").at(-1)!;
-    expect(cas.args.where).toMatchObject({ establishmentId: EST, checkIn: null, statusOverridden: false });
-    harness.responses.set("attendanceRecord.findFirst", ATT_RECORD);
-    expect(await checkOut()).toMatchObject({ ok: true });
-    const own = harness.calls.filter((c) => c.model === "employee" && c.method === "findFirst");
-    for (const call of own) expect(call.args.where).toEqual({ establishmentId: EST, userId: USER });
-    expect(failures()).toEqual([]);
-    record();
+    // D43: check-in/out read the wall clock; in the minute 00:00 Riyadh the check-out equals the
+    // fixture's check-in «00:00» (err.timeOrder). Pin today's date at 12:00 Riyadh, Date only.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(`${todayISO()}T09:00:00Z`));
+    try {
+      populateAttendance();
+      expect(await checkIn()).toMatchObject({ ok: true });
+      harness.responses.set("attendanceRecord.findFirst", { ...ATT_RECORD, checkIn: null });
+      expect(await checkIn()).toMatchObject({ ok: true });
+      // R-L9 note 1: the update is compare-and-set on the override flag it read.
+      const cas = harness.calls.filter((c) => c.model === "attendanceRecord" && c.method === "updateMany").at(-1)!;
+      expect(cas.args.where).toMatchObject({ establishmentId: EST, checkIn: null, statusOverridden: false });
+      harness.responses.set("attendanceRecord.findFirst", ATT_RECORD);
+      expect(await checkOut()).toMatchObject({ ok: true });
+      const own = harness.calls.filter((c) => c.model === "employee" && c.method === "findFirst");
+      for (const call of own) expect(call.args.where).toEqual({ establishmentId: EST, userId: USER });
+      expect(failures()).toEqual([]);
+      record();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("a check-in that loses its compare-and-set: the owner changed the row → err.concurrentChange; someone checked in → alreadyCheckedIn", async () => {
@@ -2697,6 +2705,8 @@ describe("v1.5 home: the overview reads scope every call (D26)", () => {
     expect(overview.overdue).toMatchObject({ count: 3, totalHalalas: 3000, recent: [{ instalmentId: "o1", dayOffset: -10 }] });
     // Every instalment read names an OPEN plan; the dial and overdue reads exclude OPEN_ENDED (V14 D4).
     for (const c of harness.calls.filter((c) => c.model === "instalment" && c.method !== "groupBy")) {
+      // H20/H22 (D43): every overview read is unpaid-only, through the field reference.
+      expect((c.args.where as { paidHalalas?: unknown }).paidHalalas).toEqual({ lt: { fieldRef: "instalment.amountDueHalalas" } });
       const plan = (c.args.where as { plan: Record<string, unknown> }).plan;
       expect(plan.state).toBe("OPEN");
       expect(plan.kind === "SALARY" || JSON.stringify(plan.kind) === '{"not":"OPEN_ENDED"}').toBe(true);

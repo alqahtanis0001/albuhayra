@@ -37,3 +37,13 @@ export function isHomeDetailsOpen(remembered: boolean | null, wide: boolean): bo
 export function homeDetailsDataOpen(remembered: boolean | null): "true" | "false" | undefined {
   return remembered === null ? undefined : remembered ? "true" : "false";
 }
+
+/**
+ * The button's toggle (D43 H24): the opposite of what shows now — the remembered
+ * choice, else the width — stored on the device and returned as the new choice.
+ */
+export function toggleHomeDetails(remembered: boolean | null, wide: boolean, store: (open: boolean) => void): boolean {
+  const next = !isHomeDetailsOpen(remembered, wide);
+  store(next);
+  return next;
+}

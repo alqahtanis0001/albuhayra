@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { t } from "@/i18n/ar";
+import { formatSAR } from "@/lib/money";
 
 /**
  * v1.5 (docs/V15-SPEC.md B3 row 3, D15, D21): the salary pick mode of
@@ -124,7 +125,12 @@ describe("the list", () => {
     expect(links.map((l) => l[0])).toEqual(["/owner/transactions/new?instalmentId=inst_e1", "/owner/staff/e2"]);
     expect(links[0]![1]).toContain(t.employees.paySalary);
     expect(links[0]![1]).not.toContain(t.salaryPick.paid);
+    // D43 N05: the payable row shows what is left to pay this month, formatted.
+    expect(links[0]![1]).toContain(formatSAR(500000));
+    expect(formatSAR(500000)).toContain("5,000.00");
     expect(links[1]![1]).toContain(t.salaryPick.paid);
+    expect(t.salaryPick.paid).toBe("مدفوع");
+    expect(links[1]![1]).not.toContain(t.common.currency);
     expect(html).toContain("min-h-14");
     expect(renderToStaticMarkup(createElement(SalaryPickList, { rows: [] }))).toContain(t.salaryPick.empty);
   });
@@ -138,6 +144,8 @@ describe("/owner/staff pick mode (B3 row 3)", () => {
     h.periods = [period("e1", "أحمد", 500000, 0)];
     const html = await render({ pick: "salary" });
     expect(html).toContain(t.salaryPick.banner);
+    // D43: the spec's words (§B3), not the key compared with itself.
+    expect(html).toContain("اختر الموظف لصرف راتبه");
     expect(html).toMatch(new RegExp(`<a [^>]*href="/owner/staff"[^>]*>${t.salaryPick.cancel}</a>`));
     expect(html).not.toContain(t.employees.activeTab);
     expect(html).not.toContain(t.employees.endedTab);

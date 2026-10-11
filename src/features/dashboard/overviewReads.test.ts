@@ -12,6 +12,18 @@ const calls: Array<{ method: string; args: Record<string, unknown> }> = [];
 const responses = new Map<string, unknown>();
 
 vi.mock("server-only", () => ({}));
+
+/** Prisma's `select`: only the selected keys, nested selects applied to relations. */
+function project(row: unknown, select: unknown): unknown {
+  if (row === null || typeof row !== "object" || row instanceof Date) return row;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(select as Record<string, unknown>)) {
+    if (!v) continue;
+    const value = (row as Record<string, unknown>)[k];
+    out[k] = typeof v === "object" && v !== null && "select" in v ? project(value, (v as { select: unknown }).select) : value;
+  }
+  return out;
+}
 vi.mock("@/lib/db", () => {
   const instalment = new Proxy(
     {},
@@ -21,7 +33,9 @@ vi.mock("@/lib/db", () => {
         return async (args: Record<string, unknown>) => {
           calls.push({ method: String(prop), args });
           const key = `${String(prop)}:${calls.filter((c) => c.method === String(prop)).length}`;
-          return responses.get(key) ?? (prop === "findMany" ? [] : {});
+          const result = responses.get(key) ?? (prop === "findMany" ? [] : {});
+          // H23: rows come back through the call's `select`, as Prisma returns them — a dropped field is missing.
+          return Array.isArray(result) && args.select ? result.map((r) => project(r, args.select)) : result;
         };
       },
     },
@@ -106,6 +120,14 @@ describe("getOwnerOverview", () => {
       { instalmentId: "a", planId: "plan_a", employeeId: null, partyName: "جهة a", kind: "IN", remainingHalalas: 250_000, dueDate: "2026-10-11", dayOffset: 0 },
       { instalmentId: "b", planId: "plan_b", employeeId: "emp_1", partyName: "جهة b", kind: "SALARY", remainingHalalas: 1_200_000, dueDate: "2026-10-26", dayOffset: 15 },
     ]);
+  });
+
+  it("H20/H22: the dial and both overdue reads are unpaid-only (paidHalalas < amountDueHalalas, a field reference)", async () => {
+    await getOwnerOverview("est_1", "2026-10-11");
+    const UNPAID = { lt: { fieldRef: "instalment.amountDueHalalas" } };
+    const reads = calls.filter((c) => c.method === "findMany" || c.method === "aggregate");
+    expect(reads).toHaveLength(5);
+    for (const c of reads) expect((c.args.where as { paidHalalas?: unknown }).paidHalalas, c.method).toEqual(UNPAID);
   });
 
   it("D35 overdue: the two most recent rows plus the count and sum — never the history", async () => {

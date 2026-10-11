@@ -38,22 +38,48 @@ vi.mock("@/features/dashboard/queries", () => ({
   }),
 }));
 vi.mock("@/features/dashboard/overviewReads", () => ({
-  getOwnerOverview: async () => ({
+  getOwnerOverview: async (_establishmentId: string, today: string) => (seen.overviewToday.push(today), {
     commitments: { toUsHalalas: 950_000, fromUsHalalas: 420_000, salariesHalalas: 1_200_000 },
     dial: [{ instalmentId: "s1", planId: "ps", employeeId: "e1", partyName: "سعد", kind: "SALARY", remainingHalalas: 1_200_000, dueDate: "2026-10-15", dayOffset: 4 }],
     overdue: { recent: [], count: 0, totalHalalas: 0 },
   }),
 }));
+const seen = vi.hoisted(() => ({ overviewToday: [] as string[], duesToday: [] as string[] }));
 vi.mock("@/features/plans/dues", () => ({
-  getDues: async () => ({
+  getDues: async (_establishmentId: string, today: string) => (seen.duesToday.push(today), {
     today: "2026-10-11", weekEnd: "2026-10-17", overdue: [], thisWeek: [],
     totals: { overdueInHalalas: 0, overdueOutHalalas: 0, weekInHalalas: 0, weekOutHalalas: 0 }, hasPlans: true,
   }),
 }));
-vi.mock("@/features/projects/queries", () => ({ topActiveProjects: async () => [] }));
+// H27 (D43): one active project, so الأنشطة الجارية renders and its place is pinned.
+vi.mock("@/features/projects/queries", () => ({
+  topActiveProjects: async () => [
+    { id: "pr1", name: "فرع جديد", status: "ACTIVE", budgetHalalas: 100_000, spentHalalas: 40_000, incomeHalalas: 0, remainingHalalas: 60_000, startDate: "2026-10-01", endDate: null, transactionCount: 2 },
+  ],
+}));
 vi.mock("@/features/establishments/queries", () => ({ listPendingStaffNames: async () => ["نورة"] }));
 
+// H27 (D43): the details wrapper is swapped for a marked <div>, so the test can tell what sits inside it.
+vi.mock("@/features/dashboard/components/HomeDetails", async () => {
+  const { createElement } = await import("react");
+  return { HomeDetails: ({ children }: { children: unknown }) => createElement("div", { id: "DETAILS" }, children as never) };
+});
+
 const { default: OwnerHomePage } = await import("@/app/(owner)/owner/page");
+
+/** The inner HTML of `<div id="…">`, by depth counting. */
+function divById(html: string, id: string): string {
+  const start = html.indexOf(`<div id="${id}">`);
+  if (start < 0) return "";
+  const re = /<div\b|<\/div>/g;
+  re.lastIndex = start + 1;
+  let depth = 1;
+  for (let m = re.exec(html); m; m = re.exec(html)) {
+    depth += m[0] === "</div>" ? -1 : 1;
+    if (depth === 0) return html.slice(start, m.index);
+  }
+  return "";
+}
 
 describe("the owner home (v1.5 order)", () => {
   it("quick actions → first-run → money cards → wheel → يحتاج انتباهك → آخر الحركات → التفاصيل والرسوم", async () => {
@@ -65,10 +91,11 @@ describe("the owner home (v1.5 order)", () => {
       t.wheel.title,
       t.attention.title,
       t.dashboard.recent,
-      t.homeDetails.title,
+      '<div id="DETAILS">',
       `>${t.dashboard.last6Months}</h2>`,
       `>${t.dashVisual.donutTitle}</h2>`,
       `>${t.dashboard.balanceByMethod}</h2>`,
+      `>${t.projects.activeOnHome}</h2>`,
     ].map((s) => html.indexOf(s));
     expect(at.every((i) => i >= 0), JSON.stringify(at)).toBe(true);
     expect([...at].sort((a, b) => a - b)).toEqual(at);
@@ -78,28 +105,32 @@ describe("the owner home (v1.5 order)", () => {
     expect(html).toContain("الرواتب بعد 4 أيام");
   });
 
+  it("H27: «التفاصيل والرسوم» holds exactly the six-month card, the donut, balance by method and الأنشطة الجارية", async () => {
+    const html = renderToStaticMarkup(await OwnerHomePage());
+    const inside = divById(html, "DETAILS");
+    for (const title of [t.dashboard.last6Months, t.dashVisual.donutTitle, t.dashboard.balanceByMethod, t.projects.activeOnHome]) {
+      expect(inside, title).toContain(`>${title}</h2>`);
+    }
+    for (const title of [t.wheel.title, t.attention.title, t.dashboard.recent]) expect(inside, title).not.toContain(title);
+  });
+
   it("the recent list links «عرض الكل» to the ledger", async () => {
     const html = renderToStaticMarkup(await OwnerHomePage());
     expect(html).toMatch(new RegExp(`<a [^>]*href="/owner/transactions"[^>]*>${t.homeDetails.viewAll}</a>`));
   });
 
-  it("the page source: the overview read takes the same today as the dues", () => {
-    const page = readFileSync("src/app/(owner)/owner/page.tsx", "utf8");
-    expect(page).toMatch(/getOwnerOverview\(establishmentId, today\)/);
-    expect(page).toMatch(/getDues\(establishmentId, today\)/);
-    expect(page).toMatch(/listPendingStaffNames\(establishmentId\)/);
+  it("the overview read and the dues read receive the same today", async () => {
+    seen.overviewToday.length = 0;
+    seen.duesToday.length = 0;
+    await OwnerHomePage();
+    expect(seen.overviewToday).toHaveLength(1);
+    expect(seen.overviewToday[0]).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(seen.duesToday).toEqual(seen.overviewToday);
   });
 });
 
-describe("D21 and D32 (static)", () => {
-  it("owner recent = 5, staff recent stays 10", () => {
-    const source = readFileSync("src/features/dashboard/queries.ts", "utf8");
-    expect(source).toMatch(/export const OWNER_RECENT_COUNT = 5;/);
-    expect(source).toMatch(/export const RECENT_COUNT = 10;/);
-    expect(source).toMatch(/recentTransactions\(establishmentId, OWNER_RECENT_COUNT\)/);
-    expect(source).toMatch(/recentTransactions\(establishmentId, RECENT_COUNT, \{ createdById: userId \}/);
-  });
-
+describe("D32 (static)", () => {
+  // D21's counts are pinned at the call in recentCounts.test.ts (D43: no source-text regex here).
   it("SixMonthChart passes token colours to grid, axes, ticks, tooltip box and cursor; the donut's stroke is a token", () => {
     const chart = readFileSync("src/features/dashboard/components/SixMonthChart.tsx", "utf8");
     expect(chart).toMatch(/<CartesianGrid [^>]*stroke=\{CHART_TOKENS\.grid\}/);
@@ -113,5 +144,16 @@ describe("D21 and D32 (static)", () => {
     expect(chart).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
     const donut = readFileSync("src/features/dashboard/components/ExpenseDonut.tsx", "utf8");
     expect(donut).toContain('stroke="var(--color-white)"');
+  });
+});
+
+describe("D42 (N12): «عرض الكل» only over a list", () => {
+  it("an empty «آخر الحركات» has no «عرض الكل»; with rows it links the ledger", async () => {
+    const { RecentTransactions } = await import("./components/RecentTransactions");
+    const { createElement } = await import("react");
+    const empty = renderToStaticMarkup(createElement(RecentTransactions, { rows: [], viewAllHref: "/owner/transactions" }));
+    expect(empty).not.toContain(t.homeDetails.viewAll);
+    const full = renderToStaticMarkup(createElement(RecentTransactions, { rows: [ROW as never], viewAllHref: "/owner/transactions" }));
+    expect(full).toContain(`>${t.homeDetails.viewAll}</a>`);
   });
 });

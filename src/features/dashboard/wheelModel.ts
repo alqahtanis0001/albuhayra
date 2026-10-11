@@ -62,7 +62,9 @@ export type WheelWords = {
   salaries: string;
   segment: string;
   dotToday: string;
-  dotOverdue: PluralForms;
+  dotOverdueIn: PluralForms;
+  dotOverdueOut: PluralForms;
+  dotOverdueSalary: PluralForms;
   dotIn: PluralForms;
   dotOut: PluralForms;
   dotSalary: PluralForms;
@@ -105,7 +107,11 @@ export function dotLabel(m: DialMark, words: WheelWords): string {
   if (m.count > 1) return plural(words.cluster, m.count).replace("{date}", m.dueDate ?? "");
   const name = m.partyName ?? "";
   const days = m.dayOffset ?? 0;
-  if (m.overdue) return plural(words.dotOverdue, -days).replace("{name}", name);
+  if (m.overdue) {
+    // D42 (N7): an overdue dot says which way the money goes.
+    const late = m.kind === "SALARY" ? words.dotOverdueSalary : m.kind === "IN" ? words.dotOverdueIn : words.dotOverdueOut;
+    return plural(late, -days).replace("{name}", name);
+  }
   if (days === 0) return words.dotToday.replace("{name}", name);
   const forms = m.kind === "SALARY" ? words.dotSalary : m.kind === "IN" ? words.dotIn : words.dotOut;
   return plural(forms, days).replace("{name}", name);

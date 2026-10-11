@@ -14,7 +14,8 @@ import { join, relative, sep } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { readThemeCss, stripComments } from "./themeCssParse";
+import { readThemeCss, stripComments } from "./themeCss.testkit";
+import { HEX, lineHasColour, paletteVars } from "./tokenLint.testkit";
 
 const ROOT = process.cwd();
 
@@ -30,48 +31,13 @@ const ALLOW_LINES: { file: string; line: RegExp }[] = [
 ];
 // Brand assets (public/brand/**) are files, not source: outside src, never walked.
 
-const HEX = /(?<=["'`:[(=,{\s])#(?:[0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{3,4})(?![0-9a-z_-])/gi;
-const FN = /\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\(/g;
-
-/**
- * CSS named colours (and system colours) as a value of a colour prop or style
- * key in TS/TSX — `fill="white"`, `stroke={"black"}`, `{ color: "red" }` —
- * would stay the same in dark. `none`, `currentColor`, `transparent`,
- * `inherit` and var() are not in the list, so they pass.
- */
-const NAMED = new Set(
-  `
-  aliceblue antiquewhite aqua aquamarine azure beige bisque black blanchedalmond blue blueviolet
-  brown burlywood cadetblue chartreuse chocolate coral cornflowerblue cornsilk crimson cyan
-  darkblue darkcyan darkgoldenrod darkgray darkgreen darkgrey darkkhaki darkmagenta darkolivegreen
-  darkorange darkorchid darkred darksalmon darkseagreen darkslateblue darkslategray darkslategrey
-  darkturquoise darkviolet deeppink deepskyblue dimgray dimgrey dodgerblue firebrick floralwhite
-  forestgreen fuchsia gainsboro ghostwhite gold goldenrod gray green greenyellow grey honeydew
-  hotpink indianred indigo ivory khaki lavender lavenderblush lawngreen lemonchiffon lightblue
-  lightcoral lightcyan lightgoldenrodyellow lightgray lightgreen lightgrey lightpink lightsalmon
-  lightseagreen lightskyblue lightslategray lightslategrey lightsteelblue lightyellow lime
-  limegreen linen magenta maroon mediumaquamarine mediumblue mediumorchid mediumpurple
-  mediumseagreen mediumslateblue mediumspringgreen mediumturquoise mediumvioletred midnightblue
-  mintcream mistyrose moccasin navajowhite navy oldlace olive olivedrab orange orangered orchid
-  palegoldenrod palegreen paleturquoise palevioletred papayawhip peachpuff peru pink plum
-  powderblue purple rebeccapurple red rosybrown royalblue saddlebrown salmon sandybrown seagreen
-  seashell sienna silver skyblue slateblue slategray slategrey snow springgreen steelblue tan teal
-  thistle tomato turquoise violet wheat white whitesmoke yellow yellowgreen canvas canvastext
-  buttonface buttontext field fieldtext highlight highlighttext linktext graytext
-`.split(/\s+/).filter(Boolean),
-);
-const COLOUR_PROP = /\b(?:fill|stroke|stopColor|floodColor|lightingColor|color|backgroundColor|background|borderColor|outlineColor|textDecorationColor|caretColor|accentColor)\s*[=:]\s*\{?\s*["'`]([A-Za-z]+)["'`]/g;
-
-function namedColour(text: string): boolean {
-  return [...text.matchAll(COLOUR_PROP)].some((m) => NAMED.has(m[1]!.toLowerCase()));
-}
-
 function walk(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
     const path = join(dir, name);
     // src/generated is Prisma's output, not authored source.
     if (statSync(path).isDirectory()) return path.endsWith(join("src", "generated")) ? [] : walk(path);
-    return /\.(tsx?|css)$/.test(name) && !name.endsWith(".test.ts") ? [path] : [];
+    // Tests and their *.testkit.ts helpers hold colours as fixtures (D12: test files are allowed).
+    return /\.(tsx?|css)$/.test(name) && !/\.(test|testkit)\.ts$/.test(name) ? [path] : [];
   });
 }
 
@@ -86,10 +52,7 @@ function lint(file: string, src: string): Finding[] {
     .split("\n")
     .forEach((text, i) => {
       if (allowed.some((re) => re.test(text))) return;
-      // In CSS, color() etc. are the real thing; in TS a call like `color(` would be ours, so only flag rgb()-family there.
-      const fn = file.endsWith(".css") ? FN : /\b(?:rgba?|hsla?|hwb|oklab|oklch)\(/g;
-      const named = !file.endsWith(".css") && namedColour(text);
-      if (text.match(HEX) || text.match(fn) || named) out.push({ file, line: i + 1, text: text.trim() });
+      if (lineHasColour(file, text)) out.push({ file, line: i + 1, text: text.trim() });
     });
   return out;
 }
@@ -147,6 +110,16 @@ describe("token lint rules", () => {
     ['style={{ color: "red" }}'],
     ['style={{ backgroundColor: "whitesmoke" }}'],
     ['<stop stopColor="gold" />'],
+    // D43 holes: hex after `_` in an arbitrary value, named colours in arbitrary values, black classes, color-mix()
+    ['className="shadow-[0_0_0_1px_#fff]"'],
+    ['className="ring-[3px_#006c35]"'],
+    ['className="fill-[white]"'],
+    ['className="bg-[color:red] p-2"'],
+    ['className="[--focus-ring:white]"'],
+    ['className="text-black"'],
+    ['className="hover:bg-black/40"'],
+    ['className="border-t-black"'],
+    ['style={{ color: "color-mix(in oklab, red, blue)" }}'],
   ])("flags %s", (line) => {
     expect(flagged(line)).toEqual([line]);
   });
@@ -164,6 +137,9 @@ describe("token lint rules", () => {
     ['fill="var(--color-gold)"'],
     ['const tone = { label: "white" };'],
     ['<Badge tone="green" />'],
+    ['className="backdrop:bg-black/50"'],
+    ['className="min-h-[44px] data-[open]:block has-[input:checked]:bg-accent"'],
+    ['className="shadow-[0_0_0_1px_var(--color-white)]"'],
   ])("does not flag %s", (line) => {
     expect(flagged(line)).toEqual([]);
   });
@@ -183,20 +159,6 @@ describe("token lint rules", () => {
   });
 });
 
-/**
- * A Tailwind default-palette class (bg-sky-100, hover:text-emerald-700,
- * border-t-red-200/50 …) flips in dark only if the dark block defines its
- * variable. gray-* is the app's own scale (@theme), white is the surface
- * (D36); black stays black on purpose (the dialog backdrop).
- */
-const PALETTES = "slate|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose";
-const UTIL = "bg|text|border(?:-[xytrblse])?|fill|stroke|ring|ring-offset|outline|divide|from|via|to|decoration|accent|caret|placeholder|shadow";
-const PALETTE_CLASS = new RegExp(`(?<![\\w-])(?:${UTIL})-(${PALETTES})-(\\d{2,3})(?:/\\d+)?(?![\\w-])`, "g");
-
-function paletteVars(src: string): string[] {
-  return [...stripComments(src).matchAll(PALETTE_CLASS)].map((m) => `--color-${m[1]}-${m[2]}`);
-}
-
 describe("default-palette classes have dark values (D32)", () => {
   const dark = readThemeCss().darkExplicit;
   const used = new Map<string, string>();
@@ -209,10 +171,47 @@ describe("default-palette classes have dark values (D32)", () => {
       "--color-sky-100",
       "--color-red-200",
     ]);
+    // D43 T10: compound utilities are read whole, not as their tail.
+    expect(paletteVars("drop-shadow-sky-100 text-shadow-rose-300/50 inset-ring-teal-400 inset-shadow-lime-200 ring-offset-cyan-50")).toEqual([
+      "--color-sky-100",
+      "--color-rose-300",
+      "--color-teal-400",
+      "--color-lime-200",
+      "--color-cyan-50",
+    ]);
   });
 
   it("every one is redefined in the dark block", () => {
     const missing = [...used].filter(([v]) => !dark.has(v)).map(([v, file]) => `${v} (${file})`);
     expect(missing).toEqual([]);
+  });
+});
+
+/**
+ * The lint skips *.testkit.ts like tests (reviewer R4-T1), so that escape hatch
+ * is closed by name: only the two theme helpers may exist, and no app file may
+ * import one (a testkit is test-only code).
+ */
+const TESTKITS = ["src/lib/themeCss.testkit.ts", "src/lib/tokenLint.testkit.ts"];
+
+function testkits(dir: string): string[] {
+  return readdirSync(dir).flatMap((name) => {
+    const path = join(dir, name);
+    if (statSync(path).isDirectory()) return walkable(path) ? testkits(path) : [];
+    return /\.testkit\.[cm]?[jt]sx?$/.test(name) ? [relative(BASE, path).split(sep).join("/")] : [];
+  });
+}
+const walkable = (path: string) => !path.endsWith(join("src", "generated"));
+
+describe("testkit escape hatch (R4-T1)", () => {
+  it("the only *.testkit files under src are the two theme helpers", () => {
+    expect(testkits(join(BASE, "src")).sort()).toEqual(TESTKITS);
+  });
+
+  it("no non-test file imports a .testkit module", () => {
+    const importer = /(?:from\s+|import\s*\(\s*|require\s*\(\s*)["'][^"']*\.testkit(?:\.[jt]sx?)?["']/;
+    expect(FILES.filter((f) => importer.test(f.src)).map((f) => f.file)).toEqual([]);
+    expect(importer.test('import { HEX } from "@/lib/tokenLint.testkit";')).toBe(true);
+    expect(importer.test('const m = await import("../lib/themeCss.testkit.ts");')).toBe(true);
   });
 });

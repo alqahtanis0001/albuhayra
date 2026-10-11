@@ -140,7 +140,7 @@ export function AddSheet({ entry, variant }: { entry: AddEntry; variant: Variant
         className={
           variant === "tab"
             ? "nav-sheet no-print mx-0 mt-auto mb-0 max-h-[85dvh] w-full max-w-full overflow-y-auto rounded-t-xl border-0 border-t border-gray-200 bg-white p-0 text-gray-900"
-            : "no-print mt-24 mb-auto ms-60 me-auto w-full max-w-sm rounded-xl border border-gray-200 bg-white p-0 text-gray-900 shadow-lg motion-safe:animate-[route-fade-in_200ms_ease-out]"
+            : "no-print mt-24 mb-auto ms-60 me-auto max-h-[calc(100dvh-7rem)] w-full max-w-sm overflow-y-auto rounded-xl border border-gray-200 bg-white p-0 text-gray-900 shadow-lg motion-safe:animate-[route-fade-in_200ms_ease-out]"
         }
       >
         <div className="flex flex-col gap-4 p-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]">

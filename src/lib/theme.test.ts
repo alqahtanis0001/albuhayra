@@ -10,6 +10,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
+  THEME_COOKIE,
   THEME_MAX_AGE,
   THEME_STORAGE_KEY,
   chooseTheme,
@@ -38,11 +39,11 @@ function stubEnv(stored: string | null = null, opts: { throwing?: boolean; secur
     storage: {
       getItem: (k) => {
         if (opts.throwing) throw new Error("blocked");
-        return k === THEME_STORAGE_KEY ? log.storage : null;
+        return k === "ui:theme" ? log.storage : null;
       },
       setItem: (k, v) => {
         if (opts.throwing) throw new Error("blocked");
-        expect(k).toBe(THEME_STORAGE_KEY);
+        expect(k).toBe("ui:theme");
         log.storage = v;
       },
     },
@@ -72,6 +73,11 @@ describe("nextTheme", () => {
 });
 
 describe("themeCookie", () => {
+  it("keeps the choice under the literal keys theme (cookie) and ui:theme (localStorage, D31)", () => {
+    expect(THEME_COOKIE).toBe("theme");
+    expect(THEME_STORAGE_KEY).toBe("ui:theme");
+  });
+
   it("is the theme cookie for a year, path /, Lax, never HttpOnly", () => {
     expect(THEME_MAX_AGE).toBe(31_536_000);
     expect(themeCookie("dark", false)).toBe("theme=dark; Path=/; Max-Age=31536000; SameSite=Lax");
@@ -99,9 +105,16 @@ describe("SSR: <html> attributes from the cookie", () => {
   });
 
   it("the root layout spreads htmlThemeAttrs(parseTheme(theme cookie)) on <html>, with no inline script", () => {
-    const src = readFileSync(join(process.cwd(), "src/app/layout.tsx"), "utf8");
-    expect(src).toMatch(/const theme = parseTheme\(\(await cookies\(\)\)\.get\(THEME_COOKIE\)\?\.value\);/);
-    expect(src).toMatch(/<html [^>]*\{\.\.\.htmlThemeAttrs\(theme\)\}>/);
+    // Whitespace-free, so a reformat or a renamed local does not break it (D43).
+    const src = readFileSync(join(process.cwd(), "src/app/layout.tsx"), "utf8")
+      .replace(/\s+/g, "")
+      .replace(/,\)/g, ")");
+    const fromCookie = "parseTheme((awaitcookies()).get(THEME_COOKIE)?.value)";
+    const html = src.match(/<htmllang[^>]*>/)?.[0] ?? "";
+    const spread = html.match(/\{\.\.\.htmlThemeAttrs\(([^)]*(?:\)[^)]*)*)\)\}/)?.[1] ?? "";
+    expect(spread, "the <html> tag spreads htmlThemeAttrs(…)").not.toBe("");
+    // Either inline, or through one local assigned from the cookie.
+    expect(spread === fromCookie || src.includes(`const${spread}=${fromCookie};`)).toBe(true);
     expect(src).not.toMatch(/<script|colorScheme/);
   });
 });

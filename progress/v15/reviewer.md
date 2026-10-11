@@ -485,8 +485,117 @@ Verified: `tokenLint.test.ts` + `wheelFocus.test.ts` 2 files, 47 tests, all gree
 
 Verdict: **all reviews closed** (pre-code, nav R1–R2, home R1–R2, theme R1–R2).
 
+## Round 3 — QA fixes (D42; qa-visual 0 B / 3 S / 12 N)
+
+Verified: `tsc` 0 errors. dashboard + chrome + ledger route + theme tests: 22 files, 258 tests, all green.
+
+**Fixes — all CLOSED:**
+- **QV-S1 (nav).** The side «+» dialog now carries `max-h-[calc(100dvh-7rem)] overflow-y-auto` (AddSheet.tsx:143). M52 (uncapped) and M53 (no overflow) both fail the nav.test.ts case.
+- **QV-S2 (home).**
+  - One `onKeyDown` on the card's inner wrapper (WheelCard.tsx:91) holds both the SVG and the rows, and calls `cardKeyAction`. The mark-level Escape branch is gone, so a mark's Escape bubbles up to it.
+  - Pure case: row focus + Escape → null. Source pin: the wrapper encloses `<WheelSvg` and `<WheelRows`. Both are mutation-proven.
+- **QV-S3 (home).** `showOpenHint` (activated && a mark is focused) adds a visible `no-print` `text-gray-500` line (WheelCard.tsx:105); `gray-500` is ≥ 4.5:1 on the card in both themes. The pure cases (a row, clear and Escape each hide it) and the JSX pin are both mutation-proven.
+- **N1 (nav).** On the reports tab the whole header row is `no-print` (page.tsx:71). M54 fails reportsTab.test.ts.
+- **N11 (nav).** The reports add button uses `t.transaction.addButton` (page.tsx:58). M55.
+- **N5 (home).** In the empty state the two buttons are hidden (`model.empty ? null`, WheelCard.tsx:117) and row 4 drops its count. Each guard is mutation-proven.
+- **N6 (home).** `liveLine` joins with «. ». Mutation-proven.
+- **N7 (home).** Overdue dots get labels by kind: `dotOverdueIn/Out/Salary`. The old `dotOverdue` key is gone from code (grep). All three labels are pinned.
+- **N12 (home).** «عرض الكل» shows only when there are rows (RecentTransactions.tsx:30). Mutation-proven.
+- **N4 (theme).** The toggle's `title` equals its accessible name; pinned for all 3 modes. Mutation: removing `title` → 3 cases fail.
+
+**Judging D42's accepted items:**
+- **N2 (redirects stream as HTTP 200 + a client redirect; stuck without JS): agree to accept.** The owner area already needs JS (N3, as on `main`), and with JS all four cases land correctly with the query kept.
+  - *NOTE, wording only:* the redirect pages' comments and redirects.test.ts:65 say "no loading.tsx: a redirect-only page must answer 307, not stream". That is no longer true, because the parent `owner/loading.tsx` streams first.
+  - *Fix:* reword the comment and the test title to "no loading.tsx of its own". If a real 307 is ever wanted, the place is the proxy (with `URLSearchParams.set`, as D24 requires), not `next.config` `redirects()`: that appends the old query, so a stray `tab` would duplicate the key.
+- **N3: agree** (pre-existing; the wheel's server HTML is complete).
+- **N4 (cycle light → dark → system; first tap from «حسب الجهاز» on a light phone shows no change): agree.** §C2 states this order verbatim, and it is flagged to the user.
+- **N8 (ring 2 and the donut colour one category differently on one page): agree, with a NOTE.** The approved mock wins, and each chart has its own legend and labels. If the user asks for one palette later, the cheap fix is ring 2 reading the donut's colour order. The donut is the v1.3 visual the user already knows.
+- **N9: agree.** It lasts only until hydration, and D20 accepted it.
+- **N10 (at 375–390 px the establishment name keeps ≈ 62 px, «مؤس…»): agree that it goes to the user.** 390 px is the most common iPhone width, and on `main` the name read «مؤسسة الحر…».
+  - If the user rejects it, the least-restyling option keeps the bar intact: below `sm`, move the theme button from the top bar into «حسابي» / المزيد and keep it in the bar from `sm` up.
+  - Shrinking the wordmark would restyle the bar (D37), so it is not an option.
+- **«لـ{name}» with tatweel: agree.**
+
+Verdict: **Round 3 closed.** Two NOTEs: the N2 comment/test wording, and the N10 option for the user. Waiting for qa-tests; there may be a Round 4.
+
+## Round 4 — qa-tests survivors (D43)
+
+**Method.** I worked on my own scratch copy: `scratchpad/rev-mut` holds `src` and the configs, with `node_modules` symlinked. A small script applied each mutation, ran vitest, and restored the file byte-exact (asserted). Nothing was mutated in the main tree.
+
+**Baseline.** In the copy the full suite is green: 136 files, 1974 tests. `tsc` on the main tree reports 0 errors.
+
+**The five BLOCKERs, re-applied with qa-tests' exact mutations — all now killed:**
+
+| Mutation | Failing case(s) |
+|---|---|
+| H07: swap the علينا and رواتب amounts in `wheelModel.ts` (full swap, so the ring total is unchanged) | wheelFocus.test.ts "H06/H07: every segment carries its own amount and its own target"; wheelInteractions.test.ts "H18: each row lists its own ring's values" |
+| H18: row 2 lists ring 1's values (`WheelRows.tsx` `valuesOf`) | wheelInteractions.test.ts "H18" |
+| H20: the dial read loses `...unpaid` (`overviewReads.ts`) | overviewReads.test.ts "H20/H22: the dial and both overdue reads are unpaid-only"; the scoping "v1.5 home" populated case |
+| H22: `overdueWhere` loses `...unpaid` | the same two cases |
+| N05: the payable pick row shows 0 (`SalaryPickList.tsx`) | SalaryPickList.test.ts "rows link by the rule…" (asserts «5,000.00 ر.س») |
+
+**SHOULDs spot-checked the same way — all killed:**
+
+| Mutation | Failing case(s) |
+|---|---|
+| N03: an invalid `partyId` reads the unfiltered report | reportsTab.test.ts "D43 N03" |
+| N04: the Excel link drops `&partyId=` | reportsTab.test.ts "D43 N04" |
+| T01: a click re-applies the current mode | themeToggleClick.test.ts × 3 |
+| T02: `secure: false` always | "writes a Secure cookie on https…" |
+| T13: the storage key `ui:theme` → `theme` | theme.test.ts × 3 |
+| T06–T10 lint holes, each added to `Badge.tsx`: `shadow-[0_0_0_1px_#ffffff]`, `fill-[white]`, `text-black`, `drop-shadow-sky-100`, plus my own `bg-[#fff]/50` and `stroke-[rgb(0,0,0)]` | tokenLint.test.ts fails each time |
+| v15Wording: shorten the «اتفاقية جديدة» caption in `ar.v15.ts` | "B3: the seven owner rows… verbatim" |
+
+**Refactors — behaviour unchanged.**
+- **WheelCard → `wheelController.ts`.**
+  - `dispatch`, `activate`, `row`, `replay` and `showAll` are the old inline handlers, unchanged.
+  - `markKeyAction` keeps Enter/Space → activate (with `preventDefault`) and the arrows/Home/End → roving move.
+  - Escape still bubbles to the card's `cardKey`, which maps Escape only, so Space on a row button keeps its native click.
+  - `wheelView` returns the same centre, tone, live line, hint and animate values that the component used to compute inline.
+- **HomeDetails → `HomeDetailsView` + `toggleHomeDetails`.**
+  - The same D20 markup.
+  - `toggle` = !`isHomeDetailsOpen(remembered, wide)`, stored and then set, which is identical to before.
+  - The mount effect is unchanged.
+
+**The midnight flake.** The "v1.2b CP2 checkIn" case in scoping.test.ts (:2220–2241) now uses `vi.useFakeTimers({ toFake: ["Date"] })` with the clock pinned to that day's 12:00 Riyadh, and calls `useRealTimers` in `finally`. Only `Date` is faked, so the rest of the file's timers are untouched. Closed.
+
+**Redirect wording.** No "307" is left in `src/app/(owner)/owner/reports/**` (grep). Closed.
+
+**`src/i18n/v15Wording.test.ts` (lead).** 43 literal assertions covering §A–C and the mock's row texts. Mutation-proven above.
+
+**The backdrop: black ruling.** Agree. `bg-black/50` dims the page in both themes, so it is meant to be black, and the palette check excludes `black` by name.
+
+### SHOULD (new)
+
+**R4-T1. The testkit exclusion is matched by filename suffix anywhere in src.**
+- The token lint skips every `*.testkit.ts` (tokenLint.test.ts:40), wherever it lives.
+- Today there are two: `src/lib/themeCss.testkit.ts` and `src/lib/tokenLint.testkit.ts`. Only tests and the other testkit import them (grep).
+- But a production module named `x.testkit.ts` could hold hex colours and be imported by a component, and the lint would never see it. This is the same "can't be fooled trivially" bar as R1-T1.
+
+*Fix:* add a case asserting that:
+- every `*.testkit.ts` under src sits in an allow-listed set (today the two in `src/lib/`);
+- no non-test file imports a `.testkit` module (the regex is `/from ["'][^"']*\.testkit["']/` over non-`*.test.ts` sources, excluding the testkits themselves).
+
+Mutation: import a testkit from a component → the case fails.
+
+### Verdict
+
+Round 4 is closed except **R4-T1** (one SHOULD, theme, small).
+
+## Round 4b — R4-T1
+
+**R4-T1 — CLOSED.** `tokenLint.test.ts` (47 cases, green) adds two cases:
+- an explicit list of the only allowed testkits: `src/lib/themeCss.testkit.ts` and `src/lib/tokenLint.testkit.ts`;
+- no app file imports a `.testkit` module. Static `from`, dynamic `import()` and `require()` all count, and fixture lines check the matcher itself.
+
+I re-applied both mutations on my scratch copy, then restored and checked each file:
+- `Badge.tsx` importing `@/lib/tokenLint.testkit` → "no non-test file imports a .testkit module" failed.
+- A stray `src/components/sneaky.testkit.ts` holding `"#fff"` → "the only *.testkit files under src are the two theme helpers" failed.
+
+Verdict: **all reviews closed** (pre-code; nav R1–R2; home R1–R2; theme R1–R2; QA rounds 3–4).
+
 ## In progress
-- Task: all reviews closed (nav, home, theme); nothing in progress.
+- Task: all reviews closed; nothing in progress.
 
 ## Gotchas I found
 - Tailwind v4 preflight's `[hidden]{display:none !important}` is layered: no unlayered `!important` (print, breakpoints) can override it. Toggle visibility with a class or data-attribute instead.

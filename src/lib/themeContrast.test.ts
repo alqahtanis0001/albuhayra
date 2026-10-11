@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 
 import { PALETTE } from "@/components/visualPalette";
 
-import { contrastOf, readThemeCss } from "./themeCssParse";
+import { contrastOf, readThemeCss } from "./themeCss.testkit";
 
 const { theme: THEME, themeStatic: STATIC, darkExplicit: DARK_EXPLICIT } = readThemeCss();
 
