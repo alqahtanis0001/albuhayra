@@ -1,5 +1,11 @@
 # Brief — `p2-home` (v1.4 part 2: P2-3 first-run checklist card, P2-4 QA notes)
 
+## Amendments after the reviewer's pre-code pass (D27 — binding; they win over the text below)
+- **S4:** the card above the money cards knowingly amends V12-SPEC §1's home order (D27); update the page's doc comment (`owner/page.tsx:21–24`) beside your one JSX line to say "first-run card (D25); the four money cards".
+- **`hasEntry`:** read through `ledgerWhere(establishmentId)` (the existing `allTime` object: scoped + `deletedAt: null`), e.g. `db.transaction.count({ where: allTime })` — the gate's S-K5a rule refuses a bare `{ establishmentId }` count. `party.count` / `employee.count` / `plan.count` with `{ where: { establishmentId } }` are fine; the gate records observed pairs from drivers, so setting the four responses in the `getOwnerDashboard` driver is all it needs.
+- **ConfirmDialog:** `m-auto` is genuinely required (Tailwind v4 preflight resets `margin: 0` on `*`); no existing test pins the class string — add yours.
+- **Pins:** `FirstRunCard` renders nothing when `allDone`; `hidden` before mount; `no-print`; four links/ticks in order; progress digits Western. `firstRun` has exactly four boolean fields.
+
 Read `progress/v14/brief-p2-common.md` first. Spec: `docs/V14-SPEC.md` D25 and D26 (binding).
 
 ## You own

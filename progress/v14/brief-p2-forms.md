@@ -1,5 +1,16 @@
 # Brief — `p2-forms` (v1.4 part 2: P2-1 inline quick-add party, P2-2 compact entry form)
 
+## Amendments after the reviewer's pre-code pass (D27 — binding; they win over the text below)
+- **B1 (D24):** `shouldOpenDetails` also returns true when `fieldErrors` names `partyId`, `counterparty`, `projectId` or `note` (a server refusal must never hide its field). Add the arm to the matrix; mutation: drop it → fails. `EntryDetails` receives `fieldErrors`.
+- **S1 (D23):** the type control is a **nameless `Select`** with the three options (عميل / مورد / أخرى), labelled `t.partyQuick.type` — no radios.
+- **S2:** you may create `src/features/plans/components/PlanPartySelect.tsx` (client): the party `Select` (groups by type, placeholder, locked handling with the hidden `partyId` input) + the quick-add box, used by `PlanForm` and `OpenPlanForm`, so neither grows past 250 lines.
+- **S3:** keep the party option list as client state in **`EntryDetails`** (which is not remounted by `linkKey`), passing the list down to `LinkFields`; a party added before «حفظ وإضافة أخرى» must still be in the next entry's select — pin it (render after a simulated add + remount).
+- **S5:** build the added `PartyOption` with the schema-normalised name: `PartyInputSchema.shape.name.safeParse(name).data ?? name.trim()`.
+- **S6 pins:** (a) the container has `hidden` when collapsed and not when open (render both states); (b) "locked → no sentinel" is pinned on `PlanForm` with a fixed row and on `OpenPlanForm` with `locked`; (c) pure `postedPartyId(choice)` → `""` for the sentinel, the id otherwise; and in `PlanForm`/`PlanPartySelect` the `Select` carries **no `name`** — a hidden `name="partyId"` input posts `postedPartyId(v.partyId)` (pin: the rendered select has no `name=`, the hidden input exists). `chooseParty` looks the party up in the **client-state** list.
+- **S7:** `rememberDetailsOpen` only on the user's toggle, never on an auto-open — pin it (an auto-open render must not write storage).
+- **Preset:** pass `?partyId=` only when not in payment mode; it must not join the `preset` boolean at `TransactionForm.tsx:99` (the remembered direction still applies). Reuse `swallowEnter` / `fillName` from `categoryList.ts` rather than copying them.
+- **Bundle:** `@/lib/validation` is already in these client bundles (`LinkFields`, `validateEntry`, `PlanForm`); importing `PartyInputSchema` / `PartyTypeEnum` in `PartyQuickAdd` adds ≈0 — measure anyway and report the form routes' deltas.
+
 Read `progress/v14/brief-p2-common.md` first. Spec: `docs/V14-SPEC.md` D23 and D24 (binding), with D12/D15 K-rules as precedent for the box.
 
 ## You own
