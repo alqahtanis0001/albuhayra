@@ -97,16 +97,12 @@ export type StaffDashboard = {
   canEdit: boolean;
 };
 
-const PAYMENT_METHODS: PaymentMethodValue[] = [
-  "CASH",
-  "BANK_TRANSFER",
-  "MADA",
-  "STC_PAY",
-  "OTHER",
-];
+const PAYMENT_METHODS: PaymentMethodValue[] = ["CASH", "BANK_TRANSFER", "MADA", "STC_PAY", "OTHER"];
 
 const CHART_MONTHS = 6;
-const RECENT_COUNT = 10;
+/** Staff «حركاتي الأخيرة» shows ten; the owner home five, then «عرض الكل» (v1.5 A4, D21). */
+export const RECENT_COUNT = 10;
+export const OWNER_RECENT_COUNT = 5;
 const TOP_CATEGORIES = 5;
 
 /** Bounds of the current Riyadh month, as the `@db.Date` columns store them. */
@@ -188,7 +184,7 @@ export async function getOwnerDashboard(
         where: { ...allTime, date: { gte: windowStart, lte: to } },
         select: { date: true, direction: true, amountHalalas: true },
       }),
-      recentTransactions(establishmentId, RECENT_COUNT),
+      recentTransactions(establishmentId, OWNER_RECENT_COUNT),
       // v1.3: the balance the six-month window opens with. The 30-day series,
       // each month's opening and last month's to-date net are all derived
       // from this and `windowRows` in pure, tested code (./series.ts).

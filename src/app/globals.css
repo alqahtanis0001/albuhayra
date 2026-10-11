@@ -69,6 +69,8 @@
                         red-800 hover): white in light, deep ink in dark,
                         because the dark accent is a light green (≥ 4.5:1 both)
    - on-accent-muted    a caption on accent (the «+» primary row)
+   - on-gold            text on a gold mark (the wheel's dial counts): ink in
+                        both themes (gray-900's light value; on-accent's dark)
    - topbar*            the green band: stays deep green with white in dark
    - track              an empty ring / grid track
    - gold … chart-*     chart and wheel marks (shapes, never text)
@@ -77,6 +79,7 @@
 @theme static {
   --color-on-accent: #ffffff;
   --color-on-accent-muted: rgb(255 255 255 / 0.85);
+  --color-on-gold: #171717;
   --color-topbar: #006c35;
   --color-topbar-dark: #004d26;
   --color-on-topbar: #ffffff;
@@ -105,6 +108,20 @@
   color-scheme: light;
   --page-art-auth: url(/brand/zakham-bg-v3/auth-bg.svg);
   --page-art-app: url(/brand/zakham-bg-v3/app-bg.svg);
+  --page-blend: normal;
+  --wordmark-light: inline;
+  --wordmark-dark: none;
+}
+
+/* The wordmark pair on the auth card and the root 404 (v1.5 C1, D33): the
+   green file in light, the white one in dark — two <img>s, never redrawn,
+   switched by the same tokens as everything else (so the cookie and "system"
+   both work, and print keeps the green one). */
+.wordmark-light {
+  display: var(--wordmark-light);
+}
+.wordmark-dark {
+  display: var(--wordmark-dark);
 }
 
 /* Dark theme (docs/V15-SPEC.md C1–C3, D11, D32). The same values twice: an
@@ -150,6 +167,7 @@
     --color-heat-4: #2d7550;
     --color-on-accent: #0e1411;
     --color-on-accent-muted: rgb(14 20 17 / 0.85);
+    --color-on-gold: #0e1411;
     --color-topbar: #14532d;
     --color-topbar-dark: #0c3a20;
     --color-on-topbar: #ffffff;
@@ -165,9 +183,10 @@
     --color-chart-grey: #8a9890;
     --color-chart-grid: #34443a;
     --color-page: #0e1411;
-    --color-page-veil: rgb(14 20 17 / 0.5);
-    --page-art-auth: none;
-    --page-art-app: none;
+    --color-page-veil: rgb(14 20 17 / 0);
+    --page-blend: multiply;
+    --wordmark-light: none;
+    --wordmark-dark: inline;
     --color-nav-pulse: #1f4230;
     --color-paid-wash: #1d4630;
     --color-paid-static: #1a3a27;
@@ -227,6 +246,7 @@
     --color-heat-4: #2d7550;
     --color-on-accent: #0e1411;
     --color-on-accent-muted: rgb(14 20 17 / 0.85);
+    --color-on-gold: #0e1411;
     --color-topbar: #14532d;
     --color-topbar-dark: #0c3a20;
     --color-on-topbar: #ffffff;
@@ -242,9 +262,10 @@
     --color-chart-grey: #8a9890;
     --color-chart-grid: #34443a;
     --color-page: #0e1411;
-    --color-page-veil: rgb(14 20 17 / 0.5);
-    --page-art-auth: none;
-    --page-art-app: none;
+    --color-page-veil: rgb(14 20 17 / 0);
+    --page-blend: multiply;
+    --wordmark-light: none;
+    --wordmark-dark: inline;
     --color-nav-pulse: #1f4230;
     --color-paid-wash: #1d4630;
     --color-paid-static: #1a3a27;
@@ -290,6 +311,7 @@ body {
    `cover`, then the plain base colour below. Hidden in print (see @media print). */
 .auth-bg {
   background: var(--color-page) var(--page-art-auth) center / cover no-repeat fixed;
+  background-blend-mode: var(--page-blend);
 }
 /* The app art gets a 50% veil of its own base colour: form hints (gray-500)
    and field errors (money-out) sit straight on it, and at full strength its
@@ -300,7 +322,13 @@ body {
   background:
     linear-gradient(var(--color-page-veil), var(--color-page-veil)) center top / cover no-repeat fixed,
     var(--color-page) var(--page-art-app) center top / cover no-repeat fixed;
+  background-blend-mode: var(--page-blend);
 }
+/* Dark theme (v1.5 C3): the same girih files, never edited, multiplied onto the
+   dark page colour (--page-blend: multiply, veil transparent). The art's
+   near-white ground leaves the page colour as it is and its lattice, washes
+   and rules come out a shade darker — an engraved pattern that can only add
+   contrast to the text above it. */
 @supports (-webkit-touch-callout: none) {
   .auth-bg,
   .app-bg {

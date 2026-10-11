@@ -39,14 +39,16 @@ export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 
 // Hover is one step darker than rest on every variant; every pair keeps text
 // contrast ≥ 4.5:1 (white on #004d26 10:1, gray-900 on gray-200 13:1,
-// accent-dark on accent-line 5.8:1, white on red-800 8.3:1).
+// accent-dark on accent-line 5.8:1, white on red-800 8.3:1). Dark theme (v1.5):
+// on-accent is deep ink and "dark" steps are lighter — ink on accent 6.4:1, on
+// accent-dark 8.3:1, on red-800 9.4:1 (progress/v15/theme.md).
 const VARIANTS: Record<Variant, string> = {
   primary:
-    "bg-accent text-white border-accent hover:bg-accent-dark hover:border-accent-dark disabled:bg-gray-200 disabled:border-gray-300 disabled:text-gray-600",
+    "bg-accent text-on-accent border-accent hover:bg-accent-dark hover:border-accent-dark disabled:bg-gray-200 disabled:border-gray-300 disabled:text-gray-600",
   secondary:
     "bg-white text-gray-900 border-gray-300 hover:bg-gray-200 hover:border-gray-400 disabled:bg-gray-100 disabled:text-gray-500",
   danger:
-    "bg-money-out text-white border-money-out hover:bg-red-800 hover:border-red-800 disabled:bg-gray-200 disabled:border-gray-300 disabled:text-gray-600",
+    "bg-money-out text-on-accent border-money-out hover:bg-red-800 hover:border-red-800 disabled:bg-gray-200 disabled:border-gray-300 disabled:text-gray-600",
   ghost:
     "bg-transparent text-accent-dark border-transparent hover:bg-accent-line disabled:text-gray-500",
 };

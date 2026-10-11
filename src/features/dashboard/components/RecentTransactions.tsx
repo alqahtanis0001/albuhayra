@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { Card } from "@/components/Card";
 import { DateText } from "@/components/DateText";
 import { DirectionBadge } from "@/components/DirectionBadge";
@@ -10,19 +12,30 @@ import type { LedgerRow } from "./data";
 /**
  * Stacked rows rather than a table: this list is read on a phone.
  *
- * The owner dashboard shows the establishment's last ten ("آخر الحركات") and the
+ * The owner dashboard shows the establishment's last five ("آخر الحركات") and the
  * staff dashboard shows the employee's own ("حركاتي الأخيرة"), so the title is a
- * prop — the rows render identically and only the heading differs.
+ * prop — the rows render identically and only the heading differs. v1.5 (D21):
+ * the owner home passes `viewAllHref` for «عرض الكل» in the header.
  */
 export function RecentTransactions({
   rows,
   title = t.dashboard.recent,
+  viewAllHref,
 }: {
   rows: LedgerRow[];
   title?: string;
+  viewAllHref?: string;
 }) {
+  const action = viewAllHref ? (
+    <Link
+      href={viewAllHref}
+      className="inline-flex min-h-11 items-center text-sm text-accent-dark underline-offset-2 hover:underline"
+    >
+      {t.homeDetails.viewAll}
+    </Link>
+  ) : undefined;
   return (
-    <Card title={title} bodyClassName="">
+    <Card title={title} action={action} bodyClassName="">
       {rows.length === 0 ? (
         <EmptyState kind="ledger" title={t.ledger.emptyTitle} hint={t.ledger.emptyHint} />
       ) : (

@@ -8,12 +8,13 @@ import { t } from "@/i18n/ar";
 const route = vi.hoisted(() => ({ pathname: "/owner" }));
 vi.mock("next/navigation", () => ({ usePathname: () => route.pathname }));
 
-import { AddSheet, PRIMARY_ROW, SIDE_TRIGGER, TAB_TRIGGER } from "./AddSheet";
+import { AddSheet, HINT, PRIMARY_HINT, PRIMARY_ROW, ROW, SIDE_TRIGGER, TAB_TRIGGER } from "./AddSheet";
 import { MoreSheet } from "./MoreSheet";
 import { badgeText } from "./NavBadge";
 import { BottomTabs, SideNav } from "./RoleNav";
 import {
   ADD_SLOT,
+  ownerNavGroups,
   ADMIN_NAV,
   OWNER_NAV_GROUPS,
   OWNER_TAB_HREFS,
@@ -39,7 +40,6 @@ const STAFF = navItems(singleGroup(STAFF_NAV));
 const OWNER_HREFS = [
   "/owner",
   "/owner/transactions",
-  "/owner/reports",
   "/owner/parties",
   "/owner/plans",
   "/owner/dues",
@@ -51,13 +51,24 @@ const OWNER_HREFS = [
   "/owner/settings/reminders",
   "/owner/settings/account",
 ];
+/** v1.5 B3: the owner's «+» rows without «صرف راتب» (no salaried employee). */
 const OWNER_ADD_HREFS = [
   "/owner/transactions/new",
   "/owner/plans?pick=payment",
   "/owner/plans/new",
   "/owner/parties/new",
-  "/owner/projects/new",
   "/owner/staff/new",
+  "/owner/projects/new",
+];
+/** …and with it, third (D15, D21). */
+const OWNER_ADD_HREFS_SALARY = [
+  "/owner/transactions/new",
+  "/owner/plans?pick=payment",
+  "/owner/staff?pick=salary",
+  "/owner/plans/new",
+  "/owner/parties/new",
+  "/owner/staff/new",
+  "/owner/projects/new",
 ];
 
 function render(element: Parameters<typeof renderToStaticMarkup>[0], pathname = "/owner"): string {
@@ -105,6 +116,13 @@ describe("activeHref", () => {
     expect(groupOf(OWNER_NAV_GROUPS, activeHref("/owner/projects/x", OWNER))).toBe("ledger");
   });
 
+  it("v1.5 B2/D14: the old report paths highlight السجل through `also`", () => {
+    expect(activeHref("/owner/reports", OWNER)).toBe("/owner/transactions");
+    expect(activeHref("/owner/reports/aging", OWNER)).toBe("/owner/transactions");
+    expect(activeHref("/owner/reportsx", OWNER)).toBeNull();
+    expect(groupOf(OWNER_NAV_GROUPS, activeHref("/owner/reports/aging", OWNER))).toBe("ledger");
+  });
+
   it("does not match a sibling whose href is a string prefix", () => {
     expect(activeHref("/owner/partiesx", OWNER)).toBeNull();
     expect(activeHref("/owner/projectsx", OWNER)).toBeNull();
@@ -142,7 +160,7 @@ describe("the «+» is never a link (B2, A3, A9)", () => {
 });
 
 describe("owner navigation groups (v1.4 B2, D16)", () => {
-  it("has the six groups in order; السجل and التقارير are top-level with no heading", () => {
+  it("has the six groups in order; السجل is top-level with no heading", () => {
     expect(OWNER_NAV_GROUPS.map((g) => [g.key, g.label === null, g.collapsible])).toEqual([
       ["home", true, false],
       ["add", true, false],
@@ -153,6 +171,24 @@ describe("owner navigation groups (v1.4 B2, D16)", () => {
     ]);
     expect(OWNER_NAV_GROUPS[1].items.map(isAdd)).toEqual([true]);
     expect(OWNER_NAV_GROUPS.find((g) => g.key === "staff")!.label).toBe("الموظفون والحضور");
+    expect(OWNER_NAV_GROUPS.find((g) => g.key === "ledger")!.items).toEqual([
+      { href: "/owner/transactions", label: t.nav.ledger, icon: "ledger", also: ["/owner/projects", "/owner/reports"] },
+    ]);
+  });
+
+  it("v1.5 B2: no التقارير item anywhere — side nav, tab bar or المزيد, with or without salaried employees", () => {
+    for (const groups of [OWNER_NAV_GROUPS, ownerNavGroups({ hasSalaryEmployees: true })]) {
+      const hrefs = navItems(groups).map((i) => i.href);
+      expect(hrefs.some((h) => h.startsWith("/owner/reports"))).toBe(false);
+      expect(navItems(groups).some((i) => i.label === t.nav.reports)).toBe(false);
+      expect(moreGroups(groups, OWNER_TAB_HREFS).flatMap((g) => g.items.map((i) => i.href))).not.toContain("/owner/reports");
+    }
+  });
+
+  it("D15: the salary flag changes only the «+» rows, never the links", () => {
+    expect(navItems(ownerNavGroups({ hasSalaryEmployees: true }))).toEqual(OWNER);
+    expect(addEntryOf(ownerNavGroups({ hasSalaryEmployees: true }))!.rows).toEqual(addRows("OWNER", { hasSalaryEmployees: true }));
+    expect(addEntryOf(OWNER_NAV_GROUPS)!.rows).toEqual(addRows("OWNER"));
   });
 
   it("routes every link to its documented path, once — none of the removed items", () => {
@@ -166,7 +202,8 @@ describe("owner navigation groups (v1.4 B2, D16)", () => {
 
   it("finds the group of the active item", () => {
     expect(groupOf(OWNER_NAV_GROUPS, "/owner/settings/reminders")).toBe("settings");
-    expect(groupOf(OWNER_NAV_GROUPS, "/owner/reports")).toBe("ledger");
+    expect(groupOf(OWNER_NAV_GROUPS, "/owner/transactions")).toBe("ledger");
+    expect(groupOf(OWNER_NAV_GROUPS, "/owner/reports")).toBeNull();
     expect(groupOf(OWNER_NAV_GROUPS, "/owner/staff/logins")).toBe("staff");
     expect(groupOf(OWNER_NAV_GROUPS, activeHref("/owner/parties/x/edit", OWNER))).toBe("partiesAndCommitments");
     expect(groupOf(OWNER_NAV_GROUPS, null)).toBeNull();
@@ -202,10 +239,9 @@ describe("tab bar slots (B2, D13, A7)", () => {
     expect(STAFF[2].label).toBe(OWNER.find((i) => i.href === "/owner/settings/account")!.label);
   });
 
-  it("المزيد holds every owner link that is not a tab — never the «+», no empty group, التقارير unheaded", () => {
+  it("المزيد holds every owner link that is not a tab — never the «+», no empty group (v1.5: السجل's group is gone)", () => {
     const more = moreGroups(OWNER_NAV_GROUPS, OWNER_TAB_HREFS);
     expect(more.flatMap((g) => g.items.map((i) => i.href))).toEqual([
-      "/owner/reports",
       "/owner/parties",
       "/owner/plans",
       "/owner/staff",
@@ -218,7 +254,6 @@ describe("tab bar slots (B2, D13, A7)", () => {
     ]);
     expect(more.every((g) => g.items.every((i) => typeof i.href === "string" && !("kind" in i)))).toBe(true);
     expect(more.map((g) => [g.key, g.label === null])).toEqual([
-      ["ledger", true],
       ["partiesAndCommitments", false],
       ["staff", false],
       ["settings", false],
@@ -233,35 +268,59 @@ describe("tab bar slots (B2, D13, A7)", () => {
   });
 });
 
-describe("addRows (B1, D16 b/c)", () => {
-  it("owner: six rows in spec order", () => {
-    expect(addRows("OWNER").map((r) => [r.href, r.label])).toEqual([
-      ["/owner/transactions/new", t.addSheet.newEntry],
-      ["/owner/plans?pick=payment", t.addSheet.recordPayment],
-      ["/owner/plans/new", t.plans.add],
-      ["/owner/parties/new", t.addSheet.newParty],
-      ["/owner/projects/new", t.addSheet.newProject],
-      ["/owner/staff/new", t.addSheet.newEmployee],
+describe("addRows (B1, D16 b/c; v1.5 B3, D15)", () => {
+  it("owner: seven rows in spec order when an employee is salaried, each with its caption", () => {
+    expect(addRows("OWNER", { hasSalaryEmployees: true }).map((r) => [r.href, r.label, r.hint])).toEqual([
+      ["/owner/transactions/new", t.addSheet.newEntry, t.addHints.newEntry],
+      ["/owner/plans?pick=payment", t.addSheet.recordPayment, t.addHints.recordPayment],
+      ["/owner/staff?pick=salary", t.employees.paySalary, t.addHints.paySalary],
+      ["/owner/plans/new", t.plans.add, t.addHints.newPlan],
+      ["/owner/parties/new", t.addSheet.newParty, t.addHints.newParty],
+      ["/owner/staff/new", t.addSheet.newEmployee, t.addHints.newEmployee],
+      ["/owner/projects/new", t.addSheet.newProject, t.addSheet.newProjectHint],
     ]);
+    expect(addRows("OWNER", { hasSalaryEmployees: true }).map((r) => r.href)).toEqual(OWNER_ADD_HREFS_SALARY);
     expect(t.plans.add).toBe("اتفاقية جديدة");
+    expect(t.employees.paySalary).toBe("صرف راتب");
+    // D37: its own icon, not one another row or nav item uses.
+    const salary = addRows("OWNER", { hasSalaryEmployees: true })[2]!;
+    expect(salary.icon).toBe("salary");
+    expect(addRows("OWNER", { hasSalaryEmployees: true }).filter((r) => r.icon === "salary")).toHaveLength(1);
+    expect(navItems(ownerNavGroups({ hasSalaryEmployees: true })).some((i) => i.icon === "salary")).toBe(false);
     // v1.4 part 3 (R1): the row goes to the agreement pick list, so it says so.
     expect(t.addSheet.recordPayment).toBe("دفعة على اتفاقية");
   });
 
-  it("staff: one row unlinked, «تسجيل حضوري» second when linked; admin none", () => {
-    expect(addRows("STAFF", false).map((r) => r.href)).toEqual(["/staff/transactions/new"]);
-    expect(addRows("STAFF", true).map((r) => [r.href, r.label])).toEqual([
-      ["/staff/transactions/new", "حركة جديدة"],
-      ["/staff/me", "تسجيل حضوري"],
+  it("D15: «صرف راتب» is there iff hasSalaryEmployees — the other six keep their order", () => {
+    expect(addRows("OWNER").map((r) => r.href)).toEqual(OWNER_ADD_HREFS);
+    expect(addRows("OWNER", { hasSalaryEmployees: false }).map((r) => r.href)).toEqual(OWNER_ADD_HREFS);
+    expect(addRows("OWNER", { linked: true }).map((r) => r.href)).toEqual(OWNER_ADD_HREFS);
+    expect(addRows("OWNER", { hasSalaryEmployees: true }).filter((r) => r.href === "/owner/staff?pick=salary")).toHaveLength(1);
+  });
+
+  it("every row of every role carries a non-empty caption (B3)", () => {
+    for (const rows of [addRows("OWNER"), addRows("OWNER", { hasSalaryEmployees: true }), addRows("STAFF"), addRows("STAFF", { linked: true })]) {
+      for (const row of rows) expect(typeof row.hint === "string" && row.hint.length > 0, row.href).toBe(true);
+    }
+  });
+
+  it("staff: one row unlinked, «تسجيل حضوري» second when linked, with their captions; admin none", () => {
+    expect(addRows("STAFF").map((r) => r.href)).toEqual(["/staff/transactions/new"]);
+    expect(addRows("STAFF", { linked: false }).map((r) => r.href)).toEqual(["/staff/transactions/new"]);
+    expect(addRows("STAFF", { hasSalaryEmployees: true }).map((r) => r.href)).toEqual(["/staff/transactions/new"]);
+    expect(addRows("STAFF", { linked: true }).map((r) => [r.href, r.label, r.hint])).toEqual([
+      ["/staff/transactions/new", "حركة جديدة", t.addHints.newEntry],
+      ["/staff/me", "تسجيل حضوري", t.addHints.myCheckIn],
     ]);
     expect(addRows("ADMIN")).toEqual([]);
-    expect(addEntryOf(singleGroup(staffNav(true)))!.rows).toEqual(addRows("STAFF", true));
-    expect(addEntryOf(singleGroup(staffNav(false)))!.rows).toEqual(addRows("STAFF", false));
+    expect(addRows("ADMIN", { linked: true, hasSalaryEmployees: true })).toEqual([]);
+    expect(addEntryOf(singleGroup(staffNav(true)))!.rows).toEqual(addRows("STAFF", { linked: true }));
+    expect(addEntryOf(singleGroup(staffNav(false)))!.rows).toEqual(addRows("STAFF", { linked: false }));
   });
 });
 
 describe("AddSheet (B1, D16 c, A9)", () => {
-  it("owner: a dialog trigger, never aria-current, with the six rows in order", () => {
+  it("owner: a dialog trigger, never aria-current, with the rows in order", () => {
     const html = render(createElement(AddSheet, { entry: addEntryOf(OWNER_NAV_GROUPS)!, variant: "tab" }), "/owner/transactions/new");
     expect(html).toContain('<button type="button" aria-haspopup="dialog" aria-expanded="false"');
     expect(html).not.toContain("aria-current");
@@ -269,6 +328,11 @@ describe("AddSheet (B1, D16 c, A9)", () => {
     const hrefs = [...html.matchAll(/<a [^>]*href="([^"]+)"/g)].map((m) => m[1]);
     expect(hrefs).toEqual(OWNER_ADD_HREFS);
     expect(html).toContain(t.addSheet.title);
+    const salaried = render(
+      createElement(AddSheet, { entry: addEntryOf(ownerNavGroups({ hasSalaryEmployees: true }))!, variant: "tab" }),
+      "/owner",
+    );
+    expect([...salaried.matchAll(/<a [^>]*href="([^"]+)"/g)].map((m) => m[1])).toEqual(OWNER_ADD_HREFS_SALARY);
   });
 
   it("linked staff: the sheet; unlinked staff: a plain link to «حركة جديدة» with no dialog and no aria-current", () => {
@@ -289,7 +353,7 @@ describe("AddSheet (B1, D16 c, A9)", () => {
 
 describe("AddSheet links show the v1.1d pending step (reviewer R1-1)", () => {
   it("the primary row and both one-row «+» links carry nav-item and a has-data-pending look", () => {
-    for (const cls of [PRIMARY_ROW, TAB_TRIGGER, SIDE_TRIGGER]) {
+    for (const cls of [PRIMARY_ROW, ROW, TAB_TRIGGER, SIDE_TRIGGER]) {
       expect(cls).toContain("nav-item");
       expect(cls).toContain("has-data-pending:");
     }
@@ -334,14 +398,16 @@ describe("BottomTabs and SideNav render the slots and badges (A7, c10, M2)", () 
     expect(html.match(/aria-current="page"/g)).toHaveLength(1);
   });
 
-  it("المزيد tiles: التقارير as a plain tile with no heading before it", () => {
+  it("المزيد tiles (v1.5 B2): no التقارير tile; the first section is a headed group", () => {
     const html = render(
       createElement(MoreSheet, { groups: moreGroups(OWNER_NAV_GROUPS, OWNER_TAB_HREFS), active: null, badges: {} }),
       "/owner",
     );
+    expect(html).not.toContain('href="/owner/reports"');
+    expect(html).not.toContain(`>${t.nav.reports}<`);
     const firstSection = html.split("<section")[1];
-    expect(firstSection).toContain('href="/owner/reports"');
-    expect(firstSection).not.toContain("<h3");
+    expect(firstSection).toContain("<h3");
+    expect(firstSection).toContain('href="/owner/parties"');
     expect(html).not.toContain('href="/owner/transactions/new"');
     expect(html).not.toContain('href="/owner/settings/categories"');
   });
@@ -406,16 +472,50 @@ describe("used nav groups (localStorage)", () => {
   });
 });
 
-/** v1.4 part 3 (D29 R16, `flows`): the «نشاط جديد» row's second line. Appended block (D32 S1). */
-describe("R16 — the «نشاط جديد» row carries its hint", () => {
-  it("row 5 of the owner sheet has addSheet.newProjectHint, no other row has one, and the sheet renders it readable", () => {
-    const rows = addRows("OWNER");
-    expect(rows[4]!.href).toBe("/owner/projects/new");
-    expect(rows[4]!.hint).toBe(t.addSheet.newProjectHint);
-    expect(rows.filter((r) => r.hint !== undefined)).toHaveLength(1);
-    expect(addRows("STAFF", true).every((r) => r.hint === undefined)).toBe(true);
-    const html = render(createElement(AddSheet, { entry: addEntryOf(OWNER_NAV_GROUPS)!, variant: "tab" }), "/owner");
-    expect(html).toMatch(new RegExp(`<a [^>]*href="/owner/projects/new"[^>]*>[\\s\\S]*?${t.addSheet.newProject}<span class="text-\\[11px\\] font-normal text-gray-500">${t.addSheet.newProjectHint}</span>`));
-    expect(html).not.toMatch(new RegExp(`aria-hidden="true"[^>]*>${t.addSheet.newProjectHint}`));
+/**
+ * v1.4 part 3 R16 → v1.5 B3: every row has its caption; «نشاط جديد» (now row 7)
+ * keeps `addSheet.newProjectHint`. The rows are one column, each ≥ 56 px.
+ */
+describe("B3 — the «+» rows: captions, layout and the 56 px minimum", () => {
+  it("«نشاط جديد» is the last owner row, captioned by addSheet.newProjectHint", () => {
+    const rows = addRows("OWNER", { hasSalaryEmployees: true });
+    expect(rows[6]!.href).toBe("/owner/projects/new");
+    expect(rows[6]!.hint).toBe(t.addSheet.newProjectHint);
+  });
+
+  it("every row class carries min-h-14 (56 px); captions are a muted second line, on-accent-muted on the primary row (D33)", () => {
+    expect(PRIMARY_ROW.split(" ")).toContain("min-h-14");
+    expect(ROW.split(" ")).toContain("min-h-14");
+    expect(HINT).toContain("text-gray-600");
+    expect(PRIMARY_HINT.split(" ")).toContain("text-on-accent-muted");
+    // D36: text on the accent fill is the on-accent token (dark ink in dark mode), never white.
+    for (const cls of [PRIMARY_ROW, SIDE_TRIGGER]) {
+      expect(cls.split(" "), cls).toContain("text-on-accent");
+      expect(cls).not.toMatch(/\btext-white\b/);
+    }
+  });
+
+  it("renders a single-column list: the primary row first, then one <li> per row, each caption readable (no aria-hidden)", () => {
+    const html = render(
+      createElement(AddSheet, { entry: addEntryOf(ownerNavGroups({ hasSalaryEmployees: true }))!, variant: "tab" }),
+      "/owner",
+    );
+    expect(html).toContain('<ul class="flex flex-col gap-2">');
+    expect(html).not.toContain("grid-cols-2");
+    expect(html.match(/<li>/g)).toHaveLength(6);
+    const primary = new RegExp(`<a class="${PRIMARY_ROW.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&")}" href="/owner/transactions/new"`);
+    expect(html).toMatch(primary);
+    expect(html).toContain(`<span class="${PRIMARY_HINT}">${t.addHints.newEntry}</span>`);
+    for (const hint of [t.addHints.recordPayment, t.addHints.paySalary, t.addHints.newPlan, t.addHints.newParty, t.addHints.newEmployee, t.addSheet.newProjectHint]) {
+      expect(html).toContain(`<span class="${HINT}">${hint}</span>`);
+    }
+    expect(html.match(new RegExp(`class="${ROW.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&")}"`, "g"))).toHaveLength(6);
+    expect(html).not.toMatch(/aria-hidden="true"[^>]*>[^<]*(?:مبلغ دخل|عميل أو مورد)/);
+  });
+
+  it("a linked staff login's sheet: two rows, both captioned", () => {
+    const html = render(createElement(AddSheet, { entry: addEntryOf(singleGroup(staffNav(true)))!, variant: "tab" }), "/staff");
+    expect(html).toContain(`<span class="${PRIMARY_HINT}">${t.addHints.newEntry}</span>`);
+    expect(html).toContain(`<span class="${HINT}">${t.addHints.myCheckIn}</span>`);
   });
 });

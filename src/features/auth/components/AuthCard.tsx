@@ -25,13 +25,23 @@ export function AuthCard({
     <section className="w-full rounded-lg border border-t-4 border-gray-300 border-t-accent bg-white p-5 shadow-lg">
       <div className="mb-5 flex justify-center">
         {/* Served as-is from public/brand, never re-encoded; the attributes
-            carry the real 3907×988 ratio so nothing shifts on load. */}
+            carry the real 3907×988 ratio so nothing shifts on load. The white
+            file is the dark theme's (globals.css switches the pair); lazy, so
+            a light page never fetches it. */}
         <img
           src="/brand/zakham-brand/zakham-wordmark-green-tagline.png"
           alt={t.brand.logoWithTaglineAlt}
           width={3907}
           height={988}
-          className="h-16 w-auto shrink-0"
+          className="wordmark-light h-16 w-auto shrink-0"
+        />
+        <img
+          src="/brand/zakham-brand/zakham-wordmark-white-tagline.png"
+          alt={t.brand.logoWithTaglineAlt}
+          width={3907}
+          height={988}
+          loading="lazy"
+          className="wordmark-dark h-16 w-auto shrink-0"
         />
       </div>
 

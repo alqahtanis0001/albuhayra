@@ -17,7 +17,7 @@ import { t } from "@/i18n/ar";
 
 const TILE =
   "flex min-h-16 flex-col items-center justify-center gap-1 rounded-lg border px-2 py-2 text-center text-sm font-medium leading-tight transition-[scale,background-color,border-color] duration-[80ms] ease-out active:scale-[0.97]";
-const PRIMARY = "bg-accent text-white border-accent hover:bg-accent-dark hover:border-accent-dark";
+const PRIMARY = "bg-accent text-on-accent border-accent hover:bg-accent-dark hover:border-accent-dark";
 const SECONDARY = "bg-white text-gray-900 border-gray-300 hover:bg-gray-200 hover:border-gray-400";
 
 function Tile({

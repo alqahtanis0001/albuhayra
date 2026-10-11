@@ -59,7 +59,7 @@ export default async function AdminEstablishmentsPage({
         </div>
         <button
           type="submit"
-          className="min-h-11 rounded-lg bg-accent px-4 font-medium text-white hover:bg-accent-dark"
+          className="min-h-11 rounded-lg bg-accent px-4 font-medium text-on-accent hover:bg-accent-dark"
         >
           {t.common.search}
         </button>

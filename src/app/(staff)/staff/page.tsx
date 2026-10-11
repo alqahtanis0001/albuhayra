@@ -34,7 +34,7 @@ export default async function StaffHomePage({
         </h1>
         <Link
           href="/staff/transactions/new"
-          className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-accent px-4 font-medium text-white hover:bg-accent-dark"
+          className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-accent px-4 font-medium text-on-accent hover:bg-accent-dark"
         >
           <PlusIcon size={18} />
           {t.transaction.addButton}

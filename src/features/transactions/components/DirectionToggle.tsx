@@ -85,7 +85,7 @@ function Segment({
   return (
     <label
       className={`flex min-h-11 cursor-pointer items-center justify-center text-sm font-medium ${
-        active ? `${tone} text-white` : "bg-white text-gray-700"
+        active ? `${tone} text-on-accent` : "bg-white text-gray-700"
       }`}
     >
       <input

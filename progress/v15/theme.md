@@ -9,6 +9,9 @@ Your own running notes. Only you write here. The lead merges it into PROGRESS.md
 | Task | Files touched | Build/tests pass | Notes for others |
 |---|---|---|---|
 | T1 token layer (C1) | `src/app/globals.css`, `src/lib/themeCss.test.ts` (new, 91 cases) | tsc 0; vitest 126 files / 1794, 1 failing = `nav`'s in-flight `SalaryPickList.test.ts` (mine all green; 121 / 1734 all green earlier); build exit 0; bundles `progress/v15/bundles-theme.json` max +4.2 KB gz (`/owner`, from `home`'s in-flight code — CSS adds no JS) | token names and lists below |
+| T2 toggle + SSR (C2, D11, D32) | `src/lib/theme.ts` (new), `src/app/layout.tsx`, `src/components/chrome/ThemeToggle.tsx` (server wrapper, new), `ThemeToggleButton.tsx` (client, new); tests `src/lib/theme.test.ts` (21), `src/components/chrome/themeToggle.test.ts` (9) | ✓ (final gates below) | `nav` mounted `<ThemeToggle />` in TopBar |
+| T3 everything reads tokens (C3, D33) | `visualPalette.ts` (PALETTE → `var(--color-…)`, same keys), `globals.css` (girih in dark, wordmark pair, `--color-on-gold`), `AuthCard.tsx`, `src/app/not-found.tsx` (white wordmark in dark), `text-white` → `text-on-accent` in `Button`, `LinkButton`, the three `not-found`s, `verify`, staff home + ledger, admin establishments, owner dues, `ScheduleBuilder`, `DirectionToggle`, `ForgotForm`; `LedgerArt` `#fff` → `var(--color-white)` | ✓ | recharts props were on `home`'s list |
+| T4 tests (C4) | `src/lib/tokenLint.test.ts` (21), `src/lib/themeCss.test.ts` (10), `src/lib/themeContrast.test.ts` (101), helper `src/lib/themeCssParse.ts` (test-only parser, not imported by the app) | ✓ | |
 
 ## T1 — the token layer (done)
 
@@ -42,6 +45,7 @@ Your own running notes. Only you write here. The lead merges it into PROGRESS.md
 | `--color-heat-1…4` | #e8f3ec #c9e7d3 #9fd3b1 #6fbb8b | #17301f #1d4630 #245c3e #2d7550 | heat strips |
 | `--color-on-accent` | #ffffff | #0e1411 | text on fills |
 | `--color-on-accent-muted` | rgb(255 255 255 / .85) | rgb(14 20 17 / .85) | caption on accent |
+| `--color-on-gold` (T3, `home`'s D40 request) | #171717 | #0e1411 | count text on a gold dial dot (7.41:1 / 9.50:1) |
 | `--color-topbar` / `-dark` / `on-topbar` | #006c35 / #004d26 / #fff | #14532d / #0c3a20 / #fff | the green band |
 | `--color-gold` | #c9a227 | #d8b64a | wheel/chart gold |
 | `--color-gold-2` | #e3cf7e | #9c8a3f | wheel ring 2 |
@@ -56,7 +60,7 @@ Your own running notes. Only you write here. The lead merges it into PROGRESS.md
 | `--color-ripple`, `-backdrop` | rgb(255 255 255 / .35), rgb(0 0 0 / .5) | rgb(14 20 17 / .2), rgb(0 0 0 / .65) | |
 | amber/orange/red/green steps | Tailwind's | 50 #3a2e10 · 300 #7a5e1c · 500 #b8862b · 700 #c98a2a · 800 #f2c76b · 900 #f7d58a · orange-100 #4a2e14 · orange-600 #c9672f · red-200 #5a2622 · red-300 #7a3530 · red-700 #d04a3f · red-800 #f5a398 · red-900 #e86b60 · green-200 #1f4a30 · green-300 #2b6342 | dark only |
 
-### Dark contrast (WCAG 2.x, measured; all text pairs pinned in `themeCss.test.ts`, 83 cases)
+### Dark contrast (WCAG 2.x, measured; all text pairs pinned in `themeContrast.test.ts`, 84 cases + on-gold light)
 Text × surface (gray-50 page · white card · gray-100 · accent-soft · money-in-soft · money-out-soft):
 | text | page | card | gray-100 | accent-soft | in-soft | out-soft |
 |---|---|---|---|---|---|---|
@@ -70,7 +74,7 @@ Text × surface (gray-50 page · white card · gray-100 · accent-soft · money-
 | money-in | 8.28 | 7.42 | 6.62 | 6.06 | 6.80 | 7.41 |
 | money-out | 7.67 | 6.87 | 6.13 | 5.62 | 6.30 | 6.87 |
 
-Others: gray-600 / 700 / 900 on gray-200 6.96 / 8.46 / 11.64 · gray-900 on tint-in 9.98, tint-out 11.59, tint-amber 9.96, tint-blue 11.22, tint-teal 10.01, tint-grey 10.02, heat-1 12.17, heat-2 9.13, heat-3 6.73, heat-4 4.77, amber-50 11.41, orange-100 10.64, red-200 10.37, paid-static 10.72 · accent-dark on accent-line 4.82, on nav-pulse 4.94 · amber-800 on amber-50 8.34, on card 10.47 · amber-900 on amber-50 9.40 · on-accent on accent 6.35, accent-dark 8.25, money-in 8.28, money-out 7.67, red-800 9.38 · on-accent-muted on accent 5.12 · on-topbar on topbar 9.11, topbar-dark 12.79 · progress bar (#5fbf88) on topbar-dark strip 5.66. Non-text: gold on card 8.52; track on card 1.32 (a track, decorative, as the mock); accent-line border on card 1.53 (light: 1.6).
+Others: gray-600 / 700 / 900 on gray-200 6.96 / 8.46 / 11.64 · gray-900 on tint-in 9.98, tint-out 11.59, tint-amber 9.96, tint-blue 11.22, tint-teal 10.01, tint-grey 10.02, heat-1 12.17, heat-2 9.13, heat-3 6.73, heat-4 4.77, amber-50 11.41, orange-100 10.64, red-200 10.37, paid-static 10.72 · accent-dark on accent-line 4.82, on nav-pulse 4.94 · amber-800 on amber-50 8.34, on card 10.47 · amber-900 on amber-50 9.40 · on-accent on accent 6.35, accent-dark 8.25, money-in 8.28, money-out 7.67, red-800 9.38 · on-accent-muted on accent 5.12 · on-gold on gold 9.50 (light 7.41) · on-topbar on topbar 9.11, topbar-dark 12.79 · progress bar (#5fbf88) on topbar-dark strip 5.66. Non-text: gold on card 8.52; track on card 1.32 (a track, decorative, as the mock); accent-line border on card 1.53 (light: 1.6).
 
 ### Lists for `home` (src/features/dashboard/**, owner `page.tsx`, `Wheel*`) — apply these
 - `ExpenseDonut.tsx` `stroke="#fff"` (≈ line 51) → `stroke="var(--color-white)"` (the card surface between slices).
@@ -94,14 +98,78 @@ Others: gray-600 / 700 / 900 on gray-200 6.96 / 8.46 / 11.64 · gray-900 on tint
 ### Mutations (themeCss.test.ts, run on a scratch copy via `THEME_CSS=`)
 M1 light `--color-accent` #006c35 → #006c36 → "keeps every pre-v1.5 colour token" failed · M2 `--color-page` light changed → "gives every new token the light value" failed · M3 one value differs in the system block → "identical for the explicit choice and for system" failed · M4 `--color-track` removed from both dark blocks → "redefine every colour token" failed · M5 `--color-amber-50` added to `@theme static` → "never restates Tailwind's default palette" (+ new-token case) failed · M6 backdrop back to `rgb(0 0 0 / 0.5)` → "leaves no raw colour in a screen rule" failed · M7 explicit dark block under `@media all` → file fails to load (the single-dark-screen-block guard) · M8 print `color-scheme: light` removed → "print is light by construction" failed · M9 dark gray-500 → #6b7b72 → six "gray-500 on …" contrast cases failed · M10 dark on-accent → #fff → five "on-accent on …" cases failed.
 
+## T2–T4 (done)
+
+### T2 — toggle and SSR
+- `src/lib/theme.ts` (client-safe): `ThemeChoice`, `parseTheme` (absent/unknown → `null`), `nextTheme` (light → dark → system → light), `THEME_COOKIE = "theme"`, `THEME_STORAGE_KEY = "ui:theme"` (D31), `themeCookie(choice, secure)` = `theme=<c>; Path=/; Max-Age=31536000; SameSite=Lax` (+ `; Secure` on https; never HttpOnly), `htmlThemeAttrs(choice)` (only `data-theme`; `color-scheme` comes from the CSS, D32), `chooseTheme` (a click: localStorage + cookie + attribute, no reload) and `reconcileTheme` (on mount: a present cookie wins and localStorage follows; no cookie + a valid stored choice → cookie rewritten and applied; neither → system), both on an injectable `ThemeEnv` so tests use stubs.
+- `src/app/layout.tsx`: `async`, reads `cookies()` → `{...htmlThemeAttrs(parseTheme(…))}` on `<html>`; no inline script. `viewport.themeColor` is now a light/dark pair (`#006c35` / `#14532d`, the band). On a light OS, light is unchanged.
+- `ThemeToggle.tsx` (async server wrapper: `cookies()` → `parseTheme`) renders `ThemeToggleButton choice={…}` (client): a 44 × 44 button, `text-on-topbar hover:bg-topbar-dark`, sun/moon/screen icon drawn with `Svg` from `icons.tsx`, `aria-label`/`title` = `t.theme.toggle` with the current mode.
+
+### T3 — everything reads tokens
+- **Charts:** `PALETTE` values are `var(--color-…)` strings with the same keys (pinned: each key's token has the old hex as its light value and has a dark value). So every hand-written SVG chart flips: sparklines, waterfall, ring/progress/instalment bars, live clock, payslip hero, illustrations, and the donut cells. recharts' own colours (grid, axis, tooltip, cursor) were on `home`'s list (`--color-chart-grid`, `gray-500`, `white`).
+- **Girih in dark:** the files in `public/brand/zakham-bg-v3/` stay untouched. In dark, the same art is multiplied onto the dark page colour (`--page-blend: multiply`, veil transparent). The near-white ground leaves the page colour as it is, and the lattice comes out a shade darker, like an engraving that can only add contrast. In light, `background-blend-mode: normal` (the initial value) changes nothing.
+- **Wordmark (D33):** `AuthCard` and the root `not-found` carry the green file (`wordmark-light`) and the white one (`wordmark-dark`, `loading="lazy"` so a light page never fetches it). The pair switches by tokens (`--wordmark-light/dark` → `display`), so the cookie, "system" and print (green) all work. The top bar keeps its white file.
+- **Text on fills:** all `text-white` in my files → `text-on-accent`. Nothing in `src/` uses `text-white` now.
+- **Print:** always light. The dark blocks are screen-only, and `@media print { :root { color-scheme: light } }` is set.
+
+### T4 — tests (all mutation-proven; runs on scratch copies via `THEME_CSS=` / `TOKEN_LINT_ROOT=`, or in-tree on my own files with a `cp` backup restored at once; `git diff` clean afterwards)
+- **Token lint** (`tokenLint.test.ts`). It walks `src/**` (`.ts`/`.tsx`/`.css`, skipping test files and `src/generated`), strips comments with a string-aware stripper (guard: ≥ 60 % of the code is kept, and the layout's function survives), and flags a hex in a colour context or an `rgb()`/`hsl()`/`oklch()` literal.
+  - Allow-list: `globals.css`, `src/app/api/export/`, `src/lib/mail/`, and the layout's two `themeColor` lines by exact pattern. A liveness case checks each entry still excuses something.
+  - Fixture cases cover `[--focus-ring:#fff]`, `stroke="#fff"`, 8-digit hex, `rgb()`/`rgba()`/`hsl()`. They also check that anchors such as `href="#add-entry"`, URLs and comments are not flagged.
+  - Mutations: a hex in `AuthCard` (scratch tree) → "finds no hard-coded colour" failed · `src/lib/mail/` removed from the allow-list → whole-tree + "whole files only under the listed paths" failed · layout pattern narrowed to light only → whole-tree, liveness, themeColor cases failed · `//` comments no longer stripped → whole-tree + "does not flag // white on #004d26" failed · stripper blanking → the guard case + every "flags" case failed.
+- **Theme logic** (`theme.test.ts`, `themeToggle.test.ts`). Mutations T1–T11, each failing exactly its case:
+  - T1 cycle reversed · T2 unknown → "system" (also kills the wrapper's null cases)
+  - T3 `Secure` dropped · T4 system writes `data-theme` · T5 the click skips localStorage
+  - T6 no cookie + stored choice not rewritten · T7 cookie present but localStorage not updated
+  - T8 the layout spread removed (source check) · T9 the wrapper passes "system" for no cookie
+  - T10 a 36 px button · T11 `HttpOnly` added
+- **CSS** (`themeCss.test.ts`, `themeContrast.test.ts`). The T1 mutations M1–M10 still hold. New ones: P1 `PALETTE.amber` → blue token → "amber keeps its light value" failed · P1b `PALETTE.grey` back to a hex → palette case + token lint failed · P2 dark `--page-blend: normal` → girih case failed · P3/P5 wordmark `loading="lazy"` / `wordmark-light` class removed → wordmark case failed · P4 dark `--wordmark-dark: none` → wordmark case failed · on-gold light #fff → new-token + light on-gold cases failed; on-gold dark = light ink → "on-gold on gold" failed.
+
+### Light mode unchanged — measured, not just pinned
+- **Method:** I compiled `globals.css` at `main` `3369686` and the current file with the repo's own Tailwind 4.3.3 (`@tailwindcss/node`, same candidates). Both rendered the same markup: six harness screens, with the new class names mapped back to their v1.4 names and the white wordmark removed.
+- **Screenshots:** in Chromium at 390 px, light OS with no attribute, and dark OS with `data-theme="light"`. All **12/12 screenshots are byte-identical** to `main`.
+- **Computed styles:** every computed property of every element (6 pages × 2 modes) matches. The only differences are the in-flight 280 ms route-fade opacity, which is timing.
+- An earlier 15-pixel diff turned out to be a harness artefact: the HTML was served dark, then flipped to light, and a button's colour transition was caught mid-way.
+
+### Dark screenshots (`progress/v15/qa/`)
+- **Shots:** `theme-login-dark`, `theme-owner-dark`, `theme-ledger-dark`, `theme-form-dark`, `theme-dialog-dark` (modal open), `theme-404-dark`, `theme-owner-system-darkOS` (no attribute, OS dark), `theme-owner-dark-1280`, plus `theme-login-light` / `theme-owner-light` for comparison.
+- **How they were made:** a throwaway static harness in the scratchpad. It renders real components (AppShell with the mounted toggle, StatCard, Card/Table/MoneyText/Badge, Button variants, Input/Switch, Toast, EmptyState, the real `(auth)` layout + `LoginForm`, the root `not-found`) with fake data, using `react-dom/static` and mocked `next/*`. The pages are served with the built CSS. No database, no server.
+- **What they show:**
+  - deep-green band with white wordmark and moon icon
+  - dark cards, light-green buttons with ink labels
+  - in/out tints, amber notice, badges
+  - date picker in dark `color-scheme`
+  - the dialog over a darker backdrop
+  - white wordmark on the auth card and the 404
+  - no horizontal scroll (`scrollWidth` 390)
+
+### Final gates (T1–T4, shared tree at the end)
+`tsc` 0 · vitest **133 files / 1896 tests**, all green · `npm run build` exit 0 (placeholder `DATABASE_URL`, under `.claude/build.lock`) · bundles `progress/v15/bundles-theme.json`, 55 routes: max **+5.1 KB gz** (`/owner`, mostly `home`'s wheel); auth routes +1.4–1.5 (the toggle is not on them, so that is the shared chunk); none near +40.
+
+### Round 1 — R1-T1 (SHOULD, fixed)
+- **(a) Named colours.** The token lint now also flags a CSS named or system colour (the full keyword list) given as the value of a colour prop or style key in TS/TSX: `fill`, `stroke`, `stopColor`, `color`, `backgroundColor`, `borderColor`, … whether written `="x"`, `={"x"}` or `: "x"`. `none`, `currentColor`, `transparent`, `inherit` and `var()` pass, and so do non-colour keys (`tone="green"`, `label: "white"`). Fixture cases cover each form.
+  - Mutation: `LedgerArt` `fill="var(--color-white)"` → `fill="white"` (scratch tree, `TOKEN_LINT_ROOT`) → "finds no hard-coded colour" failed, naming LedgerArt.
+- **(b) Palette coverage.** New case: every default-palette class used in `src/` must have its `--color-<name>-<step>` in the dark block. Classes counted: `bg`/`text`/`border(-side)`/`fill`/`stroke`/`ring(-offset)`/`outline`/`divide`/`from`/`via`/`to`/`decoration`/`accent`/`caret`/`placeholder`/`shadow`, with or without variants and opacity. `gray` (app-owned), `white` (the surface) and `black` (kept on purpose) are excluded. A guard case shows the pattern finds real steps. Nothing was missing: every step in use, including `home`'s and `nav`'s new code, already has a dark value.
+  - Mutation: `bg-sky-100` added to `AuthCard` (scratch tree) → "every one is redefined in the dark block" failed with `--color-sky-100 (src/features/auth/components/AuthCard.tsx)`.
+- `tokenLint.test.ts` now has 33 cases (218 lines).
+
+## For nav — mounting the toggle (T2)
+- Import: `import { ThemeToggle } from "./ThemeToggle";` (in `src/components/chrome/TopBar.tsx`; full path `@/components/chrome/ThemeToggle`).
+- Element: `<ThemeToggle />` — **no props**. It is an async server component (reads the `theme` cookie) rendering the client `ThemeToggleButton`; TopBar and AppShell are server components, so it mounts directly. Do not import `ThemeToggleButton` yourself.
+- It is a 44 × 44 icon button, `text-on-topbar hover:bg-topbar-dark`, with its own `aria-label` («المظهر: فاتح/داكن/حسب الجهاز»). Suggested place: just before the account link, in the same row as the other top-bar buttons.
+
 ## In progress
-- Task: T1 done; waiting for the lead's message before T2–T4.
-- Where I am: reported T1.
-- Next action: T2 (theme.ts, layout, ThemeToggle wrapper + button), then T3 (my own text-white/hex replacements, PALETTE → vars, girih in dark, wordmark swap), T4 (token lint, theme/SSR/toggle tests, screenshots).
+- Task: none — T1–T4 done; reported to the lead.
+- Next action: reviewer findings, if any.
 
 ## Gotchas I found
 - Tailwind 4.3 compiles `color-scheme` with lightningcss into `--lightningcss-light/dark` helper vars — harmless.
 - `npm run build` type-checks the whole shared tree: at T1 time it stopped on `nav`'s in-flight tests (`reportsTab.test.ts:114`, `shell.test.ts:49`) and once on a file `home` had just deleted; the CSS compiled (`✓ Compiled successfully`) and the emitted CSS was checked (`.bg-white{background-color:var(--color-white)}`, both dark blocks, wheel keyframes).
+- Buttons have a colour transition, so a page served in one theme and flipped by script animates its colours for ~150 ms. The real toggle does this on purpose; for screenshots or diffs, serve the HTML with the attribute already set.
+- A colour declared only in `@theme` is emitted only when a utility uses it; `@theme static` emits it always. `var(--color-gold)` written in a `.tsx` attribute does not count as a use, hence the static block for the new tokens.
+- `react-dom/static` `prerenderToNodeStream` renders async server components (the ThemeToggle wrapper) in a plain vitest run; `renderToStaticMarkup` cannot.
 
 ## Questions / requests sent to lead
-- Decision request: `white` = surface in dark + `text-on-accent` (deep ink in dark) on fills + deep-green top bar with white (above).
+- Decision request: `white` = surface in dark + `text-on-accent` (deep ink in dark) on fills + deep-green top bar with white (above). → accepted as D36.
+- `--color-on-gold` was added at `home`'s request (their D40 / R1-H3); its light value is a new token (#171717 = gray-900 light), so it changes no existing pixel.
+- `src/lib/themeCssParse.ts` is a new non-test helper used only by my three tests (block parser, comment stripper, contrast). It lives in `src/lib/**`, the lead's area by CLAUDE.md; tell me if you want it moved.

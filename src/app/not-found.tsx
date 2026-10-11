@@ -23,13 +23,23 @@ export default async function NotFound() {
       <div className="w-full max-w-md">
         <div className="mb-6 flex justify-center">
           {/* Served as-is from public/brand; the attributes carry the real
-              3897×707 ratio so nothing shifts on load. */}
+              3897×707 ratio so nothing shifts on load. The white file is the
+              dark theme's (globals.css switches the pair; lazy, so a light
+              page never fetches it). */}
           <img
             src="/brand/zakham-brand/zakham-wordmark-green.png"
             alt={t.brand.logoAlt}
             width={3897}
             height={707}
-            className="h-10 w-auto shrink-0"
+            className="wordmark-light h-10 w-auto shrink-0"
+          />
+          <img
+            src="/brand/zakham-brand/zakham-wordmark-white.png"
+            alt={t.brand.logoAlt}
+            width={3897}
+            height={707}
+            loading="lazy"
+            className="wordmark-dark h-10 w-auto shrink-0"
           />
         </div>
 
@@ -39,7 +49,7 @@ export default async function NotFound() {
           <p className="mt-2 text-sm text-gray-600">{t.notFound.body}</p>
           <Link
             href={role ? homePathFor(role) : "/login"}
-            className="mt-4 inline-flex min-h-11 items-center rounded-lg bg-accent px-4 font-medium text-white hover:bg-accent-dark"
+            className="mt-4 inline-flex min-h-11 items-center rounded-lg bg-accent px-4 font-medium text-on-accent hover:bg-accent-dark"
           >
             {role ? t.notFound.backHome : t.notFound.toLogin}
           </Link>

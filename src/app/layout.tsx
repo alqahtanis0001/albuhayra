@@ -1,8 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Sans_Arabic, Reem_Kufi } from "next/font/google";
+import { cookies } from "next/headers";
 
 import { ServiceWorkerRegistration } from "@/components/ServiceWorkerRegistration";
 import { t } from "@/i18n/ar";
+import { THEME_COOKIE, htmlThemeAttrs, parseTheme } from "@/lib/theme";
 import "./globals.css";
 
 // Bundled at build time — no runtime CDN request (CSP allows 'self' only).
@@ -43,14 +45,25 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#006c35",
+  // The browser bar: the top bar's green, and its deeper dark-theme band
+  // (--color-topbar). The only hexes outside globals.css (token-lint allow-list).
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#006c35" },
+    { media: "(prefers-color-scheme: dark)", color: "#14532d" },
+  ],
 };
 
-export default function RootLayout({
+/**
+ * v1.5 (C2, D11): `data-theme` comes from the `theme` cookie, so the server
+ * renders the chosen theme and nothing flashes; no cookie = "system" = no
+ * attribute, and CSS follows the OS. No inline script (CSP nonce).
+ */
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  const theme = parseTheme((await cookies()).get(THEME_COOKIE)?.value);
   return (
-    <html lang="ar" dir="rtl" className={`${arabic.variable} ${zakham.variable}`}>
+    <html lang="ar" dir="rtl" className={`${arabic.variable} ${zakham.variable}`} {...htmlThemeAttrs(theme)}>
       <body className="min-h-dvh font-sans antialiased">
         {children}
         <ServiceWorkerRegistration />

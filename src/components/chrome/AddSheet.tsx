@@ -16,6 +16,12 @@
  *
  * D16 (c): with exactly one row (an unlinked staff login) the «+» is that row's
  * plain link — no dialog — and it never carries aria-current (A9).
+ *
+ * v1.5 (B3): every row carries a caption as a second muted line and is at least
+ * 56px tall, so the rows are one column — icon, label, caption — rather than
+ * the v1.4 two-column tiles, which seven long captions would cramp at 390px.
+ * The first row stays the filled, larger one (V14 B1); its caption is
+ * `on-accent-muted` (D33, D36: 5.22:1 light, 5.12:1 dark on the accent).
  */
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -37,13 +43,18 @@ type Variant = "tab" | "side";
  * v1.1d pending step shows on it.
  */
 export const TAB_TRIGGER = `${TAB_CLASS} border-transparent text-accent-dark has-data-pending:border-accent has-data-pending:bg-accent-soft`;
-export const SIDE_TRIGGER = `${NAV_PRESS} flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-accent bg-accent px-3 text-sm font-semibold text-white hover:border-accent-dark hover:bg-accent-dark has-data-pending:border-accent-dark has-data-pending:bg-accent-dark`;
-export const PRIMARY_ROW = `${NAV_PRESS} flex min-h-14 items-center justify-center gap-2 rounded-lg bg-accent px-4 text-base font-semibold text-white hover:bg-accent-dark has-data-pending:bg-accent-dark`;
+export const SIDE_TRIGGER = `${NAV_PRESS} flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-accent bg-accent px-3 text-sm font-semibold text-on-accent hover:border-accent-dark hover:bg-accent-dark has-data-pending:border-accent-dark has-data-pending:bg-accent-dark`;
+export const PRIMARY_ROW = `${NAV_PRESS} flex min-h-14 items-center gap-3 rounded-lg bg-accent px-4 py-2 text-start text-base font-semibold text-on-accent hover:bg-accent-dark has-data-pending:bg-accent-dark`;
+/** Every other row: the same 56px minimum (B3), one line of label over one muted caption. */
+export const ROW = `${NAV_PRESS} flex min-h-14 items-center gap-3 rounded-lg border border-gray-200 px-4 py-2 text-start text-sm font-medium text-gray-900 hover:bg-gray-100 has-data-pending:border-accent has-data-pending:bg-accent-soft has-data-pending:text-accent-dark`;
+/** The caption line: muted on a plain row, `on-accent-muted` on the primary one (D33). */
+export const HINT = "text-xs font-normal text-gray-600";
+export const PRIMARY_HINT = "text-xs font-normal text-on-accent-muted";
 
 /** The plus in a filled disc, drawn only in the tab bar (the side label carries its own «+»). */
 function PlusDisc() {
   return (
-    <span aria-hidden="true" className="flex size-6 items-center justify-center rounded-full bg-accent text-white">
+    <span aria-hidden="true" className="flex size-6 items-center justify-center rounded-full bg-accent text-on-accent">
       <PlusIcon size={16} />
     </span>
   );
@@ -63,19 +74,13 @@ function TriggerBody({ variant }: { variant: Variant }) {
 function Row({ row, primary, onSame }: { row: AddRow; primary: boolean; onSame: () => void }) {
   const Icon = NAV_ICONS[row.icon];
   return (
-    <Link
-      href={row.href}
-      onClick={onSame}
-      className={
-        primary
-          ? PRIMARY_ROW
-          : `${NAV_PRESS} flex min-h-[72px] flex-col items-center justify-center gap-1 rounded-lg border border-gray-200 px-1 py-2 text-center text-xs font-medium text-gray-700 hover:bg-gray-100 has-data-pending:border-accent has-data-pending:bg-accent-soft has-data-pending:text-accent-dark`
-      }
-    >
-      <Icon size={primary ? 22 : 24} />
-      {row.label}
-      {/* v1.4 part 3 (R16): the row's second line — content, so it stays readable (no aria-hidden). */}
-      {row.hint ? <span className="text-[11px] font-normal text-gray-500">{row.hint}</span> : null}
+    <Link href={row.href} onClick={onSame} className={primary ? PRIMARY_ROW : ROW}>
+      <Icon size={22} className="shrink-0" />
+      <span className="flex min-w-0 flex-col gap-0.5">
+        {row.label}
+        {/* The row's second line — content, so it stays readable (no aria-hidden). */}
+        {row.hint ? <span className={primary ? PRIMARY_HINT : HINT}>{row.hint}</span> : null}
+      </span>
       <LinkPending />
     </Link>
   );
@@ -155,7 +160,7 @@ export function AddSheet({ entry, variant }: { entry: AddEntry; variant: Variant
 
           <Row row={first} primary onSame={() => close(first.href)} />
 
-          <ul className="grid grid-cols-2 gap-2">
+          <ul className="flex flex-col gap-2">
             {rest.map((row) => (
               <li key={row.href}>
                 <Row row={row} primary={false} onSame={() => close(row.href)} />

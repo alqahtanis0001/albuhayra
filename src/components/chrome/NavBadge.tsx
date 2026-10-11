@@ -30,7 +30,7 @@ export function NavBadge({
     <>
       <span
         aria-hidden="true"
-        className={`inline-flex min-w-5 items-center justify-center rounded-full bg-money-out px-1.5 text-xs leading-5 font-semibold text-white ${className}`}
+        className={`inline-flex min-w-5 items-center justify-center rounded-full bg-money-out px-1.5 text-xs leading-5 font-semibold text-on-accent ${className}`}
       >
         {text}
       </span>

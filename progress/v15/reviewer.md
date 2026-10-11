@@ -250,12 +250,250 @@ Missing keys:
 
 **43. Duplicate keys.** `t.reportsTabs.byCategory` / `aging` repeat `t.reportFilter.byCategoryTab` / `t.aging.tab` (same values). `t.addHints.newProject` repeats `t.addSheet.newProjectHint`. Reuse the existing keys or retire them on purpose.
 
+## Round 1 — nav (N1–N5, D37 follow-ups; tree as of this round, nav files only)
+
+Verified: `tsc --noEmit` 0 errors (whole tree). The nav test files plus scoping, staffViews and admin: 13 files, 309 tests, all green. Bundles (`bundles-nav.json` vs baseline): max +4.9 KB gz on `/owner` (includes `home`'s work), +3.5 KB on the ledger route, +2.3 KB elsewhere. All well under the +40 KB cap.
+
+Security is clean:
+- Both redirect pages `await requireOwner()` before `redirect()`.
+- `salaryPick.ts` is `server-only`. Both reads put `establishmentId` at the top level of `where`. They are in `FILES`, `serverOnly` and `OWNER_READS`, and the "v1.5 nav" zone has a non-vacuous foreign-establishment case.
+- The pick page sits behind `requireOwner()`.
+- Staff and admin get only a `role` prop and the toggle. No amount reaches either.
+
+Chrome has no hex and no `text-white` left: `[--focus-ring:var(--color-on-topbar)]`, `text-on-accent`, `text-on-accent-muted`, `bg-topbar`.
+
+Print is unchanged: on the reports tab the h1 is `no-print`, there is exactly one `PrintHeader`, and the `Tabs`/`ReportTabs` strips are `no-print` (pinned in reportsTab.test.ts).
+
+Sizes meet the spec: «+» rows are `min-h-14`, the logo link is `min-h-11`, pick rows are `min-h-14`, and the cancel link is `min-h-11`. Layout is RTL-logical throughout.
+
+D37 has landed correctly:
+- Only the inner span is `max-[375px]:sr-only`, and the `<p>` keeps `flex-1`, so the controls stay at the far end.
+- The separator goes below 375 px.
+- It is pinned in shell.test.ts:99–115.
+
+The new `WalletIcon` (`navIcons.tsx`) is drawn like its neighbours and is `aria-hidden` through `Svg`.
+
+No BLOCKER.
+
+### SHOULD
+
+**R1-N1. D37 and the wallet icon are not yet mutation-proven.** nav.md lists M1–M43, all of which predate the follow-ups.
+*Fix:* add mutations and record each failing case:
+- drop `max-[375px]:sr-only` → shell.test.ts:100;
+- make it unconditional `sr-only` → :108;
+- drop `max-[375px]:border-s-0` → :107;
+- `icon: "account"` on the salary row → nav.test.ts:287.
+
+**R1-N2. A server-only module leaks into a component folder.** `SalaryPickList.tsx` (a component, today server-rendered) imports the value `salaryPickHref` from `salaryPick.ts`, which is `import "server-only"`. The moment someone adds `"use client"` to the list, or imports it from a client leaf, the build breaks. This is the validation-barrel class of gotcha.
+*Fix:* move the pure helpers `salaryPickHref`, `isSalaryPick` and the `SalaryPickRow` type into `src/features/employees/salaryPickRules.ts` (no `server-only`). Both the page and the list import from there.
+
+### NOTE
+
+**R1-N3. Leftovers outside nav's files (for the lead).**
+- `docs/FRONTEND.md` :53, :133 and :214 still describe `/owner/reports` and the التقارير nav item.
+- `ReportsSkeleton` (`skeletons/screens.tsx:120`) and `AgingReportSkeleton` (`skeletons/v12c.tsx:39`) are now unused exports, since both loading files are gone.
+
+**R1-N4. Mismatched skeleton.** A first navigation to `?tab=reports` from another route shows the ledger `loading.tsx` skeleton, not a report skeleton. Accept, or have `ReportsTab` choose its own fallback later.
+
+**R1-N5. QA items for a real browser.**
+- The side «+» dialog (`mt-24`, no `max-h`) holds seven rows of 56–72 px, about 600 px. Check it at 1280×720 and 1366×768. The UA modal `max-height` should scroll it.
+- Compare the printed `/owner/transactions?tab=reports` against `main`'s `/owner/reports` print, side by side.
+
+**R1-N6. The pick flag and the pick list use different rules (accepted in D21).** The flag counts ACTIVE employees on an OPEN salary plan. The list needs this month's salary period. A hire starting next month makes the row appear over an empty list, which shows `t.salaryPick.empty`.
+
+## Round 1 — home (H1–H5, D18–D30, D34–D36, D38)
+
+Verified:
+- `tsc` 0.
+- Dashboard + scoping + staff + payroll + components: 29 files, 416 tests, all green.
+- `/owner` +4.9 KB gz (cap 40).
+- `getOwnerOverview` is `server-only`; every one of its four own reads leads with `establishmentId` and repeats `getDues`' unpaid / OPEN / not-`OPEN_ENDED` clauses.
+- The "v1.5 home" zone is non-vacuous.
+- The client receives only the computed model: names, amounts, ids, hrefs, angles.
+- Staff keep `RECENT_COUNT = 10` and the owner uses `OWNER_RECENT_COUNT = 5` (queries.ts:110–112).
+- `HomeDetails` takes server `children` and imports no section.
+- The D20 CSS is screen-only.
+- Animation is `motion-safe:` plus `print:animate-none`, with `print:!opacity-100` on the layers.
+- One Tab stop, with a halo drawn in the SVG and an `aria-live` line.
+- D16/D19 dimming is correct (`layerOpacity`).
+- D18 angles are correct: `6 + 11d`; overdue at −6°/−26°, or one mark at −16°. The nearest visible dot is 18.8 units from the today marker, more than 10 + 5.
+
+### BLOCKER
+
+**R1-H1. «علينا للموردين» includes next month's salaries.** D22 assumes "salary rows never exist beyond this month", but `salaryMonthsToGenerate` generates through the **end of next month** (src/lib/payroll.ts:55–71: `last = addMonthsYm(ymOf(today), 1)`), and the page awaits `ensureSalaryInstalments` first.
+
+How the wrong number arises:
+- `listParties()` `owedByUs` sums every unpaid instalment of OPEN plans, so it includes next month's salary row.
+- `getOwnerOverview` subtracts only the salaries due ≤ month end (overviewReads.ts:84–92, `commitmentsOf` :37–44).
+- So every employee's next-month salary is reported as owed to suppliers.
+
+With five employees on 6,000 each, علينا shows 30,000 too much on the centrepiece. This conflicts with CLAUDE.md "correct numbers". The fixture in overviewReads.test.ts has no next-month salary row, so the identity test cannot see it.
+
+*Fix:*
+- Add an aggregate over **all** unpaid OPEN SALARY instalments with no date bound (or one `groupBy` splitting at month end).
+- علينا = Σ owedByUs − that all-months figure; رواتب الشهر stays ≤ month end.
+- Pin the identity علينا + رواتب + (salaries due after month end) = Σ owedByUs, on a fixture with a next-month salary row.
+- Mutation: subtract the ≤-month-end figure again → the case fails.
+- The lead amends D22's premise.
+
+### SHOULD
+
+**R1-H2. The centre sub-line's bidi is broken** (the coordinator's question). The screenshots `home-light-390.png` / `home-dark-390.png` (zoomed) render «الصافي +3,100 · ↑12%» as `%12↑ · 3,100+ الصافي`:
+- the percent sign lands left of the digits;
+- the arrow sits between the number and «·»;
+- the plus lands right of 3,100, whereas the money cards print `+8,200.00` (sign at the left, via `<bdi dir="ltr">`).
+
+The SVG `<text>` inherits RTL, and no isolate protects the number tokens.
+*Fix:*
+- In `centreSub` (wheelFocus.ts:102–107), wrap `{net}` and `{arrow}{pct}` in LRI…PDI (`⁦…⁩`), or render them as `<tspan direction="ltr" unicode-bidi="isolate">`.
+- Unit test: the string carries the isolates.
+- Re-shoot the 390 screenshots; expected visual is `↑12% · +3,100 الصافي`.
+
+The same risk applies to the focused-row amount «5 مواعيد»: it is drawn in the `direction="ltr"` amount `<text>` (WheelSvg.tsx centre), so the digit lands left of an Arabic word. Drop `direction="ltr"` when `text.currency` is false.
+
+**R1-H3. The count label on a gold dot fails contrast in light mode.** A day-dot's count is `fill-on-accent` on the dot's own colour (WheelSvg.tsx:122). In light mode that is white on gold #c9a227 ≈ 2.3:1, below 4.5:1 for text; it is visible as the «2» on the salary dot in home-light-390.png. In dark mode it is dark ink on light gold (fine). It is also tiny: `fontSize` 7–9 viewBox units ≈ 5.5–7 CSS px at 326 px.
+*Fix:* choose ink per tone (gold → `fill-gray-900` in light, or a `--color-on-gold` token from `theme`), and record the ratio. Optionally drop the count text when `r < 7` (the aria-label and the live line carry it).
+
+**R1-H4. Long names overflow the centre disc.** On a focused mark, the centre `label` is `partyName` (up to 80 characters); a cluster's label is its whole aria text, e.g. «3 مواعيد في 2026-10-20». Both are drawn at 11 units in a 140-unit disc (WheelSvg.tsx `Centre`), so long names run over ring 1.
+*Fix:* truncate the visible label (about 20 characters + «…») in `centreText`/`buildWheelModel`. The live line and aria keep the full text. Unit test.
+
+**R1-H5. A zero side in the attention rows is noise** (the coordinator's question). «لنا: 0.00 ر.س» shows on an overdue row when only علينا is owed (home-light-390.png; AttentionCard.tsx `Totals`). The v1.4 strip did the same, but the row exists only because one side is non-zero, and a red row with «لنا 0.00» reads like information.
+*Fix:* render only the non-zero side(s) in `Totals`. Test: a row with only OUT shows no «لنا».
+
+### NOTE
+
+**R1-H6. `listParties()` in the home read is not N+1, but it is heavier than needed** (the coordinator's question).
+- It costs about 6 constant queries: `party.findMany`, `plan.findMany`, `instalment.groupBy`, the `transaction.groupBy` history probe, and `openPlansRemainingByParty`'s plan read plus its received-sums read.
+- It pulls every party row (phone, email) and passes IN-lists of every party id, only to be summed.
+- The page now issues about 30 queries per `/owner` load: layout 3 + `ensureSalaryInstalments` + dashboard ~12 + overview 4 + listParties ~6 + `getDues` 2 + projects + pending names.
+
+That is fine at today's scale. Revisit if an establishment reaches thousands of parties: Postgres binds at most 32,767 parameters, so a very long IN-list fails. A dedicated `instalment.groupBy` by plan direction (2 queries) would keep D22's identity if pinned against `listParties` in a test.
+
+**R1-H7. «اليوم» in dark mode reads fine** (the coordinator's question). The marker is `fill-gray-900` (dark: #e9efea, a light dot on the dark card). The label `fill-gray-500` (dark #9aaba1 on #172019) is about 6.9:1. No change needed.
+
+**R1-H8. Row 4 shows only the legend; no live count.** `t.wheel.dialCount` appears only in the centre on row focus. Optional: add «N مواعيد» to row 4's values so the screen-reader / print equivalent states how many dues the dial holds.
+
+**R1-H9. Missing pin and file size.** `queries.ts` is 256 lines (just over ~250). Staff's `RECENT_COUNT = 10` has no pin of its own: add an assertion that `getStaffDashboard`'s `recentTransactions` takes 10.
+
+**R1-H10. Pending names in a printed card.** The «يحتاج انتباهك» card prints, so pending join names now reach paper. The old notice was `no-print`. Accepted by D8 ("the card prints"); recorded.
+
+## Round 2 — nav (R1-N1, R1-N2)
+
+Gates in this tree: `tsc --noEmit` 0 errors. `src/features/employees` + `src/components/chrome` + `scoping.test.ts`: 7 files, 242 tests, all green.
+
+- **R1-N1 — CLOSED.** nav.md:26 records the mutations M45–M49, matching the list I gave. Each names its failing case:
+  - M45: drop `max-[375px]:sr-only` → shell.test.ts:103.
+  - M46: unconditional `sr-only` → :103/:108.
+  - M47: `max-sm:` breakpoint → :103.
+  - M49: drop `border-s-0` → :107.
+  - M48: `icon: "account"` → nav.test.ts:287.
+- **R1-N2 — CLOSED.**
+  - New `src/features/employees/salaryPickRules.ts` holds `SalaryPickRow`, `salaryPickHref` and `isSalaryPick`. It has no `server-only` import and no value import at all.
+  - `salaryPick.ts` (still `server-only`) takes only `import type { SalaryPickRow }` from it.
+  - `SalaryPickList.tsx:13` and the staff page (:11) import their values from the rules file. No other importer of the helpers is left (grep).
+  - Pinned by SalaryPickList.test.ts:105–113: no `server-only`, no db, no non-type import, and the list never imports `salaryPick`.
+  - Mutations M50 (`server-only` added) and M51 (list re-imports `salaryPick.ts`) are recorded as failing that case.
+
+Verdict: **nav Round 1 closed.** No new findings. NOTEs R1-N3–N6 stay with the lead and QA as recorded.
+
+## Round 1 — theme (T1 @ 92e1f72, T2–T4 in the tree; D11, D12, D30–D33, D36, D41)
+
+Verified: the 5 theme test files pass (162 tests), and `tsc` reports 0 errors.
+
+- **Light mode is unchanged.**
+  - The `@theme` block is byte-identical to `3369686` (diffed).
+  - New tokens live in `@theme static`, and their light values are pinned to the literals they replace (themeCss.test.ts:87–123).
+  - Tailwind default-palette vars are never restated outside the dark blocks.
+  - The PALETTE light values are pinned against main's hexes (themeContrast.test.ts:52–79).
+  - The auth/404 wordmark pair sits in flex parents, so `display: var(--wordmark-light)` (inline) is blockified and no layout shifts.
+  - D41 records 12/12 pixel-identical captures.
+  - Light `themeColor` is still `#006c35`.
+- **Print is always light.** Both dark blocks sit inside `@media screen` (pinned at :165). The print block keeps its light literals. `color-scheme: light` is on `:root`.
+- **No flash, no inline script, cookie handling is safe.**
+  - The async `RootLayout` reads the cookie and spreads `htmlThemeAttrs(parseTheme(…))`; "system" is pure CSS.
+  - `ThemeToggle` is an async server wrapper, so the first paint's icon and label match (`useState(choice ?? "system")`).
+  - Cookie: `theme=<light|dark|system>; Path=/; Max-Age=1y; SameSite=Lax`, plus `Secure` on https. It is not HttpOnly, which is fine because it carries no secret. Only the three exact values parse; anything else → `null`, so a forged cookie can't inject an attribute.
+  - No `<script>` anywhere, so the CSP is untouched.
+- **Static pages are unaffected.** `.next/prerender-manifest.json` (build 20:42, with the async layout) still lists only `/_global-error`, as before. Every page was already dynamic.
+- **Reconcile logic follows D32** (theme.test.ts:133–160): a present cookie wins, and localStorage is synced; an absent cookie with a stored choice rewrites the cookie and applies it; neither → system with nothing written; blocked storage is tolerated.
+- **PALETTE as `var(--…)` strings is safe everywhere it is consumed.** Consumers: Sparkline, Frame/illustrations, LiveClock, OpenProgress, InstalmentBar, CategoryRing, ProjectBits, PayslipHero, CashFlowWaterfall, ExpenseDonut. Every use is an SVG `fill`/`stroke` attribute or `style.backgroundColor`, and both resolve `var()` in all current engines. There is:
+  - no colour math (`${PALETTE.x}33`), no canvas, no SVG data URI;
+  - no PALETTE in `src/lib/mail` or `src/app/api/export` (grep).
+- **recharts colours are set from tokens.** `CHART_TOKENS` in SixMonthChart.tsx:42–48 covers grid, tick, axis, tooltip box and cursor. The light values equal recharts' defaults (#ccc / #666 / white). The tooltip label inherits the page ink, and the legend and items use the series fills, which are tokens.
+- **No `text-white` remains in src** (grep).
+
+### SHOULD
+
+**R1-T1. The token lint is easy to get past without writing a hex.** The colour-context lookbehind regex and comment stripping (with a non-blank guard) are good. Two gaps remain:
+- **Named colours are not flagged:** `fill="white"`, `stroke="black"`, `style={{ color: "red" }}`. None exist today (grep), but one would stay light in dark mode.
+- **A new Tailwind default-palette class with no dark override passes:** e.g. `bg-sky-100` or `text-emerald-700`. D36 accepts `text-white` as a safe fallback, but every other palette step flips only if the dark block defines it.
+
+*Fix:*
+- Flag CSS named-colour keywords in `fill|stroke|stopColor|color|backgroundColor|borderColor` values in `.tsx`. `currentColor`, `transparent` and `none` stay allowed.
+- Add a case: every `(bg|text|border|fill|stroke|ring|outline|divide|from|via|to|decoration|accent|caret|placeholder)-<palette>-<step>` class used in src has `--color-<palette>-<step>` in the dark block. `<palette>` covers Tailwind's default names.
+- Mutate each: add `fill="white"` to a component; add `bg-sky-100`.
+
+### NOTE
+
+**R1-T2. A rare first-load flash.** An absent cookie plus a stored choice (cookie cleared, localStorage kept) applies the choice only after hydration, so there is one flash that load. This is inherent to "no inline script" and is accepted.
+
+**R1-T3. Contrast pairs cover the classes in use today.** Text on gray, tints and soft fills, and on-accent on accent/money/red-800 all reach ≥ 4.5:1. A new fill/text pairing has to add its pair; there is no generic check. Consider deriving the pairs from the classes the lint finds.
+
+**R1-T4. An eager hidden image in dark mode.** The light wordmark is eager, so it still downloads in dark mode while hidden; the white one is lazy. One extra image on the auth pages and the 404. Negligible.
+
+## Round 2 — home (R1-H1–H5, H8, H9; D39, D40)
+
+Verified:
+- dashboard + scoping: 15 files, 283 tests, all green;
+- `tsc` 0 errors;
+- `queries.ts` 249 lines;
+- zoom shots `progress/v15/qa/home-wheel-zoom-{light,dark}-390.png` inspected at 4×.
+
+- **R1-H1 — CLOSED.**
+  - `overviewReads.ts:102–106`: a sixth read, `instalment.aggregate`, scoped by establishment first, unpaid, `plan: { state: "OPEN", kind: "SALARY" }`, with **no** `dueDate`.
+  - `commitmentsOf(parties, thisMonth, all)` gives علينا = Σ owedByUs − all; رواتب stays the month-end-bounded read (:98–101).
+  - Unit fixture (overviewReads.test.ts:33–38, 64–74): the employee row holds a 600 next-month salary. Arithmetic checked by hand: Σ owedByUs 2,220,000 − all salaries 1,800,000 = علينا 420,000 = 50,000 + 300,000 + the 70,000 non-salary OUT; 420 + 1,200 + 600 = 2,220 ✓.
+  - The "no due-date bound" case (:76–82) pins the new read.
+  - The "v1.5 home" gate zone carries next month's 2,500 and pins the same identity.
+  - Mutations recorded: subtract the month-end figure again; bound the new read; `fromUs = byUs`.
+- **R1-H2 — CLOSED.**
+  - The isolates are in place: `LRI…PDI` around `{net}`, and `{arrow}{pct}` as one isolate (wheelFocus.ts:108–129).
+  - The zoom shot now reads `↑12% · +3,100 الصافي` in both themes.
+  - A count with no currency is no longer drawn `direction="ltr"` (WheelSvg.tsx:156).
+  - Pinned with mutations.
+  - *NOTE:* the isolate opens in `{arrow}` and closes in `{pct}`, so it relies on the templates keeping them adjacent. `centreSub` and `centreSubCapped` in ar.v15.ts:29/31 do today. If a template ever puts words between them, those words fall inside the LTR isolate. A one-line pin that both templates contain `{arrow}{pct}` would lock it.
+- **R1-H3 — CLOSED.** Ink is chosen per tone: gold → `fill-on-gold` (D41: 7.41:1 light, 9.50:1 dark), green/red → on-accent, hollow → money-out. A count is drawn only when `r ≥ 7`. The zoom shot shows a dark «2» on the gold day-dot in both themes. Mutation-proven.
+- **R1-H4 — CLOSED.** `clipLabel` (20 code points + «…») feeds `shortLabel` in the disc; the live line keeps the full label. Two mutations recorded.
+- **R1-H5 — CLOSED.** `Totals` renders only the non-zero side(s) (AttentionCard.tsx:19–35). Tests cover OUT-only, IN-only and both, with a mutation.
+- **R1-H8 — CLOSED.** Row 4 values start with «N مواعيد» (plural). Mutation recorded.
+- **R1-H9 — CLOSED.** `queries.ts` is 249 lines. The new `recentCounts.test.ts` pins staff `(est, 10, { createdById }, { hideSalary: true })` and owner `(est, 5)`. Mutation: `RECENT_COUNT = 9` → the staff case fails.
+
+R1-H6/H7/H10 were NOTEs, ruled in D40 (accepted).
+
+Verdict: **home Round 1 closed.** No new findings beyond the isolate-adjacency NOTE above.
+
+## Round 2 — theme (R1-T1) and the home isolate pin
+
+Verified: `tokenLint.test.ts` + `wheelFocus.test.ts` 2 files, 47 tests, all green.
+
+- **R1-T1 — CLOSED.**
+  - **(a) Named colours.** `COLOUR_PROP` + `NAMED` (tokenLint.test.ts:36–67) cover the full CSS named and system colour list in colour props and style keys: `fill`, `stroke`, `stopColor`, `color`, `background(Color)`, `borderColor`, … The forms `="x"`, `={"x"}` and `: "x"` are all caught; `none`, `currentColor`, `transparent` and `var()` pass.
+  - **(b) Palette coverage.** Every default-palette class step used in src must have its `--color-<name>-<step>` in the dark block (:186–218). This covers variants, side borders and `/opacity`, with a guard case that the pattern actually matches. `gray` (app scale), `white` (surface) and `black` (backdrop) are excluded on purpose.
+  - Mutations recorded in theme.md, each failing the named case: `fill="white"` in LedgerArt, and `bg-sky-100` in AuthCard.
+  - NOTE (residual, accepted): a named colour inside a shorthand value (`border: "1px solid red"`) is not parsed. None exists today, and review holds that line.
+- **Home isolate pin — CLOSED.** wheelFocus.test.ts:102 asserts that both `centreSub` and `centreSubCapped` contain `{arrow}{pct}`.
+
+Verdict: **all reviews closed** (pre-code, nav R1–R2, home R1–R2, theme R1–R2).
+
 ## In progress
-- Task: pre-code pass — done; next: a review round per completed task.
+- Task: all reviews closed (nav, home, theme); nothing in progress.
 
 ## Gotchas I found
 - Tailwind v4 preflight's `[hidden]{display:none !important}` is layered: no unlayered `!important` (print, breakpoints) can override it. Toggle visibility with a class or data-attribute instead.
 - `/owner/dues` shows only overdue + 7 days; any "see all upcoming" link must not point there for days 7–29.
+- Salary instalments exist through the END OF NEXT MONTH (src/lib/payroll.ts:55), so any "all unpaid salaries" figure differs from "due ≤ this month".
+- SVG `<text>` in an RTL page needs LRI/PDI (or an isolated `<tspan>`) around signed numbers and percents; without one, `12%` renders as `%12`.
 
 ## Questions / requests sent to lead
 - Rulings needed: #1 (D3), #3 (D9), #9 (D2), #10/#11 (D4), #12 (D15 flag), #31 (keys), #33.
+- Round 1: D22's premise («salary rows never exist beyond this month») is false; amend it with R1-H1.

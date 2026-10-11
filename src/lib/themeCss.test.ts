@@ -7,62 +7,18 @@
  *    inside @media screen, and redefine every colour token (print stays light);
  *  - Tailwind's default palette is never restated outside the dark blocks;
  *  - no raw colour is left in a screen rule (every colour is a token);
- *  - every dark text/surface pair used by the app reaches 4.5:1.
+ *  - the girih art and the wordmark follow the theme.
+ * Contrast and PALETTE: themeContrast.test.ts.
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-// THEME_CSS lets a mutation run read a scratch copy instead of the shared file.
-const RAW = readFileSync(process.env.THEME_CSS ?? join(process.cwd(), "src/app/globals.css"), "utf8");
-const CSS = RAW.replace(/\/\*[\s\S]*?\*\//g, "");
+import { blocks, decls, only, readThemeCss } from "./themeCssParse";
 
-type Block = { header: string; body: string; start: number; end: number };
-
-/** Top-level `header { body }` blocks of a stylesheet (nested braces kept in body). */
-function blocks(css: string): Block[] {
-  const out: Block[] = [];
-  let i = 0;
-  while (i < css.length) {
-    const open = css.indexOf("{", i);
-    if (open < 0) break;
-    const semi = css.lastIndexOf(";", open);
-    const headStart = Math.max(semi + 1, css.lastIndexOf("}", open) + 1, i);
-    let depth = 0;
-    let j = open;
-    for (; j < css.length; j++) {
-      if (css[j] === "{") depth++;
-      else if (css[j] === "}" && --depth === 0) break;
-    }
-    out.push({ header: css.slice(headStart, open).trim(), body: css.slice(open + 1, j), start: headStart, end: j + 1 });
-    i = j + 1;
-  }
-  return out;
-}
-
-function only(list: Block[], header: string): Block {
-  const found = list.filter((b) => b.header === header);
-  expect(found, header).toHaveLength(1);
-  return found[0]!;
-}
-
-/** `--name: value;` declarations, in order. */
-function decls(body: string): Map<string, string> {
-  const map = new Map<string, string>();
-  for (const m of body.matchAll(/(--[\w-]+|color-scheme)\s*:\s*([^;]+);/g)) map.set(m[1]!, m[2]!.trim());
-  return map;
-}
-
-const TOP = blocks(CSS);
-const THEME = decls(only(TOP, "@theme").body);
-const STATIC = decls(only(TOP, "@theme static").body);
-const SCREENS = TOP.filter((b) => b.header === "@media screen" && b.body.includes("data-theme"));
-expect(SCREENS).toHaveLength(1);
-const SCREEN = SCREENS[0]!;
-const SYSTEM = only(TOP, "@media screen and (prefers-color-scheme: dark)");
-const DARK_EXPLICIT = decls(only(blocks(SCREEN.body), ':root[data-theme="dark"]').body);
-const DARK_SYSTEM = decls(only(blocks(SYSTEM.body), ':root:not([data-theme="light"])').body);
+const { css: CSS, top: TOP, screen: SCREEN, system: SYSTEM, theme: THEME, themeStatic: STATIC, darkExplicit: DARK_EXPLICIT, darkSystem: DARK_SYSTEM } =
+  readThemeCss();
 
 /** The colour tokens of `main` 3369686 — the user's theme, never restyled. */
 const LIGHT_AT_MAIN: Record<string, string> = {
@@ -100,6 +56,7 @@ const LIGHT_AT_MAIN: Record<string, string> = {
 const LIGHT_NEW: Record<string, string> = {
   "--color-on-accent": "#ffffff", // text-white on fills
   "--color-on-accent-muted": "rgb(255 255 255 / 0.85)",
+  "--color-on-gold": "#171717", // new (D40): gray-900's light value
   "--color-topbar": "#006c35", // TopBar bg-accent
   "--color-topbar-dark": "#004d26", // TopBar border/hover accent-dark
   "--color-on-topbar": "#ffffff",
@@ -137,13 +94,16 @@ describe("light mode is unchanged", () => {
     expect(Object.fromEntries(STATIC)).toEqual(LIGHT_NEW);
   });
 
-  it("sets color-scheme light on :root and points the page art at the same files", () => {
+  it("sets color-scheme light on :root, the same art files and no blending", () => {
     const roots = TOP.filter((b) => b.header === ":root" && b.body.includes("color-scheme"));
     expect(roots).toHaveLength(1);
     const root = decls(roots[0]!.body);
     expect(root.get("color-scheme")).toBe("light");
     expect(root.get("--page-art-auth")).toBe("url(/brand/zakham-bg-v3/auth-bg.svg)");
     expect(root.get("--page-art-app")).toBe("url(/brand/zakham-bg-v3/app-bg.svg)");
+    expect(root.get("--page-blend")).toBe("normal");
+    expect(root.get("--wordmark-light")).toBe("inline");
+    expect(root.get("--wordmark-dark")).toBe("none");
   });
 
   it("never restates Tailwind's default palette outside the dark blocks", () => {
@@ -172,7 +132,34 @@ describe("dark theme blocks", () => {
     expect(DARK_EXPLICIT.get("color-scheme")).toBe("dark");
     const tokens = [...THEME.keys(), ...STATIC.keys()].filter((k) => k.startsWith("--color-"));
     for (const k of tokens) expect(DARK_EXPLICIT.has(k), k).toBe(true);
-    for (const k of ["--color-white", "--page-art-auth", "--page-art-app"]) expect(DARK_EXPLICIT.has(k), k).toBe(true);
+    for (const k of ["--color-white", "--page-blend"]) expect(DARK_EXPLICIT.has(k), k).toBe(true);
+  });
+
+  it("draw the girih art multiplied onto the dark page (the files are never edited)", () => {
+    expect(DARK_EXPLICIT.get("--page-blend")).toBe("multiply");
+    expect(DARK_EXPLICIT.get("--color-page-veil")).toBe("rgb(14 20 17 / 0)");
+    for (const sel of [".auth-bg", ".app-bg"]) {
+      expect(only(TOP, sel).body, sel).toMatch(/background-blend-mode: var\(--page-blend\);/);
+      expect(only(TOP, sel).body, sel).toMatch(/var\(--page-art-(auth|app)\)/);
+    }
+  });
+
+  it("swap the green wordmark for the white file on the auth card and the root 404 (D33)", () => {
+    expect(DARK_EXPLICIT.get("--wordmark-light")).toBe("none");
+    expect(DARK_EXPLICIT.get("--wordmark-dark")).toBe("inline");
+    expect(only(TOP, ".wordmark-light").body).toMatch(/display: var\(--wordmark-light\);/);
+    expect(only(TOP, ".wordmark-dark").body).toMatch(/display: var\(--wordmark-dark\);/);
+    const pairs: [string, string][] = [
+      ["src/features/auth/components/AuthCard.tsx", "zakham-wordmark-%-tagline.png"],
+      ["src/app/not-found.tsx", "zakham-wordmark-%.png"],
+    ];
+    for (const [file, name] of pairs) {
+      const src = readFileSync(join(process.cwd(), file), "utf8");
+      const img = (colour: string) => src.match(new RegExp(`<img\\s+src="/brand/zakham-brand/${name.replace("%", colour)}"[^>]*>`))?.[0] ?? "";
+      expect(img("green"), file).toMatch(/className="wordmark-light /);
+      expect(img("white"), file).toMatch(/className="wordmark-dark /);
+      expect(img("white"), file).toMatch(/loading="lazy"/);
+    }
   });
 
   it("live only inside @media screen, so print is light by construction", () => {
@@ -182,54 +169,5 @@ describe("dark theme blocks", () => {
     expect(screenless).not.toContain("prefers-color-scheme");
     const print = decls(only(blocks(only(TOP, "@media print").body), ":root").body);
     expect(print.get("color-scheme")).toBe("light");
-  });
-});
-
-// WCAG 2.x relative luminance and contrast; `fg@a` blends fg at alpha a over bg.
-const rgbOf = (v: string): number[] => {
-  const hex = v.match(/^#([0-9a-f]{6})$/i);
-  if (hex) return [0, 2, 4].map((i) => parseInt(hex[1]!.slice(i, i + 2), 16));
-  const rgb = v.match(/^rgb\((\d+) (\d+) (\d+) \/ ([\d.]+)\)$/);
-  if (!rgb) throw new Error(`unparsed colour ${v}`);
-  return [1, 2, 3].map((i) => Number(rgb[i]));
-};
-const lum = (c: number[]) => {
-  const [r, g, b] = c.map((x) => (x / 255 <= 0.03928 ? x / 255 / 12.92 : ((x / 255 + 0.055) / 1.055) ** 2.4));
-  return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!;
-};
-function contrast(fgName: string, bgName: string): number {
-  const v = (n: string) => DARK_EXPLICIT.get(`--color-${n}`) ?? n;
-  const bg = rgbOf(v(bgName));
-  const raw = v(fgName);
-  const alpha = Number(raw.match(/\/ ([\d.]+)\)$/)?.[1] ?? 1);
-  const fg = rgbOf(raw).map((c, i) => Math.round(c * alpha + bg[i]! * (1 - alpha)));
-  const [hi, lo] = [lum(fg), lum(bg)].sort((a, b) => b - a);
-  return (hi! + 0.05) / (lo! + 0.05);
-}
-
-describe("dark contrast (C1: text and badges ≥ 4.5:1 on their surfaces)", () => {
-  const SURFACES = ["gray-50", "white", "gray-100", "accent-soft", "money-in-soft", "money-out-soft"];
-  const TEXTS = ["gray-500", "gray-600", "gray-700", "gray-800", "gray-900", "accent", "accent-dark", "money-in", "money-out"];
-  const PAIRS: [string, string][] = [
-    ...TEXTS.flatMap((fg) => SURFACES.map((bg): [string, string] => [fg, bg])),
-    ...["gray-600", "gray-900"].map((fg): [string, string] => [fg, "gray-200"]),
-    // text on a tint is gray-900 (V13); warn notices; nav press/pulse states
-    ...["tint-in", "tint-out", "tint-amber", "tint-blue", "tint-teal", "tint-grey", "heat-1", "heat-2", "heat-3", "heat-4", "amber-50", "orange-100", "red-200", "paid-static"].map(
-      (bg): [string, string] => ["gray-900", bg],
-    ),
-    ["accent-dark", "accent-line"],
-    ["accent-dark", "nav-pulse"],
-    ["amber-800", "amber-50"],
-    ["amber-900", "amber-50"],
-    ["amber-800", "white"],
-    // fills: buttons, badges, the direction toggle, the top bar, the «+» caption
-    ...["accent", "accent-dark", "money-in", "money-out", "red-800"].map((bg): [string, string] => ["on-accent", bg]),
-    ["on-accent-muted", "accent"],
-    ["on-topbar", "topbar"],
-    ["on-topbar", "topbar-dark"],
-  ];
-
-  it.each(PAIRS)("%s on %s", (fg, bg) => {
-    expect(contrast(fg, bg)).toBeGreaterThanOrEqual(4.5);
   });
 });

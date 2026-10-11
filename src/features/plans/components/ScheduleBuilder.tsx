@@ -109,7 +109,7 @@ export function ScheduleBuilder({
             <label
               key={m}
               className={`flex min-h-11 items-center justify-center px-2 text-center text-sm font-medium ${
-                mode === m ? "bg-accent text-white" : "bg-white text-gray-700"
+                mode === m ? "bg-accent text-on-accent" : "bg-white text-gray-700"
               } ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"} has-focus-visible:outline-2 has-focus-visible:outline-accent`}
             >
               <input

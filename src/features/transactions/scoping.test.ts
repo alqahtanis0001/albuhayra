@@ -2646,4 +2646,119 @@ describe("static sweep: no call site escapes the runtime net", () => {
 
 // ---- v1.5 home (D26): `home` appends its overview-read cases below this line, nowhere else ----
 
+const { getOwnerOverview } = await import("@/features/dashboard/overviewReads");
+
+/**
+ * v1.5 home (A1, D22, D26, D35): `getOwnerOverview` — ring 3 reuses
+ * `listParties()`, the dial and the overdue reads use getDues' clauses. This
+ * block runs after the static sweep, so it checks its own file's pairs.
+ */
+function populateOverview(): void {
+  harness.responses.set("party.findMany", [
+    { id: "pc", name: "عميل", type: "CUSTOMER", phone: null, email: null, active: true, remindersOptIn: false, employee: null },
+    { id: "pe", name: "موظف", type: "EMPLOYEE", phone: null, email: null, active: true, remindersOptIn: false, employee: { id: "emp_1" } },
+  ]);
+  harness.responses.set("plan.findMany", [
+    { id: "plan_in", partyId: "pc", direction: "IN", state: "OPEN", kind: "STANDARD" },
+    { id: "plan_sal", partyId: "pe", direction: "OUT", state: "OPEN", kind: "SALARY" },
+  ]);
+  // The salary plan holds this month's 6000 and next month's 2500 (D39: generated through next month).
+  harness.responses.set("instalment.groupBy", [
+    { planId: "plan_in", _sum: { amountDueHalalas: 9000, paidHalalas: 1000 } },
+    { planId: "plan_sal", _sum: { amountDueHalalas: 8500, paidHalalas: 0 } },
+  ]);
+  harness.responses.set("instalment.aggregate", (args: Record<string, unknown>) =>
+    "_count" in args
+      ? { _count: { _all: 3 }, _sum: { amountDueHalalas: 3000, paidHalalas: 0 } }
+      : { _sum: { amountDueHalalas: "dueDate" in (args.where as object) ? 6000 : 8500, paidHalalas: 0 } },
+  );
+  const row = (id: string, due: string) => ({
+    id, planId: "plan_in", dueDate: day(due), amountDueHalalas: 1000, paidHalalas: 0,
+    plan: { direction: "IN", kind: "STANDARD", employeeId: null, party: { name: "عميل" } },
+  });
+  harness.responses.set("instalment.findMany", (args: Record<string, unknown>) =>
+    "take" in args ? [row("o1", "2026-10-01")] : [row("u1", "2026-10-15")],
+  );
+}
+
+describe("v1.5 home: the overview reads scope every call (D26)", () => {
+  it("empty, then populated; ring 3 equals the listParties totals on the same fixture (D22)", async () => {
+    expect((await getOwnerOverview(EST, "2026-10-11")).commitments).toEqual({ toUsHalalas: 0, fromUsHalalas: 0, salariesHalalas: 0 });
+    populateOverview();
+    const overview = await getOwnerOverview(EST, "2026-10-11");
+    const parties = await listParties(EST);
+    const toUs = parties.reduce((s, p) => s + p.owedToUsHalalas, 0);
+    const byUs = parties.reduce((s, p) => s + p.owedByUsHalalas, 0);
+    // D39: علينا + رواتب + later salaries (2500) = Σ owedByUs.
+    expect(overview.commitments).toEqual({ toUsHalalas: toUs, fromUsHalalas: byUs - 8500, salariesHalalas: 6000 });
+    expect(overview.commitments.fromUsHalalas + overview.commitments.salariesHalalas + 2500).toBe(byUs);
+    expect(toUs).toBe(8000);
+    expect(overview.dial.map((e) => e.dayOffset)).toEqual([4]);
+    expect(overview.overdue).toMatchObject({ count: 3, totalHalalas: 3000, recent: [{ instalmentId: "o1", dayOffset: -10 }] });
+    // Every instalment read names an OPEN plan; the dial and overdue reads exclude OPEN_ENDED (V14 D4).
+    for (const c of harness.calls.filter((c) => c.model === "instalment" && c.method !== "groupBy")) {
+      const plan = (c.args.where as { plan: Record<string, unknown> }).plan;
+      expect(plan.state).toBe("OPEN");
+      expect(plan.kind === "SALARY" || JSON.stringify(plan.kind) === '{"not":"OPEN_ENDED"}').toBe(true);
+    }
+    expect(failures()).toEqual([]);
+    record();
+  });
+
+  it("this block runs after the static sweep, so it checks its own file's pairs were exercised here", async () => {
+    await getOwnerOverview(EST, "2026-10-11");
+    const pairs = [...readFileSync("src/features/dashboard/overviewReads.ts", "utf8").matchAll(/\bdb\.(\w+)\.(\w+)\(/g)].map(
+      (m) => `${m[1]}.${m[2]}`,
+    );
+    expect(pairs.length).toBeGreaterThan(0);
+    for (const pair of pairs) expect(observedPairs(), pair).toContain(pair);
+  });
+
+  it("non-vacuous: the rule fails a foreign establishment's calls", async () => {
+    populateOverview();
+    await getOwnerOverview(OTHER_EST, "2026-10-11");
+    // party.findMany, plan.findMany, instalment.groupBy, transaction.groupBy, the open-plan read, and the five overview reads.
+    expect(failures().length).toBeGreaterThanOrEqual(4);
+    expect(failures().filter((f) => f.startsWith("instalment.aggregate") || f.startsWith("instalment.findMany"))).toHaveLength(5);
+  });
+});
+
 // ---- v1.5 nav (D26): `nav` appends its salary-pick cases below this line, nowhere else ----
+
+const { hasSalaryEmployees, listSalaryPick } = await import("@/features/employees/salaryPick");
+
+describe("v1.5 nav: the salary pick reads scope every call (D15, D21)", () => {
+  it("empty, then populated: hasSalaryEmployees and listSalaryPick", async () => {
+    expect(await hasSalaryEmployees(EST)).toBe(false);
+    expect(await listSalaryPick(EST, "2026-10-11")).toEqual([]);
+    harness.responses.set("plan.findFirst", { id: "plan_sal" });
+    harness.responses.set("salaryPeriod.findMany", [
+      {
+        employeeId: "emp_1",
+        instalmentId: "inst_sal",
+        employee: { jobTitle: null, party: { name: "أحمد" } },
+        instalment: { amountDueHalalas: 600000, paidHalalas: 0 },
+      },
+    ]);
+    expect(await hasSalaryEmployees(EST)).toBe(true);
+    expect(await listSalaryPick(EST, "2026-10-11")).toMatchObject([{ instalmentId: "inst_sal", payable: true }]);
+    expect(failures()).toEqual([]);
+    record();
+  });
+
+  it("this block runs after the static sweep, so it checks its own file's pairs were exercised here", async () => {
+    await hasSalaryEmployees(EST);
+    await listSalaryPick(EST, "2026-10-11");
+    const pairs = [...readFileSync("src/features/employees/salaryPick.ts", "utf8").matchAll(/\bdb\.(\w+)\.(\w+)\(/g)].map(
+      (m) => `${m[1]}.${m[2]}`,
+    );
+    expect(pairs.length).toBeGreaterThan(0);
+    for (const pair of pairs) expect(observedPairs(), pair).toContain(pair);
+  });
+
+  it("non-vacuous: the rule fails a foreign establishment's call", async () => {
+    await hasSalaryEmployees(OTHER_EST);
+    await listSalaryPick(OTHER_EST, "2026-10-11");
+    expect(failures()).toHaveLength(2);
+  });
+});

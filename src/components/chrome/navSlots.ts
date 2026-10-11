@@ -54,26 +54,44 @@ export type NavGroup = {
 /** A group after the add entries are gone — what the المزيد sheet renders. */
 export type LinkGroup = Omit<NavGroup, "items"> & { items: NavItem[] };
 
+/** B3 row 3: the employees list in salary pick mode. */
+export const SALARY_PICK_HREF = "/owner/staff?pick=salary";
+
+/** What decides the optional rows: the staff login's employee link, the owner's salaried employees. */
+export type AddRowFlags = {
+  /** STAFF: linked to an employee → «تسجيل حضوري». */
+  linked?: boolean;
+  /** OWNER (v1.5 D15, D21): an ACTIVE employee with an OPEN salary plan → «صرف راتب». */
+  hasSalaryEmployees?: boolean;
+};
+
 /**
- * The «+» sheet's rows, in spec order (B1, D16 b). `linked` is the staff
- * login's employee link, as the staff layout computes it; the /staff/me pages
- * re-check it themselves — hiding the row is not the control. Admin has no «+».
+ * The «+» sheet's rows, in spec order (v1.5 B3: seven owner rows, each with a
+ * caption). `linked` is the staff login's employee link and
+ * `hasSalaryEmployees` the owner layout's one scoped read; the pages behind the
+ * rows re-check their own access — hiding a row is not the control. Admin has
+ * no «+».
  */
-export function addRows(role: Role, linked = false): AddRow[] {
+export function addRows(role: Role, flags: AddRowFlags = {}): AddRow[] {
   if (role === "OWNER") {
     return [
-      { href: "/owner/transactions/new", label: t.addSheet.newEntry, icon: "add" },
-      { href: "/owner/plans?pick=payment", label: t.addSheet.recordPayment, icon: "dues" },
-      { href: "/owner/plans/new", label: t.plans.add, icon: "plans" },
-      { href: "/owner/parties/new", label: t.addSheet.newParty, icon: "parties" },
+      { href: "/owner/transactions/new", label: t.addSheet.newEntry, icon: "add", hint: t.addHints.newEntry },
+      { href: "/owner/plans?pick=payment", label: t.addSheet.recordPayment, icon: "dues", hint: t.addHints.recordPayment },
+      ...(flags.hasSalaryEmployees
+        ? [{ href: SALARY_PICK_HREF, label: t.employees.paySalary, icon: "salary" as const, hint: t.addHints.paySalary }]
+        : []),
+      { href: "/owner/plans/new", label: t.plans.add, icon: "plans", hint: t.addHints.newPlan },
+      { href: "/owner/parties/new", label: t.addSheet.newParty, icon: "parties", hint: t.addHints.newParty },
+      { href: "/owner/staff/new", label: t.addSheet.newEmployee, icon: "staff", hint: t.addHints.newEmployee },
       { href: "/owner/projects/new", label: t.addSheet.newProject, icon: "projectNew", hint: t.addSheet.newProjectHint },
-      { href: "/owner/staff/new", label: t.addSheet.newEmployee, icon: "staff" },
     ];
   }
   if (role === "STAFF") {
     return [
-      { href: "/staff/transactions/new", label: t.addSheet.newEntry, icon: "add" },
-      ...(linked ? [{ href: "/staff/me", label: t.addSheet.myCheckIn, icon: "attendance" as const }] : []),
+      { href: "/staff/transactions/new", label: t.addSheet.newEntry, icon: "add", hint: t.addHints.newEntry },
+      ...(flags.linked
+        ? [{ href: "/staff/me", label: t.addSheet.myCheckIn, icon: "attendance" as const, hint: t.addHints.myCheckIn }]
+        : []),
     ];
   }
   return [];

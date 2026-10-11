@@ -48,7 +48,7 @@ export function ForgotForm() {
           </p>
           <Link
             href="/reset"
-            className="flex min-h-11 items-center justify-center rounded-lg bg-accent px-4 font-medium text-white hover:bg-accent-dark"
+            className="flex min-h-11 items-center justify-center rounded-lg bg-accent px-4 font-medium text-on-accent hover:bg-accent-dark"
           >
             {t.reset.title}
           </Link>

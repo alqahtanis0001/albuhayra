@@ -18,3 +18,11 @@ Rulings where the reviewer offered options: D22 ring 3 keeps salary arrears (ر�
 
 ## Build
 - Spawned `theme` (T1 first, stops for the token-layer commit), `home`, `nav` in parallel; home/nav do logic first and check `git log` for `v1.5: token layer` before visuals.
+| token layer | `92e1f72` (pushed) | theme gates green | D36 |
+| CP-F | v1.5: wheel, nav, theme | tsc 0 · 133/1909 · build 0 · max +5.1 KB gz | reviews all closed (nav R1–R2, home R1–R2, theme R1–R2); D37–D41 |
+
+## Reviewer rounds (summary)
+- nav R1: 0 B / 2 S (mutations for D37/icon; client import of a server-only module → `salaryPickRules.ts`) — closed R2.
+- home R1: 1 B (D39) / 6 S (bidi isolate, ink on gold, label truncation, zero sides, row-4 count, queries.ts size + staff count pin) — closed R2.
+- theme R1: 0 B / 1 S (lint bypass: named colours, palette classes without dark values) — closed R2.
+- Lead: FRONTEND.md stale `/owner/reports` lines (R1-N3). Open for release prep: unused `ReportsSkeleton`/`AgingReportSkeleton` exports and their stale comments (`skeletons/screens.tsx:119`, `skeletons/v12c.tsx:38`); README nav block; CHANGELOG.
