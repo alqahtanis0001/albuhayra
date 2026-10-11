@@ -821,6 +821,33 @@ describe("dashboard/queries.ts scopes every call", () => {
     record();
   });
 
+  /**
+   * v1.4 D25: the four first-run existence reads. Each is a scoped `count`
+   * (the entry count through `ledgerWhere`, so `deletedAt: null` is on it —
+   * D27); the result carries exactly four booleans and nothing that could be
+   * formatted as a number. Responses are set so both sides of each `> 0` run.
+   */
+  it("getOwnerDashboard first-run reads are scoped and reduce to four booleans", async () => {
+    harness.responses.set("transaction.count", 3);
+    harness.responses.set("party.count", 0);
+    harness.responses.set("plan.count", 1);
+    harness.responses.set("employee.count", 0);
+    const { firstRun } = await getOwnerDashboard(EST);
+    expect(failures()).toEqual([]);
+
+    const counts = harness.calls.filter((c) => c.method === "count");
+    expect(counts.map((c) => c.model)).toEqual(["transaction", "party", "plan", "employee"]);
+    for (const c of counts) {
+      expect((c.args.where as Record<string, unknown>).establishmentId, c.model).toBe(EST);
+    }
+    expect((counts[0]!.args.where as Record<string, unknown>).deletedAt).toBeNull();
+
+    expect(firstRun).toEqual({ hasEntry: true, hasParty: false, hasPlan: true, hasEmployee: false });
+    expect(Object.keys(firstRun)).toHaveLength(4);
+    expect(Object.values(firstRun).every((v) => typeof v === "boolean")).toBe(true);
+    record();
+  });
+
   it("getOwnerDashboard with categories to name", async () => {
     harness.responses.set("transaction.groupBy", [
       { categoryId: "cat_1", direction: "OUT", paymentMethod: "CASH", _sum: { amountHalalas: 900 } },
@@ -2368,6 +2395,8 @@ describe("static sweep: no call site escapes the runtime net", () => {
     // v1.2a: the link checks actions.ts calls.
     "src/features/transactions/links.ts",
     "src/features/dashboard/queries.ts",
+    // v1.4 part 2 (D25): the first-run card's four existence counts.
+    "src/features/dashboard/firstRunReads.ts",
     "src/features/reports/queries.ts",
     "src/features/locks/assertUnlocked.ts",
     "src/features/locks/actions.ts",
@@ -2574,6 +2603,8 @@ describe("static sweep: no call site escapes the runtime net", () => {
       // v1.4: the open-plan helpers and the payment module — never "use server".
       "src/features/plans/openQueries.ts", "src/features/plans/openRules.ts", "src/features/plans/openRemaining.ts",
       "src/features/transactions/openPlanPayments.ts",
+      // v1.4 part 2 (D25): reads for the first-run card — server-only, never an endpoint.
+      "src/features/dashboard/firstRunReads.ts",
     ];
     for (const file of serverOnly) {
       const source = readFileSync(file, "utf8");

@@ -58,6 +58,7 @@ export default async function EditPlanPage({ params }: { params: Promise<{ id: s
             categories={categories}
             today={todayISO()}
             locked={openPlan.partyLocked}
+            manageParties // v1.4 D23: owner only — «+ جهة جديدة» in the party select.
             initial={{
               partyId: openPlan.partyId,
               direction: openPlan.direction,
@@ -100,6 +101,7 @@ export default async function EditPlanPage({ params }: { params: Promise<{ id: s
           planId={plan.id}
           parties={parties}
           categories={categories}
+          manageParties // v1.4 D23: owner only — «+ جهة جديدة» in the party select.
           initial={{
             partyId: plan.partyId,
             direction: plan.direction,

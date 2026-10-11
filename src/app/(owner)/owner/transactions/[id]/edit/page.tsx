@@ -62,6 +62,7 @@ export default async function OwnerEditTransactionPage({
         doneHref="/owner/transactions"
         initial={row}
         manageCategories // v1.4 A2: owner only — decided here, on the server (D12).
+        manageParties // v1.4 D23: owner only — «+ جهة جديدة» in the party select.
         payment={link ? { direction: link.direction } : undefined}
         banner={
           link ? (
