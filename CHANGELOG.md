@@ -3,7 +3,7 @@
 Started at v1.3. Earlier releases (v1.0 – v1.2c) are recorded in `PROGRESS.md` (*Done*, *Decisions*, *Session log*).
 
 ## v1.4 — simpler owner flows (unreleased)
-Spec: `docs/V14-SPEC.md` (A–C, D1–D27). Shipped in two parts (part 1: A/B/C and the UX rulings; part 2: forms and first run). One expand-only migration (`20261010000000_v14_open_plans`: `PlanKind.OPEN_ENDED`, `Plan.totalHalalas` nullable, `Plan.expectedEndDate`, `Transaction.planId`), already applied to the live database; no new route group, no new environment variable. Nothing an owner could do before was removed.
+Spec: `docs/V14-SPEC.md` (A–C, D1–D31). Shipped in three parts (part 1: A/B/C and the UX rulings; part 2: forms and first run; part 3: wording and first day, after the owner usability test). One expand-only migration (`20261010000000_v14_open_plans`: `PlanKind.OPEN_ENDED`, `Plan.totalHalalas` nullable, `Plan.expectedEndDate`, `Transaction.planId`), already applied to the live database; no new route group, no new environment variable. Nothing an owner could do before was removed.
 
 ### Added
 - **One «+» for everything:** a primary «+ إضافة» item in the owner side nav and the second tab on phones opens a sheet with حركة جديدة · تسجيل دفعة · اتفاقية جديدة · جهة جديدة · نشاط جديد · موظف جديد. Staff get حركة جديدة (and تسجيل حضوري when linked to an employee record); an unlinked staff login's «+» goes straight to the entry form.
@@ -16,6 +16,19 @@ Spec: `docs/V14-SPEC.md` (A–C, D1–D27). Shipped in two parts (part 1: A/B/C 
 - **A lighter entry form:** الجهة, ضمن نشاط and ملاحظة sit behind «تفاصيل أكثر»; the device remembers your choice, and the section opens by itself when an entry already has one of them or when you arrive with a preset party or activity.
 - **«ابدأ هنا» on the owner home:** four steps (حركة → جهة → اتفاقية → موظف) ticked from real data, each linking to where it is done; the card leaves when all four are done or when you tap «إخفاء».
 - Confirm dialogs open centred; the categories page's back link arrow points the right way for Arabic.
+
+### Added in part 3 (wording and first day)
+Spec: `docs/V14-SPEC.md` D29–D31, from the owner usability test (`docs/OWNER-TEST-v14.md`). Wording, helper lines, subtitles, empty states, toasts, defaults and ordering only; one data migration renames the seeded category «دفعة من عميل» → «سداد من عميل» where the owner has not made one by hand. No function was added or removed.
+- **The empty «المستحقات» page explains itself** («هنا تظهر الأقساط التي حان موعدها هذا الأسبوع…») and hands cash over: «قبضت مبلغًا بدون اتفاقية؟ سجّله كحركة جديدة» and «كم باقي على عميل؟ افتح الجهات». The home tile and the «+» row read «دفعة على اتفاقية».
+- **«تم حفظ الحركة» after every save** — new, edit, instalment, open-agreement and salary payments, and «حفظ وإضافة أخرى». The ledger's filters sit behind one «تصفية» button on phones so the saved row is the first thing seen; the filter and report buttons read «عرض».
+- **Toasts never cover a button:** on phones they sit under the top bar, success toasts leave after 3 seconds, and the strip no longer blocks taps.
+- **Helper lines:** «وارد = دخل لي · صادر = طلع مني» under the direction toggle; «البيع المباشر = مبيعات · دفعة على اتفاقية = سداد من عميل» under the category list for incoming money; «الوارد − الصادر هذا الشهر» on the «الصافي» card; «يمكنك تعديل أي صف بعد التوليد» in the schedule builder, whose «عدد الأقساط» and new «تاريخ أول قسط» sit above «توليد».
+- **Agreement forms prefill** «عنوان الاتفاقية» as «اتفاقية مع {الجهة}» and the category from the direction; both stay editable. «+ جهة جديدة (تُحفظ للمرات القادمة)» now comes before «أخرى — اسم لمرة واحدة (لا يُحفظ)».
+- **Staff access in words:** a switch «التعديل: مسموح / غير مسموح» with «الموظف يضيف الحركات دائمًا؛ هذا الخيار يسمح له بتعديلها.»; the reset field «تعيين كلمة مرور جديدة (اختياري)» without an asterisk; after «قبول» a line saying how to link the login to the employee file; the empty card reads «لا توجد حسابات دخول بعد». The owner home shows «طلب انضمام جديد من {name}» while a request waits.
+- **Salary payment** screens say «صرف راتب», «راتب شهر {month}» and «الرواتب القادمة» instead of «قسط» and «المتبقي على الاتفاقية», and return to the employee page.
+- **Reports:** the report renders above its filters on phones; one form, one «عرض»; the tab reads «المتأخرات حسب المدة»; السجل has a «طباعة» button.
+- **Dates:** every date field shows the chosen day under it, e.g. «الأحد 11-10-2026». «إقفال» asks for confirmation like «إلغاء الإقفال». «شهر مقفل» says «لا يمكن التعديل — افتح الشهر من إقفال الأشهر».
+- **Renames:** «حسابات الدخول» → «دخول الموظفين», «رمز الانضمام» → «رمز انضمام الموظفين» (owner side), «مُوثّق» → «البريد مؤكَّد», «أرشفة الاتفاقية» → «إنهاء وأرشفة», «محسوب» → «مسجّل»; subtitles under الاتفاقيات, المستحقات, حركة جديدة and إقفال الأشهر; «نشاط جديد» in the «+» sheet carries «مشروع أو مناسبة لها تكاليفها»; «إلغاء الاتفاقية» is no longer a red primary button; the dues day strip no longer clips on phones.
 
 ### Changed
 - **Navigation:** السجل and التقارير are top-level items; the «المالية» heading, «حركة جديدة», the «إضافة» group and «التصنيفات» are gone from the menus (`/owner/settings/categories` stays reachable from the form); the staff group reads «الموظفون والحضور»; `/owner/settings` lands on رمز الانضمام.
