@@ -180,6 +180,8 @@ export type InstalmentForPayment = {
   planRemainingHalalas: number;
   kind: ScheduledKind;
   periodYm: string | null;
+  /** v1.4 part 3 (R6, D31h): the SALARY plan's employee, read on the same findFirst; the staff prefill strips it. */
+  employeeId: string | null;
 };
 
 /** W2: the staff payment form sees exactly these six fields — no plan title or totals. */

@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/Button";
 import { FormToast } from "@/components/FormToast";
-import { Input } from "@/components/Input";
+import { DateField } from "@/components/DateField";
+import { withSaved } from "@/components/SavedNotice";
 import { Select } from "@/components/Select";
 import { Toast } from "@/components/Toast";
 import { errorMessage, t } from "@/i18n/ar";
@@ -81,9 +82,7 @@ export function TransactionForm({
   const [linkKey, setLinkKey] = useState(0); // Remounts the link fields (inside EntryDetails) after «حفظ وإضافة أخرى».
   const [date, setDate] = useState(initial?.date ?? today);
   const startAmount = initial?.amountHalalas ?? payment?.amountHalalas;
-  const [amount, setAmount] = useState(
-    startAmount === undefined ? "" : (startAmount / 100).toFixed(2),
-  );
+  const [amount, setAmount] = useState(startAmount === undefined ? "" : (startAmount / 100).toFixed(2));
   // Controlled, not defaultValue: when the direction flips, the option list is
   // replaced and an uncontrolled select can keep a stale DOM value — including a
   // retired category, which the server would then reject as a direction
@@ -125,7 +124,7 @@ export function TransactionForm({
         setLinkKey((k) => k + 1);
         setSaved(true);
       } else {
-        router.push(doneHref);
+        router.push(withSaved(doneHref)); // R4: the landing page shows «تم حفظ الحركة».
       }
       return result;
     },
@@ -170,10 +169,9 @@ export function TransactionForm({
         disabled={originalLocked}
       />
 
-      <Input
+      <DateField
         label={t.transaction.date}
         name="date"
-        type="date"
         value={date}
         max={today}
         onChange={(event) => setDate(event.target.value)}
@@ -189,6 +187,7 @@ export function TransactionForm({
         placeholder={t.transaction.chooseCategory}
         value={categoryId}
         onChange={(event) => setCategoryId(event.target.value)}
+        hint={direction === "IN" && !payment ? t.transaction.categoryHelpIn : undefined} // R7 (D32 S2)
         disabled={originalLocked}
         required
         error={fieldErrors?.categoryId}
@@ -240,7 +239,7 @@ export function TransactionForm({
       {noticeShown && notice ? (
         <Toast message={errorMessage(notice)} onDismiss={() => setNoticeShown(false)} />
       ) : null}
-      {saved ? <Toast message={t.common.saved} tone="success" onDismiss={() => setSaved(false)} /> : null}
+      {saved ? <Toast message={t.transaction.saved} tone="success" onDismiss={() => setSaved(false)} /> : null}
     </form>
   );
 }

@@ -5,7 +5,11 @@ import { EmptyState } from "@/components/EmptyState";
 import { Pagination } from "@/components/Pagination";
 import { Tabs } from "@/components/Tabs";
 import { PlusIcon } from "@/components/icons";
+import { SavedNotice } from "@/components/SavedNotice";
 import { listProjects } from "@/features/projects/queries";
+import { PrintButton } from "@/features/reports/components/PrintButton";
+import { PrintFooter } from "@/features/reports/components/PrintFooter";
+import { PrintHeader } from "@/features/reports/components/PrintHeader";
 import { LedgerFilters } from "@/features/transactions/components/LedgerFilters";
 import { LedgerList } from "@/features/transactions/components/LedgerList";
 import { LedgerTotals } from "@/features/transactions/components/LedgerTotals";
@@ -20,6 +24,7 @@ import { listCategories } from "@/features/settings/queries";
 import { listTransactions } from "@/features/transactions/queries";
 import { t } from "@/i18n/ar";
 import { requireOwner } from "@/lib/auth";
+import { todayISO } from "@/lib/dates";
 
 import { ActivitiesTab } from "./ActivitiesTab";
 import { ACTIVITIES_HREF, ledgerTab, parseActivitiesStatus, type LedgerTab } from "./ledgerTab";
@@ -35,7 +40,7 @@ export async function generateMetadata({
   return { title: tab === "activities" ? t.projects.listTitle : t.ledger.title };
 }
 
-/** The h1, the tab's add button and the two-tab strip (v1.4 B3), shared by both tabs. */
+/** The h1, the tab's add button (and R11's «طباعة» on the entries tab) and the two-tab strip (v1.4 B3). */
 function Header({ tab }: { tab: LedgerTab }) {
   const add =
     tab === "activities"
@@ -45,13 +50,16 @@ function Header({ tab }: { tab: LedgerTab }) {
     <>
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-xl font-semibold text-gray-900">{t.ledger.title}</h1>
-        <Link
-          href={add.href}
-          className="no-print inline-flex min-h-11 items-center gap-2 rounded-lg bg-accent px-4 font-medium text-white hover:bg-accent-dark"
-        >
-          <PlusIcon size={18} />
-          {add.label}
-        </Link>
+        <div className="no-print flex flex-wrap items-center gap-2">
+          {tab === "entries" ? <PrintButton /> : null}
+          <Link
+            href={add.href}
+            className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-accent px-4 font-medium text-white hover:bg-accent-dark"
+          >
+            <PlusIcon size={18} />
+            {add.label}
+          </Link>
+        </div>
       </div>
       <Tabs
         label={t.ledger.title}
@@ -105,7 +113,17 @@ export default async function OwnerLedgerPage({
 
   return (
     <div className="flex flex-col gap-4">
+      {/* R11 / D31d: print-only — the screen is unchanged; the staff ledger prints as before. */}
+      <PrintHeader
+        establishmentName={user.establishmentName}
+        from={filters.from}
+        to={filters.to}
+        title={t.ledger.title}
+        printedAt={todayISO()}
+      />
       <Header tab={tab} />
+      {/* R4: a save lands here with ?saved=1; the notice drops it again. */}
+      <SavedNotice saved={raw.saved === "1"} />
 
       <LedgerFilters
         filters={filters}
@@ -139,6 +157,7 @@ export default async function OwnerLedgerPage({
         basePath={BASE}
         params={filterParams(filters)}
       />
+      <PrintFooter />
     </div>
   );
 }

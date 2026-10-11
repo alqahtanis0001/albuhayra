@@ -42,8 +42,11 @@ export const v14Sections = {
     tab: "+ إضافة",
     title: "إضافة",
     newEntry: "حركة جديدة",
-    recordPayment: "تسجيل دفعة",
+    /** v1.4 part 3 (R1, lead): the row goes to the agreement pick list, so it says so. */
+    recordPayment: "دفعة على اتفاقية",
     newProject: "نشاط جديد",
+    /** v1.4 part 3 (R16): second line under «نشاط جديد». */
+    newProjectHint: "مشروع أو مناسبة لها تكاليفها",
     newParty: "جهة جديدة",
     newEmployee: "موظف جديد",
     /** Staff, linked login only. */
@@ -101,7 +104,8 @@ export const v14Sections = {
   /** v1.4 part 2 (D23) — `p2-forms`: inline quick-add of a party from the party select. */
   partyQuick: {
     /** The trailing option of the party select (owner only). */
-    add: "+ جهة جديدة",
+    /** v1.4 part 3 (R10): first in the trailing options, and says the party is kept. */
+    add: "+ جهة جديدة (تُحفظ للمرات القادمة)",
     name: "اسم الجهة الجديدة",
     type: "نوع الجهة",
     added: "تمت إضافة الجهة",
@@ -128,6 +132,12 @@ export const v14Sections = {
     /** `{done}` = number of ticked steps, Western digits. */
     progress: "{done} من 4",
     hide: "إخفاء",
+  },
+
+  /** v1.4 part 3 (R9) — `flows`: the owner-home notice for a pending staff join request. `{name}` = the requester. */
+  pendingJoin: {
+    one: "طلب انضمام جديد من {name}",
+    open: "فتح دخول الموظفين",
   },
 
   /** v1.4 error keys. Merged into `t.err` by ar.ts. */

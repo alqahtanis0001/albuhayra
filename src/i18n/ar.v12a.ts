@@ -29,9 +29,10 @@ export const v12aSections = {
     dues: "المستحقات",
     staffList: "الموظفون",
     attendance: "الحضور",
-    logins: "حسابات الدخول",
+    /** v1.4 part 3 (R16): «حسابات الدخول» read as money to the owner. */
+    logins: "دخول الموظفين",
     categories: "التصنيفات",
-    joinCode: "رمز الانضمام",
+    joinCode: "رمز انضمام الموظفين",
     locks: "إقفال الأشهر",
     /** v1.2c (spec §1): Settings › التذكيرات. */
     reminders: "التذكيرات",
@@ -60,9 +61,9 @@ export const v12aSections = {
     badge: "قريباً",
     title: "هذا القسم قيد الإعداد",
     body: "سيتوفر في تحديث قادم. لا يلزمك فعل شيء الآن.",
-    staffBody: "ملفات الموظفين والرواتب قادمة في التحديث التالي. إدارة حسابات دخول الموظفين في «حسابات الدخول».",
+    staffBody: "ملفات الموظفين والرواتب قادمة في التحديث التالي. إدارة حسابات دخول الموظفين في «دخول الموظفين».",
     attendanceBody: "تسجيل حضور الموظفين وانصرافهم قادم في التحديث التالي.",
-    toLogins: "الانتقال إلى حسابات الدخول",
+    toLogins: "الانتقال إلى دخول الموظفين",
   },
 
   partyType: {
@@ -109,7 +110,8 @@ export const v12aSections = {
     hasHistoryHint: "لا يمكن حذف جهة لها حركات أو اتفاقيات، ويمكن إيقافها.",
     choose: "اختر الجهة",
     none: "بدون جهة",
-    other: "أخرى (اكتب الاسم)",
+    /** v1.4 part 3 (R10): second, after «+ جهة جديدة»; says it is not saved. */
+    other: "أخرى — اسم لمرة واحدة (لا يُحفظ)",
     otherName: "اسم الجهة",
     viewStatement: "كشف الحساب",
   },
@@ -123,7 +125,8 @@ export const v12aSections = {
     planCharge: "اتفاقية: {title}",
     paymentReceived: "دفعة مستلمة — {title}",
     paymentMade: "دفعة مدفوعة — {title}",
-    writeOff: "أرشفة الاتفاقية وشطب المتبقي — {title}",
+    /** v1.4 part 3 (R16): «أرشفة الاتفاقية» → «إنهاء وأرشفة». */
+    writeOff: "إنهاء وأرشفة وشطب المتبقي — {title}",
     closingBalance: "الرصيد الختامي",
     empty: "لا توجد اتفاقيات مع هذه الجهة.",
     otherTransactions: "حركات أخرى مع الجهة",
@@ -227,12 +230,16 @@ export const v12aSections = {
 
   plans: {
     title: "الاتفاقيات",
+    /** v1.4 part 3 (R16): subtitle under the list title. */
+    subtitle: "ما اتفقت عليه مع عميل أو مورد ويُدفع على دفعات، وكذلك رواتب الموظفين",
     newTitle: "اتفاقية جديدة",
     editTitle: "تعديل الاتفاقية",
     add: "اتفاقية جديدة",
     party: "الجهة",
     titleField: "عنوان الاتفاقية",
     titleHelp: "مثل: عقد توريد، أقساط سيارة، إيجار المستودع",
+    /** v1.4 part 3 (R8): prefilled once a party is chosen; `{name}` is the party. Editable. */
+    titlePrefill: "اتفاقية مع {name}",
     total: "المبلغ الإجمالي",
     category: "التصنيف",
     categoryHelp: "تُسجَّل كل دفعة تحت هذا التصنيف، ويمكن تغييره عند التسجيل",
@@ -250,7 +257,8 @@ export const v12aSections = {
     cancel: "إلغاء الاتفاقية",
     cancelConfirm: "سيتم إلغاء الاتفاقية ولن تظهر في المستحقات. هل تريد المتابعة؟",
     cancelBlocked: "لا يمكن إلغاء اتفاقية عليها دفعات، ويمكن أرشفتها.",
-    archive: "أرشفة الاتفاقية",
+    /** v1.4 part 3 (R16): «أرشفة» was unknown; the button now says what it does. */
+    archive: "إنهاء وأرشفة",
     archiveConfirm: "سيتوقف تتبع المتبقي ويُشطب من رصيد الجهة، وتبقى الدفعات المسجلة كما هي. هل تريد المتابعة؟",
     allDirections: "كل الاتجاهات",
     allStatuses: "كل الحالات",
@@ -278,6 +286,9 @@ export const v12aSections = {
     EVERY_N_DAYS: "كل عدد من الأيام",
     everyDays: "كل (يوم)",
     generate: "توليد الجدول",
+    /** v1.4 part 3 (R14): the first instalment's date control, above «توليد», and the hint under it. */
+    firstDate: "تاريخ أول قسط",
+    editHint: "يمكنك تعديل أي صف بعد التوليد",
     addRow: "إضافة قسط",
     removeRow: "حذف القسط",
     row: "القسط",
@@ -292,12 +303,18 @@ export const v12aSections = {
 
   dues: {
     title: "المستحقات",
+    /** v1.4 part 3 (R16): subtitle under the page title. */
+    subtitle: "ما حان موعده هذا الأسبوع",
     thisWeek: "مستحقات هذا الأسبوع",
     weekRange: "من اليوم حتى {date}",
     overdue: "متأخرات",
     toUs: "لنا",
     fromUs: "علينا",
     empty: "لا توجد مستحقات هذا الأسبوع.",
+    /** v1.4 part 3 (R1): the empty week card explains itself and hands cash over. */
+    emptyIntro: "هنا تظهر الأقساط التي حان موعدها هذا الأسبوع: لنا من العملاء وعلينا للموردين والموظفين.",
+    cashLink: "قبضت مبلغًا بدون اتفاقية؟ سجّله كحركة جديدة",
+    partiesLink: "كم باقي على عميل؟ افتح الجهات",
     noOverdue: "لا توجد متأخرات.",
     overdueStrip: {
       one: "قسط متأخر واحد",
@@ -326,6 +343,12 @@ export const v12aSections = {
     forInstalment: "القسط {seq} من «{title}»",
     remaining: "المتبقي على هذا القسط",
     planRemaining: "المتبقي على الاتفاقية",
+    /** v1.4 part 3 (R6): a SALARY instalment is a salary month, never «القسط n». `{month}` = «أكتوبر 2026», `{name}` = the employee. */
+    salaryTitle: "راتب شهر {month} — {name}",
+    salaryRemaining: "المتبقي من راتب الشهر",
+    /** Plan remaining minus this month's remaining; hidden at 0. */
+    upcomingSalaries: "الرواتب القادمة",
+    salaryRollsOver: "ما يزيد عن راتب هذا الشهر يُحتسب للرواتب القادمة.",
     rollsOver: "ما يزيد عن هذا القسط يُحتسب للأقساط التالية.",
     linkedNotice: "هذه الحركة سداد لاتفاقية: الاتجاه والجهة ثابتان.",
     viewPlan: "عرض الاتفاقية",

@@ -15,7 +15,7 @@ import { useActionState, useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/Button";
 import { DateText } from "@/components/DateText";
 import { FormToast } from "@/components/FormToast";
-import { Input } from "@/components/Input";
+import { DateField } from "@/components/DateField";
 import { MoneyText } from "@/components/MoneyText";
 import { endEmployment } from "@/features/employees/lifecycle";
 import { periodLabel } from "@/features/plans/components/PlanBits";
@@ -97,10 +97,9 @@ export function EndEmploymentDialog({
           {t.employees.endTitle}
         </h2>
         <p className="text-sm text-gray-600">{t.employees.endConfirm}</p>
-        <Input
+        <DateField
           label={t.employees.endDate}
           name="endDate"
-          type="date"
           min={startDate}
           value={endDate}
           onChange={(e) => setEndDate(e.target.value)}

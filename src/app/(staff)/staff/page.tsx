@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { CountUp } from "@/components/CountUp";
+import { SavedNotice } from "@/components/SavedNotice";
 import { StatCard } from "@/components/StatCard";
 import { PlusIcon } from "@/components/icons";
 import { RecentTransactions } from "@/features/dashboard/components/RecentTransactions";
@@ -13,8 +14,13 @@ import { requireStaff } from "@/lib/auth";
 
 export const metadata: Metadata = { title: t.dashboard.staffTitle };
 
-export default async function StaffHomePage() {
+export default async function StaffHomePage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { user, establishmentId } = await requireStaff();
+  const sp = await searchParams;
   const data = await getStaffDashboard(establishmentId, user.id);
   // Only a member who may record payments sees what is due — and without
   // canEdit the query is not run at all (W13), not merely not shown.
@@ -34,6 +40,8 @@ export default async function StaffHomePage() {
           {t.transaction.addButton}
         </Link>
       </div>
+      {/* R4: a payment's save lands here with ?saved=1. */}
+      <SavedNotice saved={sp.saved === "1"} />
 
       {/* `canEdit` is re-read from the database on every request, so this notice
           tracks the owner's switch immediately rather than until a re-login. */}

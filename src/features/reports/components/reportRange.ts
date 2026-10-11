@@ -7,16 +7,10 @@
  * Month arithmetic uses `monthStart`/`monthEnd` from `src/lib/dates.ts` — the
  * only place that decides what "this month" means, in Riyadh.
  */
-import {
-  currentMonthKey,
-  dateToISO,
-  lastMonths,
-  monthEnd,
-  monthNameAr,
-  monthStart,
-  ymString,
-} from "@/lib/dates";
+import { currentMonthKey, ymString } from "@/lib/dates";
 import { ReportRangeSchema, toFieldErrors } from "@/lib/validation";
+
+import { monthRange } from "./reportMonths";
 
 export type ResolvedRange = {
   from: string;
@@ -43,15 +37,6 @@ const MONTH_RE = /^(\d{4})-(0[1-9]|1[0-2])$/;
  */
 function inRange(year: number): boolean {
   return year >= 2000 && year <= 2100;
-}
-
-export function monthRange(ym: string): ResolvedRange {
-  const [year, month] = ym.split("-").map(Number);
-  return {
-    from: dateToISO(monthStart(year!, month!)),
-    to: dateToISO(monthEnd(year!, month!)),
-    month: ym,
-  };
 }
 
 export function currentMonthRange(): ResolvedRange {
@@ -86,31 +71,6 @@ export function parseReportRange(raw: Record<string, string | string[] | undefin
   return currentMonthRange();
 }
 
-export type MonthOption = { value: string; label: string };
-
-/** Only needed for a month outside the 24-month window, which arrives as a string. */
-function labelFor(ym: string): string {
-  const [year, month] = ym.split("-").map(Number);
-  return `${monthNameAr(month!)} ${year}`;
-}
-
-/**
- * The last 24 months, newest first — an owner reports on a month that has ended.
- * `selected` is added when it falls outside that window, which a hand-edited
- * `?month=` can do: the report is correct for it, so the picker has to show it
- * rather than silently displaying whichever month happens to be first.
- */
-export function monthOptions(selected?: string | null): MonthOption[] {
-  const recent = lastMonths(24)
-    .reverse()
-    .map((m) => ({
-      value: ymString(m.year, m.month),
-      label: `${monthNameAr(m.month)} ${m.year}`,
-    }));
-
-  if (selected && !recent.some((o) => o.value === selected)) {
-    return [{ value: selected, label: labelFor(selected) }, ...recent];
-  }
-  return recent;
-}
-
+// D32 B1: the month helpers live in the pure `reportMonths.ts` (no validation
+// import) so the client `ReportFilters` can share them; re-exported here for callers.
+export { monthOptions, monthRange, type MonthOption } from "./reportMonths";

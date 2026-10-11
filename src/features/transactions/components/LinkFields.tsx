@@ -38,6 +38,18 @@ import { PartyTypeEnum } from "@/lib/validation";
 
 const OTHER = "__other";
 
+/**
+ * v1.4 part 3 (D29 R10): «+ جهة جديدة (تُحفظ للمرات القادمة)» comes before
+ * «أخرى — اسم لمرة واحدة (لا يُحفظ)» — the sentinel first, so a one-off name is
+ * the second thought, not the first. The sentinel is still never posted.
+ */
+export function trailingOptions(quickAdd: boolean): { value: string; label: string }[] {
+  return [
+    ...(quickAdd ? [{ value: NEW_PARTY, label: t.partyQuick.add }] : []),
+    { value: OTHER, label: t.parties.other },
+  ];
+}
+
 export type LinkInitial = {
   partyId: string | null;
   counterparty: string | null;
@@ -85,10 +97,7 @@ export function LinkFields({
   }));
 
   const quickAdd = manageParties && !lockParty && !disabled;
-  const trailing = [
-    { value: OTHER, label: t.parties.other },
-    ...(quickAdd ? [{ value: NEW_PARTY, label: t.partyQuick.add }] : []),
-  ];
+  const trailing = trailingOptions(quickAdd);
 
   const projectOptions = projects
     .filter((p) => p.status === "ACTIVE" || p.id === initial.projectId)

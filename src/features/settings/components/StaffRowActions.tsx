@@ -4,12 +4,16 @@
  * Per-row staff controls. Which buttons exist is decided by `status`, which comes
  * from the server; every action re-checks ownership of the staff member against
  * the session, so this component never carries an establishment id.
+ * v1.4 part 3 (D29 R5): «السماح بالتعديل» is a labelled Switch that states
+ * its state — «التعديل: مسموح» / «التعديل: غير مسموح» — with the helper that
+ * the employee always adds entries.
  */
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { Button } from "@/components/Button";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { Switch } from "@/components/Switch";
 import { Toast } from "@/components/Toast";
 import { errorMessage, t } from "@/i18n/ar";
 import type { StaffRow } from "@/features/establishments/queries";
@@ -20,6 +24,11 @@ import {
   setCanEdit,
   setStaffActive,
 } from "@/features/establishments/actions";
+
+/** The switch's own label says which state it is in (R5). */
+export function editLabel(canEdit: boolean): string {
+  return canEdit ? t.settings.editAllowed : t.settings.editNotAllowed;
+}
 
 export function StaffRowActions({ staff }: { staff: StaffRow }) {
   const router = useRouter();
@@ -61,15 +70,13 @@ export function StaffRowActions({ staff }: { staff: StaffRow }) {
           </>
         ) : (
           <>
-            <Button
-              size="sm"
-              variant={staff.canEdit ? "primary" : "secondary"}
-              aria-pressed={staff.canEdit}
-              pending={pending}
-              onClick={() => run(() => setCanEdit(staff.id, !staff.canEdit))}
-            >
-              {t.settings.allowEdit}
-            </Button>
+            <Switch
+              label={editLabel(staff.canEdit)}
+              hint={t.settings.editHelp}
+              checked={staff.canEdit}
+              disabled={pending}
+              onChange={(next) => run(() => setCanEdit(staff.id, next))}
+            />
             <Button
               size="sm"
               variant="secondary"

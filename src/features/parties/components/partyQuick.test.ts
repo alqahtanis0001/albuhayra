@@ -97,7 +97,7 @@ describe("D23 — the sentinel reaches the owner's forms only", () => {
     }
   });
 
-  it("owner renders (manageParties) offer it as the very last option, and still exactly one <form>", () => {
+  it("owner renders (manageParties) offer it, and still exactly one <form>", () => {
     for (const out of [
       html(createElement(TransactionForm, { ...formProps, manageParties: true })),
       html(createElement(PlanForm, { ...planProps, manageParties: true })),
@@ -105,9 +105,17 @@ describe("D23 — the sentinel reaches the owner's forms only", () => {
     ]) {
       expect(out).toContain(t.partyQuick.add);
       expect(out.match(/<form/g)).toHaveLength(1);
-      // Last: nothing but the select's closing tag follows the sentinel option.
+    }
+    // Plan forms: last — nothing but the select's closing tag follows the sentinel option.
+    for (const out of [
+      html(createElement(PlanForm, { ...planProps, manageParties: true })),
+      html(createElement(OpenPlanForm, { ...openProps, manageParties: true })),
+    ]) {
       expect(out).toMatch(new RegExp(`<option value="${NEW_PARTY}">${esc(t.partyQuick.add)}</option></select>`));
     }
+    // v1.4 part 3 (D29 R10, D32 S1): the entry form puts the sentinel before «أخرى», which stays last.
+    const entry = html(createElement(TransactionForm, { ...formProps, manageParties: true }));
+    expect(entry).toMatch(new RegExp(`<option value="${NEW_PARTY}">${esc(t.partyQuick.add)}</option><option value="__other">${esc(t.parties.other)}</option></select>`));
   });
 
   it("a locked party offers no sentinel: a fixed instalment on PlanForm, `locked` on OpenPlanForm", () => {
@@ -232,7 +240,8 @@ describe("D23 — the added party joins the list and is selected", () => {
     for (const file of ["PlanForm", "OpenPlanForm"]) {
       const source = readFileSync(`src/features/plans/components/${file}.tsx`, "utf8");
       expect(source).toContain("const [partyList, setPartyList] = useState(parties);");
-      expect(source).toContain("const chooseParty = (id: string, list = partyList) => setV((old) => applyPartyChoice(old, id, list));");
+      // v1.4 part 3 (R8, D32 S7): the choice still goes through applyPartyChoice on the given list; the prefill runs on its result.
+      expect(source).toContain("applyAll(applyPartyChoice(v, id, list), list.find((p) => p.id === id)?.name);");
       expect(source).toMatch(/const list = applyAddedParty\(partyList, row\);\s*setPartyList\(list\);\s*chooseParty\(row\.id, list\);/);
       expect(source).toContain("const party = partyList.find((p) => p.id === v.partyId);");
     }

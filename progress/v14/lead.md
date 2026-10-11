@@ -54,3 +54,11 @@ Your own running notes. Only you write here. Keep entries short; newest at the b
 
 ## Questions / requests sent to lead
 - (n/a — I am the lead; questions for the user are in the CP-A report)
+
+## v1.4 part 3 — wording and first day (2026-10-11, branch `claude/zakhm-v14-part3-wording-z53lw5`)
+- Merged `claude/owner-test-v14-018cTVXu` into `main` first (fast-forward, docs + screenshots only; `main` `4967449`, pushed); the branch starts there.
+- Spec: D29 (the user's R1–R16 verbatim with the lead's readings), D30 (keys, migration, ownership, tests), D31 (lead's rulings) appended to `docs/V14-SPEC.md`.
+- Pre-"go": every D30 key with a draft value in its section's own file (D20); `dateCaption()` in `src/lib/dates.ts` (+ 2 cases); data migration `20261011000000_v14_p3_customer_payment_name` (guarded `UPDATE "Category"`); README nav lines; briefs `brief-p3-{common,words,flows}.md`. `tsc` 0; the one red test (`nav.test.ts:238`, literal «تسجيل دفعة») is `words`' first task.
+- Local stack for the browser pass: PostgreSQL 16 cluster `main`, db `ledger`, user `ledger`; `.env` written (random secret, no Brevo key; gitignored); 7 migrations applied; ADMIN seeded (`admin@zakham-test.sa`, password in the scratchpad). Neon untouched.
+- Team: `words`, `flows`, `reviewer`.
+- CP-E `938ea5c` → QA (qa-visual, qa-tests) → D34 + F8 pin + sweep → `v1.4 part 3: release prep` → merged into `main`, pushed. Gates 0 / 118 files 1613 / build 0 / +8.5 KB max. Part 3 done.

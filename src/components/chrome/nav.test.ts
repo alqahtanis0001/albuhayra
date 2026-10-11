@@ -236,14 +236,16 @@ describe("tab bar slots (B2, D13, A7)", () => {
 describe("addRows (B1, D16 b/c)", () => {
   it("owner: six rows in spec order", () => {
     expect(addRows("OWNER").map((r) => [r.href, r.label])).toEqual([
-      ["/owner/transactions/new", "حركة جديدة"],
-      ["/owner/plans?pick=payment", "تسجيل دفعة"],
+      ["/owner/transactions/new", t.addSheet.newEntry],
+      ["/owner/plans?pick=payment", t.addSheet.recordPayment],
       ["/owner/plans/new", t.plans.add],
-      ["/owner/parties/new", "جهة جديدة"],
-      ["/owner/projects/new", "نشاط جديد"],
-      ["/owner/staff/new", "موظف جديد"],
+      ["/owner/parties/new", t.addSheet.newParty],
+      ["/owner/projects/new", t.addSheet.newProject],
+      ["/owner/staff/new", t.addSheet.newEmployee],
     ]);
     expect(t.plans.add).toBe("اتفاقية جديدة");
+    // v1.4 part 3 (R1): the row goes to the agreement pick list, so it says so.
+    expect(t.addSheet.recordPayment).toBe("دفعة على اتفاقية");
   });
 
   it("staff: one row unlinked, «تسجيل حضوري» second when linked; admin none", () => {
@@ -401,5 +403,19 @@ describe("used nav groups (localStorage)", () => {
     vi.stubGlobal("window", { localStorage: { getItem: boom, setItem: boom } });
     expect(readUsedGroups()).toEqual([]);
     expect(rememberUsedGroup("staff")).toEqual(["staff"]);
+  });
+});
+
+/** v1.4 part 3 (D29 R16, `flows`): the «نشاط جديد» row's second line. Appended block (D32 S1). */
+describe("R16 — the «نشاط جديد» row carries its hint", () => {
+  it("row 5 of the owner sheet has addSheet.newProjectHint, no other row has one, and the sheet renders it readable", () => {
+    const rows = addRows("OWNER");
+    expect(rows[4]!.href).toBe("/owner/projects/new");
+    expect(rows[4]!.hint).toBe(t.addSheet.newProjectHint);
+    expect(rows.filter((r) => r.hint !== undefined)).toHaveLength(1);
+    expect(addRows("STAFF", true).every((r) => r.hint === undefined)).toBe(true);
+    const html = render(createElement(AddSheet, { entry: addEntryOf(OWNER_NAV_GROUPS)!, variant: "tab" }), "/owner");
+    expect(html).toMatch(new RegExp(`<a [^>]*href="/owner/projects/new"[^>]*>[\\s\\S]*?${t.addSheet.newProject}<span class="text-\\[11px\\] font-normal text-gray-500">${t.addSheet.newProjectHint}</span>`));
+    expect(html).not.toMatch(new RegExp(`aria-hidden="true"[^>]*>${t.addSheet.newProjectHint}`));
   });
 });

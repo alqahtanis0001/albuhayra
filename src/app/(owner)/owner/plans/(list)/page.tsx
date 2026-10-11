@@ -34,8 +34,12 @@ export default async function PlansPage({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold text-gray-900">{t.plans.title}</h1>
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-xl font-semibold text-gray-900">{t.plans.title}</h1>
+          {/* v1.4 part 3 (R16): «عقد؟» — one line says what an agreement is here. */}
+          <p className="text-sm text-gray-600">{t.plans.subtitle}</p>
+        </div>
         <LinkButton href="/owner/plans/new" className="no-print">
           <PlusIcon size={18} />
           {t.plans.add}

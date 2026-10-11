@@ -194,7 +194,7 @@ const {
   setCategoryActive,
   changeOwnPassword,
 } = await import("@/features/settings/actions");
-const { listStaff, getJoinCode, countPendingStaff } = await import(
+const { listStaff, getJoinCode, countPendingStaff, listPendingStaffNames } = await import(
   "@/features/establishments/queries"
 );
 const { listCategories } = await import("@/features/settings/queries");
@@ -1198,6 +1198,19 @@ describe("the staff and settings reads scope every call", () => {
     record();
   });
 
+  // v1.4 part 3 (D29 R9, `flows`): the home notice's names — scoped, names only, newest first.
+  it("listPendingStaffNames", async () => {
+    harness.responses.set("user.findMany", [{ firstName: "سعد", middleName: null, lastName: "العتيبي", legacyName: null }]);
+    expect(await listPendingStaffNames(EST)).toEqual(["سعد العتيبي"]);
+    expect(observedPairs()).toEqual(new Set(["user.findMany"]));
+    const call = harness.calls[0]!;
+    expect(call.args.where).toEqual({ establishmentId: EST, role: "STAFF", status: "PENDING" });
+    expect(Object.keys(call.args.select as object).sort()).toEqual(["firstName", "lastName", "legacyName", "middleName"]);
+    expect(call.args.orderBy).toEqual({ createdAt: "desc" });
+    expect(failures()).toEqual([]);
+    record();
+  });
+
   it("listCategories", async () => {
     await listCategories(EST);
     expect(observedPairs()).toContain("category.findMany");
@@ -1625,7 +1638,7 @@ const PLAN_ROW = {
 };
 
 const PLAN_REF = { title: "توريد", state: "OPEN", direction: "OUT", partyId: "party_1", categoryId: "cat_1",
-  totalHalalas: 3000, reminderDays: 3, party: { name: "مورد" } };
+  totalHalalas: 3000, reminderDays: 3, employeeId: "emp_1", party: { name: "مورد" } };
 
 const INSTALMENT = { id: "inst_1", planId: "plan_1", seq: 1, dueDate: day("2026-09-20"), amountDueHalalas: 1000, paidHalalas: 0, plan: PLAN_REF };
 
@@ -1699,7 +1712,11 @@ describe("v1.2a CP2: plans and dues scope every call", () => {
 
   it("the payment-form reads; the staff prefill has exactly six fields (W2)", async () => {
     populatePlans();
-    expect(await getInstalmentForPayment(EST, "inst_1")).toMatchObject({ planRemainingHalalas: 2500 });
+    // v1.4 part 3 (R6, D31h): the plan's employeeId rides the same findFirst — no extra call.
+    expect(await getInstalmentForPayment(EST, "inst_1")).toMatchObject({ planRemainingHalalas: 2500, employeeId: "emp_1" });
+    const findFirst = harness.calls.filter((c) => c.model === "instalment" && c.method === "findFirst");
+    expect(findFirst).toHaveLength(1);
+    expect((findFirst[0]!.args.select as { plan: { select: Record<string, unknown> } }).plan.select.employeeId).toBe(true);
     const prefill = await getStaffPaymentPrefill(EST, "inst_1");
     expect(Object.keys(prefill!).sort()).toEqual([
       "categoryId", "direction", "instalmentId", "instalmentRemainingHalalas", "partyId", "partyName",

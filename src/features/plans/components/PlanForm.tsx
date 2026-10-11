@@ -18,6 +18,7 @@ import { useActionState, useState } from "react";
 
 import { Button } from "@/components/Button";
 import { FormToast } from "@/components/FormToast";
+import { DateField } from "@/components/DateField";
 import { Input } from "@/components/Input";
 import { Select } from "@/components/Select";
 import { Textarea } from "@/components/Textarea";
@@ -31,6 +32,7 @@ import { PlanInputSchema, invalid, type ActionResult, type DirectionValue } from
 
 import { PlanDirectionCards } from "./PlanDirectionCards";
 import { PlanPartySelect, applyPartyChoice } from "./PlanPartySelect";
+import { NO_PREFILLS, applyPlanPrefill } from "./planPrefill";
 import { ScheduleBuilder } from "./ScheduleBuilder";
 import { draftToRows, type DraftRow } from "./scheduleDraft";
 
@@ -70,6 +72,7 @@ export function PlanForm({
   const router = useRouter();
   const [v, setV] = useState(initial);
   const [partyList, setPartyList] = useState(parties);
+  const [prefills, setPrefills] = useState(NO_PREFILLS); // R8: what the form filled in itself, never the owner's text.
   const set = <K extends keyof PlanFormInitial>(key: K, value: PlanFormInitial[K]) =>
     setV((old) => ({ ...old, [key]: value }));
 
@@ -105,7 +108,14 @@ export function PlanForm({
     .map((c) => ({ value: c.id, label: c.active ? c.nameAr : `${c.nameAr} (${t.status.DISABLED})` }));
 
   // Looks the party up in the client-state list (S6); the new row is passed in before the state settles.
-  const chooseParty = (id: string, list = partyList) => setV((old) => applyPartyChoice(old, id, list));
+  // R8 (D32 S7): the prefills run on applyPartyChoice's result and on a direction change.
+  const applyAll = (next: typeof v, partyName: string | undefined) => {
+    const r = applyPlanPrefill(next, prefills, partyName, categories);
+    setV(r.values);
+    setPrefills(r.prefills);
+  };
+  const chooseParty = (id: string, list = partyList) =>
+    applyAll(applyPartyChoice(v, id, list), list.find((p) => p.id === id)?.name);
   const addParty = (row: PartyOption) => {
     const list = applyAddedParty(partyList, row);
     setPartyList(list);
@@ -136,7 +146,7 @@ export function PlanForm({
         partyName={party?.name}
         locked={locked}
         error={fieldErrors?.direction}
-        onChange={(d) => setV((old) => ({ ...old, direction: d, categoryId: "" }))}
+        onChange={(d) => applyAll({ ...v, direction: d, categoryId: "" }, undefined)}
       />
       {locked ? <input type="hidden" name="direction" value={v.direction} /> : null}
 
@@ -173,10 +183,9 @@ export function PlanForm({
       />
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Input
+        <DateField
           label={t.plans.startDate}
           name="startDate"
-          type="date"
           value={v.startDate}
           onChange={(e) => set("startDate", e.target.value)}
           required

@@ -59,7 +59,7 @@ export default async function OwnerEditTransactionPage({
         projects={projects}
         lockedMonths={lockedMonths}
         today={todayISO()}
-        doneHref="/owner/transactions"
+        doneHref="/owner/transactions?saved=1" // R4: the ledger shows «تم حفظ الحركة».
         initial={row}
         manageCategories // v1.4 A2: owner only — decided here, on the server (D12).
         manageParties // v1.4 D23: owner only — «+ جهة جديدة» in the party select.

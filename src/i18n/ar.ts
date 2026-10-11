@@ -56,7 +56,8 @@ export const t = {
     search: "بحث",
     filter: "تصفية",
     clearFilters: "إزالة التصفية",
-    apply: "تطبيق",
+    /** v1.4 part 3 (R11): the filter forms' one button, ledger and reports alike. */
+    apply: "عرض",
     add: "إضافة",
     logout: "تسجيل الخروج",
     loading: "جارٍ التحميل…",
@@ -144,6 +145,8 @@ export const t = {
     label: "النوع",
     IN: "وارد",
     OUT: "صادر",
+    /** v1.4 part 3 (R2): one helper line under the toggle. */
+    help: "وارد = دخل لي · صادر = طلع مني",
   },
 
   paymentMethod: {
@@ -167,12 +170,19 @@ export const t = {
     PENDING: "قيد المراجعة",
     ACTIVE: "معتمد",
     DISABLED: "موقوف",
-    verified: "مُوثّق",
-    unverified: "غير مُوثّق",
+    /** v1.4 part 3 (R16): «مُوثّق» read as nothing to the owner. */
+    verified: "البريد مؤكَّد",
+    unverified: "البريد غير مؤكَّد",
   },
 
   transaction: {
     newTitle: "حركة جديدة",
+    /** v1.4 part 3 (R16): subtitle under «حركة جديدة». */
+    newSubtitle: "قبض أو صرف",
+    /** v1.4 part 3 (R4): after every successful save (new, edit, payment, «حفظ وإضافة أخرى»). */
+    saved: "تم حفظ الحركة",
+    /** v1.4 part 3 (R7): under the category select while «وارد» is chosen. */
+    categoryHelpIn: "البيع المباشر = مبيعات · دفعة على اتفاقية = سداد من عميل",
     editTitle: "تعديل حركة",
     amount: "المبلغ",
     date: "التاريخ",
@@ -214,6 +224,8 @@ export const t = {
     monthIn: "وارد هذا الشهر",
     monthOut: "صادر هذا الشهر",
     monthNet: "الصافي",
+    /** v1.4 part 3 (R15): helper on the «الصافي» card. */
+    monthNetHint: "الوارد − الصادر هذا الشهر",
     balanceByMethod: "الرصيد حسب طريقة الدفع",
     last6Months: "آخر 6 أشهر",
     topOutCategories: "أعلى المصروفات هذا الشهر",
@@ -272,7 +284,7 @@ export const t = {
     title: "الإعدادات",
     tabCategories: "التصنيفات",
     tabStaff: "الموظفون",
-    tabJoinCode: "رمز الانضمام",
+    tabJoinCode: "رمز انضمام الموظفين",
     tabLocks: "إقفال الأشهر",
     tabAccount: "حسابي",
 
@@ -283,20 +295,30 @@ export const t = {
     renameCategory: "تعديل الاسم",
 
     staffPending: "طلبات الانضمام",
-    staffActive: "الموظفون",
+    /** v1.4 part 3 (R5): the approved-logins card; «الموظفون» contradicted the employee list. */
+    staffActive: "حسابات الموظفين",
     allowEdit: "السماح بالتعديل",
+    /** v1.4 part 3 (R5): the switch's label follows its state; `editHelp` sits under it. */
+    editAllowed: "التعديل: مسموح",
+    editNotAllowed: "التعديل: غير مسموح",
+    editHelp: "الموظف يضيف الحركات دائمًا؛ هذا الخيار يسمح له بتعديلها.",
+    /** v1.4 part 3 (R5): the real path from an approved login to the employee file; «الموظفون» is the link. */
+    linkLoginHint: "لربط حساب الدخول بملف الموظف: الموظفون ← الموظف ← تعديل ← حساب الدخول المرتبط",
     resetPassword: "إعادة تعيين كلمة المرور",
-    resetPasswordFor: "كلمة مرور جديدة للموظف",
+    /** v1.4 part 3 (R5): no asterisk — the field is only needed for its own button. */
+    resetPasswordFor: "تعيين كلمة مرور جديدة (اختياري)",
     noPendingStaff: "لا توجد طلبات انضمام.",
-    noStaff: "لا يوجد موظفون بعد.",
+    noStaff: "لا توجد حسابات دخول بعد.",
     rejectStaffConfirm: "سيتم رفض الطلب ولن يستطيع الموظف الدخول. هل تريد المتابعة؟",
 
-    joinCodeTitle: "رمز الانضمام",
+    joinCodeTitle: "رمز انضمام الموظفين",
     joinCodeHint: "أعط هذا الرمز للموظف ليستخدمه عند إنشاء حسابه.",
     regenerate: "إعادة توليد الرمز",
-    regenerateConfirm: "سيتوقف العمل بالرمز الحالي فورا. هل تريد المتابعة؟",
+    regenerateConfirm: "سيتوقف العمل بالرمز الحالي فورًا. هل تريد المتابعة؟",
 
     locksTitle: "إقفال الأشهر",
+    /** v1.4 part 3 (R16): subtitle under the page title. */
+    locksSubtitle: "منع التعديل على شهر منتهٍ",
     locksHint: "بعد إقفال الشهر لا يمكن إضافة أو تعديل أو حذف حركاته.",
     lock: "إقفال",
     unlock: "إلغاء الإقفال",
@@ -307,6 +329,8 @@ export const t = {
     /** v1.4 (D17, c4/c19): the locks page's link back to the ledger, and the confirm on «إلغاء الإقفال» only. */
     backToLedger: "العودة إلى السجل",
     unlockConfirm: "سيُفتح الشهر للإضافة والتعديل من جديد لكل المستخدمين. هل تريد المتابعة؟",
+    /** v1.4 part 3 (R12, supersedes c19): «إقفال» asks too; `{month}` is the month's name. */
+    lockConfirm: "سيُقفل {month}: لا يمكن بعدها إضافة حركاته أو تعديلها حتى تفتحه.",
   },
 
   admin: {
@@ -330,6 +354,9 @@ export const t = {
 
   lock: {
     badge: "شهر مقفل",
+    /** v1.4 part 3 (R15): the line/title beside the badge — owner, then staff. */
+    badgeHintOwner: "لا يمكن التعديل — افتح الشهر من إقفال الأشهر",
+    badgeHintStaff: "لا يمكن التعديل — الشهر مقفل",
     blockedTitle: "هذا الشهر مقفل",
     blockedHint: "لا يمكن إضافة أو تعديل حركات في شهر مقفل.",
   },
@@ -337,23 +364,23 @@ export const t = {
   err: {
     required: "هذا الحقل مطلوب",
     invalidInput: "تحقق من البيانات المدخلة",
-    tooLong: "القيمة طويلة جدا",
+    tooLong: "القيمة طويلة جدًا",
     emailInvalid: "البريد الإلكتروني غير صحيح",
     passwordShort: "كلمة المرور يجب أن تكون 10 أحرف على الأقل",
     passwordMismatch: "كلمتا المرور غير متطابقتين",
     passwordWrong: "كلمة المرور الحالية غير صحيحة",
     nameShort: "الاسم يجب أن يكون حرفين على الأقل",
     nameLong: "الاسم يجب ألا يتجاوز 30 حرفًا",
-    establishmentNameShort: "اسم المنشأة قصير جدا",
-    establishmentNameLong: "اسم المنشأة طويل جدا",
+    establishmentNameShort: "اسم المنشأة قصير جدًا",
+    establishmentNameLong: "اسم المنشأة طويل جدًا",
     joinCodeInvalid: "رمز الانضمام غير صحيح",
     dateInvalid: "التاريخ غير صحيح",
     dateFuture: "لا يمكن اختيار تاريخ في المستقبل",
     rangeInvalid: "الفترة غير صحيحة",
-    rangeTooLong: "المدة طويلة جدا. اختر فترة لا تتجاوز سنة.",
+    rangeTooLong: "المدة طويلة جدًا. اختر فترة لا تتجاوز سنة.",
     amountInvalid: "المبلغ غير صحيح",
     amountPositive: "المبلغ يجب أن يكون أكبر من صفر",
-    amountTooLarge: "المبلغ كبير جدا",
+    amountTooLarge: "المبلغ كبير جدًا",
     categoryInvalid: "التصنيف غير صحيح",
     categoryDirectionMismatch: "التصنيف لا يطابق نوع الحركة",
     lastActiveCategory: "يجب أن يبقى تصنيف واحد نشط على الأقل لكل نوع",
@@ -486,7 +513,7 @@ export const t = {
   // v1.3 sections (dashVisual, duesRibbon, planBar, budgetMeter, liveClock, …)
   ...v13Sections,
 
-  // v1.4 sections (categoryQuick, categoriesPage, addSheet, ledgerTabs, openPlan)
+  // v1.4 sections (categoryQuick, categoriesPage, addSheet, ledgerTabs, openPlan, …, pendingJoin)
   ...v14,
 
   a11y: {

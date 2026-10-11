@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   currentMonthKey,
+  dateCaption,
   dateToISO,
   isoToDate,
   lastMonths,
@@ -101,5 +102,19 @@ describe("monthNameAr", () => {
     expect(monthNameAr(12)).toBe("ديسمبر");
     expect(monthNameAr(13)).toBe("");
     expect(monthNameAr(0)).toBe("");
+  });
+});
+
+describe("dateCaption (v1.4 part 3, R13)", () => {
+  it("reads weekday first, then DD-MM-YYYY with Western digits", () => {
+    expect(dateCaption("2026-10-11")).toBe("الأحد 11-10-2026");
+    expect(dateCaption("2026-10-15")).toBe("الخميس 15-10-2026");
+    expect(dateCaption("2026-01-03")).toBe("السبت 03-01-2026");
+  });
+
+  it("answers null for anything that is not a real YYYY-MM-DD", () => {
+    for (const bad of ["", "2026-10", "11-10-2026", "2026-13-01", "2026-02-30", "abcd-ef-gh"]) {
+      expect(dateCaption(bad)).toBeNull();
+    }
   });
 });

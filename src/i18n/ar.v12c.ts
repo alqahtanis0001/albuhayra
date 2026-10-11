@@ -66,8 +66,9 @@ export const v12cSections = {
   },
 
   aging: {
-    title: "أعمار المستحقات",
-    tab: "أعمار المستحقات",
+    /** v1.4 part 3 (R11): «أعمار» was opaque. */
+    title: "المتأخرات حسب المدة",
+    tab: "المتأخرات حسب المدة",
     help: "الأقساط المتأخرة غير المسددة، موزعة حسب عدد أيام التأخير.",
     bucket0: "0–30 يومًا",
     bucket31: "31–60 يومًا",
@@ -78,7 +79,7 @@ export const v12cSections = {
     party: "الجهة",
     total: "الإجمالي",
     empty: "لا توجد مستحقات متأخرة.",
-    printTitle: "تقرير أعمار المستحقات",
+    printTitle: "تقرير المتأخرات حسب المدة",
   },
 
   statementExport: {

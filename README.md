@@ -10,8 +10,8 @@ It is an internal ledger only. There is **no** invoicing, VAT, ZATCA, receipts o
 - **Staff**: signs up with the owner's join code and waits for the owner's approval. Can always add entries. Can edit only if the owner allows it, and can never delete.
 
 **Finding your way around (v1.4)**
-- Owner navigation: **الرئيسية · «+ إضافة» · السجل · التقارير · العملاء والالتزامات (الجهات، الاتفاقيات، المستحقات) · الموظفون والحضور (الموظفون، الحضور، حسابات الدخول) · الإعدادات (رمز الانضمام، إقفال الأشهر، التذكيرات، حسابي)**. On a phone the bar is **الرئيسية | إضافة | السجل | المستحقات | المزيد**.
-- The one **«+»** opens a sheet with everything you can add: حركة جديدة · تسجيل دفعة · اتفاقية جديدة · جهة جديدة · نشاط جديد · موظف جديد. Staff see حركة جديدة (and تسجيل حضوري when linked to an employee record).
+- Owner navigation: **الرئيسية · «+ إضافة» · السجل · التقارير · العملاء والالتزامات (الجهات، الاتفاقيات، المستحقات) · الموظفون والحضور (الموظفون، الحضور، دخول الموظفين) · الإعدادات (رمز انضمام الموظفين، إقفال الأشهر، التذكيرات، حسابي)**. On a phone the bar is **الرئيسية | إضافة | السجل | المستحقات | المزيد**.
+- The one **«+»** opens a sheet with everything you can add: حركة جديدة · دفعة على اتفاقية · اتفاقية جديدة · جهة جديدة · نشاط جديد · موظف جديد. Staff see حركة جديدة (and تسجيل حضوري when linked to an employee record).
 - **السجل** has two tabs: **الحركات** (the ledger) and **الأنشطة** (named cost items with their own costs and budget — called «الإضافات» before v1.4).
 - **Categories** are added and hidden straight from the entry form («+ إضافة تصنيف», «تعديل التصنيفات»); renaming and reordering stay in `/owner/settings/categories`. A **new party** can be added the same way from the party select («+ جهة جديدة»). The entry form keeps الجهة / ضمن نشاط / ملاحظة behind «تفاصيل أكثر», and a new establishment's home opens with an **«ابدأ هنا»** checklist.
 - An **اتفاقية مفتوحة** is an agreement without a schedule: an optional ceiling, payments recorded as they arrive, closed automatically when the ceiling is reached. Scheduled agreements are unchanged, and a scheduled row is called a **قسط**.

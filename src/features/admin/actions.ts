@@ -28,6 +28,7 @@ import { writeAudit } from "@/lib/audit";
 import { hashPassword, requireAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { commonPasswordError } from "@/lib/passwords/server";
+import { CUSTOMER_PAYMENT_CATEGORY } from "@/lib/categoryNames";
 import {
   SetPasswordSchema,
   invalid,
@@ -53,7 +54,8 @@ const flagSchema = z.object({
  */
 const DEFAULT_CATEGORIES: ReadonlyArray<{ nameAr: string; type: DirectionValue }> = [
   { nameAr: "مبيعات", type: "IN" },
-  { nameAr: "دفعة من عميل", type: "IN" },
+  // v1.4 part 3 (R7): «سداد من عميل», so a sale and a payment on an agreement read apart.
+  { nameAr: CUSTOMER_PAYMENT_CATEGORY, type: "IN" },
   { nameAr: "رصيد افتتاحي / رأس مال", type: "IN" },
   { nameAr: "أخرى", type: "IN" },
   { nameAr: "إيجار", type: "OUT" },

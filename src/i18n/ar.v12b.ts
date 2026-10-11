@@ -123,7 +123,8 @@ export const v12bSections = {
     checkOut: "الانصراف",
     hours: "الساعات",
     note: "ملاحظة",
-    computed: "محسوب",
+    /** v1.4 part 3 (R15): «محسوب» read as "charged against him". */
+    computed: "مسجّل",
     overridden: "معدّل يدويًا",
     save: "حفظ الحضور",
     saved: "تم حفظ الحضور",
@@ -162,7 +163,8 @@ export const v12bSections = {
   quickActions: {
     title: "إجراءات سريعة",
     newEntry: "حركة جديدة",
-    recordPayment: "تسجيل دفعة",
+    /** v1.4 part 3 (R1): the tile goes to المستحقات, so it says so; cash goes through «حركة جديدة». */
+    recordPayment: "دفعة على اتفاقية",
     recordAttendance: "تسجيل حضور",
   },
 

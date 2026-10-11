@@ -54,6 +54,7 @@ export default async function StaffNewTransactionPage({
       <h1 className="text-xl font-semibold text-gray-900">
         {pay ? t.payment.title : t.transaction.newTitle}
       </h1>
+      {pay ? null : <p className="-mt-2 text-sm text-gray-600">{t.transaction.newSubtitle}</p>}
       <TransactionForm
         mode="new"
         action={createTransaction}
@@ -63,7 +64,7 @@ export default async function StaffNewTransactionPage({
         lockedMonths={lockedMonths}
         today={todayISO()}
         presetProjectId={presetProjectId}
-        doneHref={pay ? "/staff" : "/staff/transactions"}
+        doneHref={pay ? "/staff?saved=1" : "/staff/transactions?saved=1"} // R4
         notice={notice}
         payment={
           pay
