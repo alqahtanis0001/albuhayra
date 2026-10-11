@@ -39,7 +39,10 @@ describe("StaffTab (R5)", () => {
     const at = t.settings.linkLoginHint.indexOf(t.navItem.staffList);
     const prefix = t.settings.linkLoginHint.slice(0, at);
     const suffix = t.settings.linkLoginHint.slice(at + t.navItem.staffList.length);
-    expect(out).toMatch(new RegExp(`${prefix}<a [^>]*href="/owner/staff"[^>]*>${t.navItem.staffList}</a>${suffix}`));
+    const esc = (v: string) => v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    expect(out).toMatch(
+      new RegExp(`${esc(prefix)}<a [^>]*href="/owner/staff"[^>]*>${esc(t.navItem.staffList)}</a>${esc(suffix)}`),
+    );
     const link = out.match(STAFF_LINK)?.[0] ?? "";
     expect(link).toContain("min-h-11");
     expect(out.match(new RegExp(STAFF_LINK.source, "g"))?.length).toBe(1);

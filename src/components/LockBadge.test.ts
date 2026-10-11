@@ -17,7 +17,8 @@ describe("LockBadge hints (R15)", () => {
     const out = renderToStaticMarkup(createElement(LockBadge, { href: "/owner/settings/locks" }));
     expect(out).toContain(`title="${t.lock.badgeHintOwner}"`);
     expect(out).not.toContain(t.lock.badgeHintStaff);
-    expect(out).toContain(`>${t.lock.badgeHintOwner}</span>`);
+    const line = out.match(new RegExp(`<span [^>]*>${t.lock.badgeHintOwner}</span>`))?.[0] ?? "";
+    expect(line).toMatch(/class="[^"]*\bno-print\b/);
     expect(out).toMatch(/<a [^>]*href="\/owner\/settings\/locks"/);
     expect(out).toContain(t.lock.badge);
   });

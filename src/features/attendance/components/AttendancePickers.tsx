@@ -6,7 +6,7 @@
 import { Button } from "@/components/Button";
 import { DateField } from "@/components/DateField";
 import { Select } from "@/components/Select";
-import { monthOptions } from "@/features/reports/components/reportRange";
+import { monthOptions } from "@/features/reports/components/reportMonths";
 import { t } from "@/i18n/ar";
 
 const BASE = "/owner/staff/attendance";

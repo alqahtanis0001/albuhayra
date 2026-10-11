@@ -23,7 +23,8 @@ export function LockBadge({ href }: { href?: string }) {
   return (
     <span title={t.lock.badgeHintOwner} className="inline-flex flex-wrap items-center gap-2">
       {badge}
-      <span className="text-xs text-gray-600">{t.lock.badgeHintOwner}</span>
+      {/* Reviewer R1 S1: the line is a screen hint, not content — never printed on a locked row. */}
+      <span className="no-print text-xs text-gray-600">{t.lock.badgeHintOwner}</span>
       <Link
         href={href}
         className="no-print inline-flex min-h-11 items-center text-sm font-medium text-accent-dark underline"

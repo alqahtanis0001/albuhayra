@@ -14,6 +14,7 @@ Brief: `progress/v14/brief-p3-words.md`; spec `docs/V14-SPEC.md` D29–D31. Only
 | W5 | `StaffTab.tsx` (`LinkLoginHint`: one key, split at render time around `t.navItem.staffList`, link to `/owner/staff`, shown once as the first `<li>` of the approved card, only with rows), new `StaffTab.test.ts` (href present, the word exactly once inside `<a>`, none without rows) | green | row controls stubbed in the test — `flows` edits them |
 | W6 | `DirectionToggle.tsx` (`<p id="direction-help">` under the pair, `aria-describedby` on the fieldset), new `directionToggle.test.ts` | green | fixed id: one toggle per form |
 | W7 | `OwnerStatCards.tsx` (`hint` on «الصافي» only), `LockBadge.tsx` (`title` both arms; owner arm also writes the line beside the link), new `OwnerStatCards.test.ts`, `LockBadge.test.ts`; `ledgerRows.test.ts` two pins tightened (see Gotchas) | green | |
+| R1 S1 (reviewer) | `LockBadge.tsx`: the owner's written line gets `no-print` (the link beside it already had it — with the new owner-ledger print it would print on every locked row); `LockBadge.test.ts` pins the span's class; `StaffTab.test.ts` escapes the RegExp built from the i18n value (reviewer note) | `LockBadge.test.ts` + `StaffTab.test.ts`: 6/6 green; mutation killed. `tsc` on the shared tree: 2 errors, both in `flows`' in-flight `reportFilters.test.ts:56` / `staffRowActions.test.ts:52`, none in my files | |
 | W8 | values: tanween on `settings.regenerateConfirm` «فورًا», `err.tooLong/establishmentNameShort/establishmentNameLong/rangeTooLong/amountTooLarge` «جدًا» (no test pinned them literally); every D29 bold string equals its value (pinned) | tsc 0; vitest 107 files / 1549; build + bundles below | |
 | W2 | `src/features/admin/actions.ts` (`DEFAULT_CATEGORIES` «سداد من عميل»), `src/features/admin/admin.test.ts` (IN names pinned in order) | same | the wording test also anchors the seed row's syntax in the source (`{ nameAr: "سداد من عميل", type: "IN" }`) |
 
@@ -32,6 +33,7 @@ Brief: `progress/v14/brief-p3-words.md`; spec `docs/V14-SPEC.md` D29–D31. Only
 | R2 helper | drop the helper `<p>` | only `renders the sentence under the two segments…` | `cp`/`cmp` |
 | R15 net | drop `hint=` on «الصافي» | only `the net hint appears exactly once…` | `cp`/`cmp` |
 | R15 badge | swap `badgeHintOwner` ↔ `badgeHintStaff` | both arms of `LockBadge.test.ts` | `cp`/`cmp` |
+| R15 print | drop `no-print` from the owner line | only `owner: title + the line as text + the link` | `cp`/`cmp` |
 | R7 seed | `DEFAULT_CATEGORIES` row → «دفعة من عميل» | `R7: «دفعة من عميل» is in no value…` (wording) and `creates the 13 default categories` (admin) | `cp` backup, `cmp` byte-exact |
 
 ## Gotchas I found

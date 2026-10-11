@@ -21,7 +21,7 @@ vi.mock("@/lib/auth", () => ({
 }));
 vi.mock("@/features/parties/queries", () => ({ listPartyOptions: async () => [] }));
 vi.mock("@/features/reports/queries", () => ({
-  getReport: async () => ({ from: "2026-10-01", to: "2026-10-31", inRows: [], outRows: [], totalIn: 0, totalOut: 0, net: 0, party: null }),
+  getReport: async () => ({ from: "2026-10-01", to: "2026-10-31", inRows: [], outRows: [], totalIn: 0, totalOut: 0, net: 0, party: undefined }),
 }));
 vi.mock("@/features/reports/components/ReportTables", () => ({ ReportTables: () => createElement("table", { id: "report" }) }));
 
@@ -56,7 +56,8 @@ describe("ReportFilters (R11)", () => {
     const html = render({ from: "2026-10-01", to: "2026-10-31", month: null, rejected: { from: "2026-01-01", to: "2027-12-31", toError: "err.rangeTooLong" } });
     expect(html).toMatch(/<input [^>]*name="from"[^>]*value="2026-01-01"/);
     expect(html).toMatch(/<input [^>]*name="to"[^>]*value="2027-12-31"/);
-    expect(html).toMatch(/<input [^>]*name="to"[^>]*aria-invalid="true"/);
+    // React's static markup writes an <input>'s name/value last, so match the element, then the flag.
+    expect(/<input [^>]*name="to"[^>]*>/.exec(html)?.[0]).toMatch(/aria-invalid="true"/);
   });
 
   it("neither the client leaf nor reportMonths mentions the validation barrel or reportRange (D32 B1)", () => {

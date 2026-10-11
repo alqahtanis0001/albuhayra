@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -33,6 +34,11 @@ describe("Toast (D29 R3)", () => {
   it("an error toast is an alert, a success toast a status", () => {
     expect(render("error")).toMatch(/<div [^>]*role="alert"/);
     expect(render("success")).toMatch(/<div [^>]*role="status"/);
+  });
+
+  it("the component wires the effect to startAutoDismiss with its tone (static anchor)", () => {
+    const source = readFileSync("src/components/Toast.tsx", "utf8");
+    expect(source).toMatch(/useEffect\(\s*\(\) => startAutoDismiss\(tone,/);
   });
 
   describe("auto-dismiss (fake timers)", () => {
