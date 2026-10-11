@@ -175,7 +175,7 @@ Backend contract: `docs/BACKEND.md` → *v1.2a*. Strings: `src/i18n/ar.v12a.ts` 
 - **`/owner/parties/[id]` كشف حساب:** table date · البيان (`t.statement.*` with the plan title) · المبلغ (signed: + لنا / − علينا, `signed` like الصافي) · الرصيد (running, with لنا/علينا word), closing balance box; then «حركات أخرى مع الجهة» (`t.statement.otherHint`). **Printable** with `t.print.statementTitle`, party name and print date.
 
 ### Rule changes
-- *Do not* list: `localStorage` is now allowed for **two** things — the last-used direction and the nav's used-groups set. Nothing else.
+- *Do not* list: `localStorage` is now allowed for **two** things — the last-used direction and the nav's used-groups set. Nothing else. **v1.4 part 2 (D24/D25): four things** — plus the entry form's «تفاصيل أكثر» state (`ledger:detailsOpen`) and the first-run card's «إخفاء» (`home:firstRunHidden`); every access in `try/catch`, read after mount only.
 - The *Layout per role area* owner tab list above is superseded by *Owner navigation (CP1)*.
 
 ### v1.2a amendments after the pre-code review (binding)
