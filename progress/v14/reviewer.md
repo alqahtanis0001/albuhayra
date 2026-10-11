@@ -390,3 +390,8 @@ Read: `progress/v14/flows.md` (31 mutations); `git diff 749f9a8` / `8867a0c` of 
 
 #### Verdict for CP-E
 **Go.** Nothing blocks the commit or the merge: every R1–R16 mechanism is in, scoped, pinned by a non-vacuous test, barrel-free in the client leaves, and within +8.5 KB gz on the worst route. R-p3-3-S1 is a one-token fix (`value={firstDate}`) that I would take before the commit because it is user-visible on keyboard date entry; the notes are housekeeping for the release record and the lead's 390 px pass.
+
+### D34 look (Toast `inline`, no ✕ on success, migration test) — confirmed
+- Every `tone="success"` caller in `src/` passes `onDismiss` (grep: 11 sites incl. the three multi-line ones), so each still auto-dismisses; `startAutoDismiss` is unchanged. **NOTE:** with the ✕ gone, a success toast *without* `onDismiss` would now stay forever — nothing in the component guards it. One static sweep (`every "tone=\"success\"" site carries onDismiss`) or `startAutoDismiss` falling back to a no-op dismiss would close the gap.
+- A11y: `role="status"` / `aria-live="polite"` kept (fixed and inline; pinned); a non-interactive 3 s status needs no dismiss control (WCAG 2.2.1 exempts it); errors keep `role="alert"` + ✕. Inline strip keeps `no-print`, drops `fixed/z-50/top-20/pointer-events-none` (pinned).
+- `migration.v14p3.test.ts` is non-vacuous: rows seeded before the directory is applied on PGlite; the expected map distinguishes the renamed seeded row (A), the guarded one (B, beside a hand-made «سداد من عميل»), an OUT row and a near-miss name (C) — dropping `NOT EXISTS` flips `b_old`, dropping the `type` guard flips `c_out`; the column-list case pins "no shape change".

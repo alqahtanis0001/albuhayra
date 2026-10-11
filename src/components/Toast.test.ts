@@ -1,3 +1,4 @@
+import { execSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -80,5 +81,20 @@ describe("Toast (D29 R3)", () => {
       vi.advanceTimersByTime(SUCCESS_DISMISS_MS * 2);
       expect(onDismiss).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe("every success toast can leave on its own (D34 note)", () => {
+  it("each <Toast … tone=\"success\"> element in src/ passes onDismiss — with no ✕, nothing else would dismiss it", () => {
+    const files = execSync('grep -rl \'tone="success"\' src --include=*.tsx', { encoding: "utf8" }).trim().split("\n");
+    expect(files.length).toBeGreaterThan(5);
+    const offenders: string[] = [];
+    for (const file of files) {
+      const source = readFileSync(file, "utf8");
+      for (const element of source.match(/<Toast\b[\s\S]*?\/>/g) ?? []) {
+        if (element.includes('tone="success"') && !element.includes("onDismiss")) offenders.push(file);
+      }
+    }
+    expect(offenders).toEqual([]);
   });
 });
