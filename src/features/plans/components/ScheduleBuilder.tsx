@@ -147,7 +147,7 @@ export function ScheduleBuilder({
             name="scheduleFirstDate"
             form="__none"
             min={startDate || undefined}
-            value={first}
+            value={firstDate}
             onChange={(e) => setFirstDate(e.target.value)}
           />
           <Select

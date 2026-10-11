@@ -124,3 +124,19 @@ Renames are values in `src/i18n/*` only; keys and routes unchanged. Where a rena
 5. **Rename the four opaque tiles and default the agreement paperwork** (c, b-9): «الجهات» → «العملاء والموردون», home tile «تسجيل دفعة» → «دفعة على اتفاقية», «حسابات الدخول» → «دخول الموظفين», «رمز الانضمام» → «رمز انضمام الموظفين»; prefill the agreement title «{party} — {n} أقساط» and the category by direction so the form asks only for the customer, the amount and the schedule.
 
 Everything above changes wording, helper text, order, defaults, confirmations and empty states only. No function is removed; nothing about invoicing, VAT or receipts is proposed.
+
+---
+
+## (f) Re-run after v1.4 part 3 (2026-10-11, branch `claude/zakhm-v14-part3-wording-z53lw5`)
+
+The lead replayed tasks 2, 4, 6, 10 and 13 as أبو فهد at 390 px against the part-3 build (`progress/v14/owner-test/driver/tasks-p3.sh` through the rebuilt driver `driver/server.mjs`; journal `journal-p3.txt`; screenshots `abu-fahd-p3-*.jpg`), in a fresh throwaway establishment seeded through the real forms (owner approved from `/admin`, سعد's join request left pending, employee سعد with a 4,000 salary on the 27th). Same tap rule as (a): goto / tap / fill / select count one each. Task 5 (the first instalment payment) was run between 4 and 6 as in the original (2 taps, unchanged).
+
+| # | Task | Taps before → after | What changed on the path |
+|---|---|---|---|
+| 2 | زبون دفع لي 500 كاش | 7 → **5** | The home tile now reads «دفعة على اتفاقية», so he goes straight to «حركة جديدة» (no wrong turn); «سداد من عميل» with the helper under the list; «تم حفظ الحركة» on landing, the filters behind «تصفية», the new row at the top of the screen (022). |
+| 4 | محمد بيدفع 6,000 على 3 دفعات | 13 → **10** | «اتفاقية مع محمد» and the category are prefilled once محمد is added; the «تمت إضافة الجهة» toast sits under the top bar (y = 93 px) and «حفظ» at y = 1530 px — no overlap (007); «عدد الأقساط» above «توليد» with the hint. |
+| 6 | كم باقي على محمد؟ | 3 → **2** | The empty week card says what it is and links «كم باقي على عميل؟ افتح الجهات» → «محمد · لنا 4,000.00» (013, 014). |
+| 10 | أبي أصرف راتب سعد | 5 → **5** | Same path, no confusion left: «صرف راتب», «راتب شهر أكتوبر 2026 — سعد العتيبي», «المتبقي من راتب الشهر», «الرواتب القادمة 4,000», «فتح ملف الموظف»; after «حفظ» he is back on سعد's page with «تم حفظ الحركة» (015, 016). |
+| 13 | أعطي سعد دخول | 4 → **3** | The home shows «طلب انضمام جديد من سعد العتيبي» (017); «المزيد» → «دخول الموظفين» → «قبول»; the row reads «التعديل: غير مسموح» with the helper, the link-to-employee hint sits above it, the reset field is «(اختياري)» without an asterisk — nothing left to tap "to be safe" (020). |
+
+Measured on the same run: the toast box never intersects «حفظ» at 390 px (R3); the ledger's newest row top is 413 px of 844 after a save (R4); every date field shows its caption «الأحد 11-10-2026» (R13); the dues strip is a two-column grid, page `scrollWidth` = 390 (R15); «إقفال» asks «سيُقفل سبتمبر 2026: …» (R12); the report renders above its one «عرض» form and the tab reads «المتأخرات حسب المدة» (R11). One note for the live deploy: an establishment created before part 3 keeps «دفعة من عميل» until the data migration runs — on this local stack it was applied by hand after the fact, which is exactly what `migrate deploy` does on Render.
