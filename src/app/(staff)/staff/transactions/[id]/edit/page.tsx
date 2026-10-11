@@ -61,7 +61,7 @@ export default async function StaffEditTransactionPage({
         projects={projects}
         lockedMonths={lockedMonths}
         today={todayISO()}
-        doneHref="/staff/transactions"
+        doneHref="/staff/transactions?saved=1" // R4
         initial={row}
         payment={link ? { direction: link.direction } : undefined}
         banner={

@@ -53,7 +53,8 @@ const flagSchema = z.object({
  */
 const DEFAULT_CATEGORIES: ReadonlyArray<{ nameAr: string; type: DirectionValue }> = [
   { nameAr: "مبيعات", type: "IN" },
-  { nameAr: "دفعة من عميل", type: "IN" },
+  // v1.4 part 3 (R7): «سداد من عميل», so a sale and a payment on an agreement read apart.
+  { nameAr: "سداد من عميل", type: "IN" },
   { nameAr: "رصيد افتتاحي / رأس مال", type: "IN" },
   { nameAr: "أخرى", type: "IN" },
   { nameAr: "إيجار", type: "OUT" },

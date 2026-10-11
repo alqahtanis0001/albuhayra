@@ -5,6 +5,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { Pagination } from "@/components/Pagination";
 import { Tabs } from "@/components/Tabs";
 import { PlusIcon } from "@/components/icons";
+import { SavedNotice } from "@/components/SavedNotice";
 import { listProjects } from "@/features/projects/queries";
 import { LedgerFilters } from "@/features/transactions/components/LedgerFilters";
 import { LedgerList } from "@/features/transactions/components/LedgerList";
@@ -106,6 +107,8 @@ export default async function OwnerLedgerPage({
   return (
     <div className="flex flex-col gap-4">
       <Header tab={tab} />
+      {/* R4: a save lands here with ?saved=1; the notice drops it again. */}
+      <SavedNotice saved={raw.saved === "1"} />
 
       <LedgerFilters
         filters={filters}

@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/Button";
 import { FormToast } from "@/components/FormToast";
-import { Input } from "@/components/Input";
+import { DateField } from "@/components/DateField";
+import { withSaved } from "@/components/savedParam";
 import { Select } from "@/components/Select";
 import { Toast } from "@/components/Toast";
 import { errorMessage, t } from "@/i18n/ar";
@@ -125,7 +126,7 @@ export function TransactionForm({
         setLinkKey((k) => k + 1);
         setSaved(true);
       } else {
-        router.push(doneHref);
+        router.push(withSaved(doneHref)); // R4: the landing page shows «تم حفظ الحركة».
       }
       return result;
     },
@@ -170,10 +171,9 @@ export function TransactionForm({
         disabled={originalLocked}
       />
 
-      <Input
+      <DateField
         label={t.transaction.date}
         name="date"
-        type="date"
         value={date}
         max={today}
         onChange={(event) => setDate(event.target.value)}
@@ -240,7 +240,7 @@ export function TransactionForm({
       {noticeShown && notice ? (
         <Toast message={errorMessage(notice)} onDismiss={() => setNoticeShown(false)} />
       ) : null}
-      {saved ? <Toast message={t.common.saved} tone="success" onDismiss={() => setSaved(false)} /> : null}
+      {saved ? <Toast message={t.transaction.saved} tone="success" onDismiss={() => setSaved(false)} /> : null}
     </form>
   );
 }

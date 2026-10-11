@@ -18,6 +18,7 @@ import { useActionState, useState } from "react";
 
 import { Button } from "@/components/Button";
 import { FormToast } from "@/components/FormToast";
+import { DateField } from "@/components/DateField";
 import { Input } from "@/components/Input";
 import { Select } from "@/components/Select";
 import { recordOpenPlanPayment } from "@/features/transactions/actions";
@@ -54,11 +55,10 @@ export function OpenPaymentForm({ planId, today }: { planId: string; today: stri
     <form action={formAction} className="flex flex-col gap-4" noValidate>
       <div className="grid gap-4 sm:grid-cols-2">
         <AmountField id="payAmount" value={amount} onChange={setAmount} error={fieldErrors?.amountHalalas} />
-        <Input
+        <DateField
           label={t.transaction.date}
           name="date"
           id="payDate"
-          type="date"
           max={today}
           value={date}
           onChange={(e) => setDate(e.target.value)}

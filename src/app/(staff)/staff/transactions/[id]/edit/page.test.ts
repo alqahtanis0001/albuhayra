@@ -71,7 +71,7 @@ describe("/staff/transactions/[id]/edit and open-plan payments (P4)", () => {
   it("a plain row reaches the form with the staff's way back", async () => {
     const out = renderToStaticMarkup(await render());
     expect(out).toContain('data-mode="edit"');
-    expect(out).toContain('data-done="/staff/transactions"');
+    expect(out).toContain('data-done="/staff/transactions?saved=1"'); // R4
     expect(out).toContain('data-id="tx_1"');
     expect(h.reads).toEqual(["requireCanEdit", "getTransaction:tx_1"]);
   });

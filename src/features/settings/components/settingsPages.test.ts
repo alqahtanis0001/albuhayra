@@ -49,7 +49,7 @@ vi.mock("@/features/locks/actions", () => ({
 const { default: CategoriesSettingsPage } = await import("@/app/(owner)/owner/settings/categories/page");
 const { default: LocksSettingsPage } = await import("@/app/(owner)/owner/settings/locks/page");
 const { settingsRedirectPath } = await import("./settingsPaths");
-const { LockCell, pressTarget } = await import("./LockCell");
+const { LockCell, dialogText, pressTarget } = await import("./LockCell");
 const { LockBadge } = await import("@/components/LockBadge");
 const { LockedNotice } = await import("@/features/transactions/components/LockedNotice");
 
@@ -114,10 +114,14 @@ describe("c4 — lock links for the owner, none for staff", () => {
     expect(out).toContain(t.settings.backToLedger);
     expect(out).toContain('href="/owner/transactions"');
     expect(out.indexOf("<h1")).toBeLessThan(out.indexOf(t.settings.backToLedger));
+    // v1.4 part 3 (R16, words): the subtitle sits under the h1; the card's own hint stays.
+    expect(out).toContain(t.settings.locksSubtitle);
+    expect(out.indexOf("<h1")).toBeLessThan(out.indexOf(t.settings.locksSubtitle));
+    expect(out.indexOf(t.settings.locksSubtitle)).toBeLessThan(out.indexOf(t.settings.backToLedger));
   });
 });
 
-describe("c19 — «إلغاء الإقفال» asks first, «إقفال» stays one tap", () => {
+describe("c19 → R12 — «إلغاء الإقفال» and «إقفال» both ask first", () => {
   const row = (locked: boolean) => ({
     year: 2026,
     month: 9,
@@ -128,9 +132,9 @@ describe("c19 — «إلغاء الإقفال» asks first, «إقفال» stays
     lockable: true,
   });
 
-  it("a press on a locked month reaches the confirm, on an open month the action", () => {
+  it("a press on either month state reaches the confirm (R12 supersedes c19's one-tap lock)", () => {
     expect(pressTarget(true)).toBe("confirm");
-    expect(pressTarget(false)).toBe("toggle");
+    expect(pressTarget(false)).toBe("confirm");
   });
 
   it("the cell renders its button and no <dialog> until asked (one at most, not 24)", () => {
@@ -142,11 +146,21 @@ describe("c19 — «إلغاء الإقفال» asks first, «إقفال» stays
     expect(open).not.toContain("<dialog");
   });
 
-  it("the confirm text is the unlock warning (static, anchored on the dialog's props)", async () => {
+  it("the lock dialog names the month in its title and sentence; the unlock dialog is unchanged", () => {
+    const lock = dialogText(false, "سبتمبر 2026");
+    expect(lock.title).toBe(`${t.settings.lock}: سبتمبر 2026`);
+    expect(lock.message).toBe(t.settings.lockConfirm.replace("{month}", "سبتمبر 2026"));
+    expect(lock.message).toContain("سبتمبر 2026");
+    expect(lock.message).not.toContain("{month}");
+    const unlock = dialogText(true, "سبتمبر 2026");
+    expect(unlock.title).toBe(`${t.settings.unlock}: سبتمبر 2026`);
+    expect(unlock.message).toBe(t.settings.unlockConfirm);
+  });
+
+  it("the dialog takes its text from dialogText and the accent tone (static, anchored on its props)", async () => {
     const { readFileSync } = await import("node:fs");
     const source = readFileSync("src/features/settings/components/LockCell.tsx", "utf8");
-    expect(source).toMatch(/<ConfirmDialog[\s\S]*?message=\{t\.settings\.unlockConfirm\}[\s\S]*?tone="accent"/);
-    // The lock branch never opens it: `pressTarget` decides, and only "confirm" sets the state.
+    expect(source).toMatch(/<ConfirmDialog[\s\S]*?title=\{dialog\.title\}[\s\S]*?message=\{dialog\.message\}[\s\S]*?tone="accent"/);
     expect(source).toMatch(/pressTarget\(row\.locked\) === "confirm" \? setConfirm\(true\) : toggle\(\)/);
   });
 });

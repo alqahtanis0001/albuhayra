@@ -18,6 +18,7 @@ import { useActionState, useState } from "react";
 
 import { Button } from "@/components/Button";
 import { FormToast } from "@/components/FormToast";
+import { DateField } from "@/components/DateField";
 import { Input } from "@/components/Input";
 import { Select } from "@/components/Select";
 import { Textarea } from "@/components/Textarea";
@@ -173,10 +174,9 @@ export function PlanForm({
       />
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Input
+        <DateField
           label={t.plans.startDate}
           name="startDate"
-          type="date"
           value={v.startDate}
           onChange={(e) => set("startDate", e.target.value)}
           required

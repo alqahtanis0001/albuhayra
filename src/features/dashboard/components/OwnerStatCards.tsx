@@ -51,6 +51,7 @@ export function OwnerStatCards(data: Props) {
       <StatCard
         label={t.dashboard.monthNet}
         value={<CountUp halalas={data.monthNetHalalas} signed />}
+        hint={t.dashboard.monthNetHint}
         extra={<Momentum current={data.monthNetHalalas} previous={data.prevMonthToDateNetHalalas} />}
         spark={spark(series((d) => d.inHalalas - d.outHalalas), "line", "neutral", t.dashVisual.sparkNet)}
       />

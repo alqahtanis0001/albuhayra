@@ -236,14 +236,16 @@ describe("tab bar slots (B2, D13, A7)", () => {
 describe("addRows (B1, D16 b/c)", () => {
   it("owner: six rows in spec order", () => {
     expect(addRows("OWNER").map((r) => [r.href, r.label])).toEqual([
-      ["/owner/transactions/new", "حركة جديدة"],
-      ["/owner/plans?pick=payment", "تسجيل دفعة"],
+      ["/owner/transactions/new", t.addSheet.newEntry],
+      ["/owner/plans?pick=payment", t.addSheet.recordPayment],
       ["/owner/plans/new", t.plans.add],
-      ["/owner/parties/new", "جهة جديدة"],
-      ["/owner/projects/new", "نشاط جديد"],
-      ["/owner/staff/new", "موظف جديد"],
+      ["/owner/parties/new", t.addSheet.newParty],
+      ["/owner/projects/new", t.addSheet.newProject],
+      ["/owner/staff/new", t.addSheet.newEmployee],
     ]);
     expect(t.plans.add).toBe("اتفاقية جديدة");
+    // v1.4 part 3 (R1): the row goes to the agreement pick list, so it says so.
+    expect(t.addSheet.recordPayment).toBe("دفعة على اتفاقية");
   });
 
   it("staff: one row unlinked, «تسجيل حضوري» second when linked; admin none", () => {

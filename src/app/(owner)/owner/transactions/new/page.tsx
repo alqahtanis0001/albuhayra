@@ -9,6 +9,7 @@ import { getInstalmentForPayment } from "@/features/plans/dues";
 import { listProjectOptions } from "@/features/projects/queries";
 import { PaymentBanner } from "@/features/transactions/components/PaymentBanner";
 import { TransactionForm } from "@/features/transactions/components/TransactionForm";
+import { withSaved } from "@/components/savedParam";
 import { t } from "@/i18n/ar";
 import { requireOwner } from "@/lib/auth";
 import { todayISO } from "@/lib/dates";
@@ -46,17 +47,21 @@ export default async function OwnerNewTransactionPage({
       ? await getInstalmentForPayment(establishmentId, sp.instalmentId)
       : null;
   const notice = sp.instalmentId !== undefined && !pay ? "err.instalmentInvalid" : undefined;
-  const doneHref = pay
-    ? `/owner/plans/${pay.planId}?paid=${encodeURIComponent(pay.instalmentId)}`
-    : presetProjectId
-      ? `/owner/projects/${presetProjectId}`
-      : "/owner/transactions";
+  // R4: every landing page shows «تم حفظ الحركة» from `?saved=1`.
+  const doneHref = withSaved(
+    pay
+      ? `/owner/plans/${pay.planId}?paid=${encodeURIComponent(pay.instalmentId)}`
+      : presetProjectId
+        ? `/owner/projects/${presetProjectId}`
+        : "/owner/transactions",
+  );
 
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-xl font-semibold text-gray-900">
         {pay ? t.payment.title : t.transaction.newTitle}
       </h1>
+      {pay ? null : <p className="-mt-2 text-sm text-gray-600">{t.transaction.newSubtitle}</p>}
       <TransactionForm
         mode="new"
         action={createTransaction}

@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { Card } from "@/components/Card";
 import { DateText } from "@/components/DateText";
 import { EmptyState } from "@/components/EmptyState";
@@ -42,6 +44,9 @@ export function StaffTab({ staff }: { staff: StaffRow[] }) {
           <EmptyState title={t.settings.noStaff} />
         ) : (
           <ul>
+            <li className="no-print border-b border-gray-200 p-3 text-xs text-gray-600">
+              <LinkLoginHint />
+            </li>
             {rest.map((row) => (
               <li
                 key={row.id}
@@ -61,6 +66,31 @@ export function StaffTab({ staff }: { staff: StaffRow[] }) {
         )}
       </Card>
     </div>
+  );
+}
+
+/**
+ * v1.4 part 3 (R5): the real path from a login to the employee file, shown once
+ * above the approved logins; the word «الموظفون» in the sentence is the link.
+ * The sentence is one i18n value, split around `t.navItem.staffList` here so no
+ * second key is needed; if the word is ever edited out, the line renders as text.
+ */
+function LinkLoginHint() {
+  const text = t.settings.linkLoginHint;
+  const word = t.navItem.staffList;
+  const at = text.indexOf(word);
+  if (at < 0) return <p>{text}</p>;
+  return (
+    <p>
+      {text.slice(0, at)}
+      <Link
+        href="/owner/staff"
+        className="inline-flex min-h-11 items-center font-medium text-accent-dark underline"
+      >
+        {word}
+      </Link>
+      {text.slice(at + word.length)}
+    </p>
   );
 }
 

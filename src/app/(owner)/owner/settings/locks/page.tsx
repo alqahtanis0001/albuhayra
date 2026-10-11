@@ -14,7 +14,11 @@ export default async function LocksSettingsPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-xl font-semibold text-gray-900">{t.navItem.locks}</h1>
+      <div className="flex flex-col gap-1">
+        <h1 className="text-xl font-semibold text-gray-900">{t.navItem.locks}</h1>
+        {/* v1.4 part 3 (R16): what locking is for, under the title. */}
+        <p className="text-sm text-gray-600">{t.settings.locksSubtitle}</p>
+      </div>
       {/* v1.4 (D17 c4): the ledger's «شهر مقفل» links here, so the way back is one tap. */}
       <Link
         href="/owner/transactions"

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { EmptyState } from "@/components/EmptyState";
 import { Pagination } from "@/components/Pagination";
 import { PlusIcon } from "@/components/icons";
+import { SavedNotice } from "@/components/SavedNotice";
 import { LedgerFilters } from "@/features/transactions/components/LedgerFilters";
 import { LedgerList } from "@/features/transactions/components/LedgerList";
 import { LedgerTotals } from "@/features/transactions/components/LedgerTotals";
@@ -29,7 +30,8 @@ export default async function StaffLedgerPage({
   searchParams: Promise<RawSearchParams>;
 }) {
   const { user, establishmentId } = await requireStaff();
-  const filters = parseLedgerFilters(await searchParams);
+  const raw = await searchParams;
+  const filters = parseLedgerFilters(raw);
 
   const [page, categories, locks] = await Promise.all([
     // Spec §3.5: salary-linked entries leave the staff ledger — rows, search and totals.
@@ -58,6 +60,8 @@ export default async function StaffLedgerPage({
           {t.transaction.addButton}
         </Link>
       </div>
+      {/* R4: a save lands here with ?saved=1; the notice drops it again. */}
+      <SavedNotice saved={raw.saved === "1"} />
 
       <LedgerFilters
         filters={filters}

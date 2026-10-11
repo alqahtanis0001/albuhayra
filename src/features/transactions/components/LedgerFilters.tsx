@@ -6,6 +6,7 @@
 import Link from "next/link";
 
 import { Button } from "@/components/Button";
+import { DateField } from "@/components/DateField";
 import { Input } from "@/components/Input";
 import { Select } from "@/components/Select";
 import { t } from "@/i18n/ar";
@@ -33,16 +34,14 @@ export function LedgerFilters({
       className="no-print flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4"
     >
       <div className="grid gap-3 sm:grid-cols-2">
-        <Input
+        <DateField
           label={t.ledger.from}
           name="from"
-          type="date"
           defaultValue={filters.from ?? ""}
         />
-        <Input
+        <DateField
           label={t.ledger.to}
           name="to"
-          type="date"
           defaultValue={filters.to ?? ""}
         />
         <Select

@@ -4,7 +4,7 @@
  * the grid. URLs, not client state: `?date=` and `?view=monthly&ym=`.
  */
 import { Button } from "@/components/Button";
-import { Input } from "@/components/Input";
+import { DateField } from "@/components/DateField";
 import { Select } from "@/components/Select";
 import { monthOptions } from "@/features/reports/components/reportRange";
 import { t } from "@/i18n/ar";
@@ -15,7 +15,7 @@ export function DayPicker({ date, today }: { date: string; today: string }) {
   return (
     <form method="get" action={BASE} className="no-print flex flex-wrap items-end gap-3">
       <div className="min-w-44 flex-1">
-        <Input label={t.attendance.date} name="date" type="date" defaultValue={date} max={today} required />
+        <DateField label={t.attendance.date} name="date" defaultValue={date} max={today} required />
       </div>
       <Button type="submit" variant="secondary">
         {t.common.apply}

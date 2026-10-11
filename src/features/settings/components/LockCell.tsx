@@ -6,9 +6,11 @@
  * is. That is the whole reason `todayISO()` exists in one place.
  *
  * v1.4 (D17 c19): «إلغاء الإقفال» asks first — reopening a month lets everyone
- * add and edit in it again — while «إقفال» stays one tap. The dialog is
- * rendered only while open (24 cells, one <dialog> at most) and is not
- * destructive, so it takes the accent tone.
+ * add and edit in it again. v1.4 part 3 (D29 R12, supersedes c19's one-tap
+ * lock): «إقفال» asks too, one sentence naming the month, so a mis-tap cannot
+ * lock the wrong month silently. The dialog is rendered only while open (24
+ * cells, one <dialog> at most) and is not destructive, so it takes the accent
+ * tone.
  */
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -20,9 +22,16 @@ import { errorMessage, t } from "@/i18n/ar";
 import { lockMonth, unlockMonth } from "@/features/locks/actions";
 import type { LockRow } from "@/features/locks/queries";
 
-/** Which control a press of the cell's button reaches: a locked month asks, an open one acts. */
-export function pressTarget(locked: boolean): "confirm" | "toggle" {
-  return locked ? "confirm" : "toggle";
+/** Which control a press of the cell's button reaches: both arms ask first (R12). */
+export function pressTarget(_locked: boolean): "confirm" | "toggle" {
+  return "confirm";
+}
+
+/** The dialog's one sentence, by the month's current state; `label` names the month. */
+export function dialogText(locked: boolean, label: string): { title: string; message: string } {
+  return locked
+    ? { title: `${t.settings.unlock}: ${label}`, message: t.settings.unlockConfirm }
+    : { title: `${t.settings.lock}: ${label}`, message: t.settings.lockConfirm.replace("{month}", label) };
 }
 
 export function LockCell({ row, label }: { row: LockRow; label: string }) {
@@ -41,6 +50,7 @@ export function LockCell({ row, label }: { row: LockRow; label: string }) {
     });
 
   const press = () => (pressTarget(row.locked) === "confirm" ? setConfirm(true) : toggle());
+  const dialog = dialogText(row.locked, label);
 
   return (
     <div
@@ -70,8 +80,8 @@ export function LockCell({ row, label }: { row: LockRow; label: string }) {
       {confirm ? (
         <ConfirmDialog
           open
-          title={`${t.settings.unlock}: ${label}`}
-          message={t.settings.unlockConfirm}
+          title={dialog.title}
+          message={dialog.message}
           tone="accent"
           pending={pending}
           onCancel={() => setConfirm(false)}

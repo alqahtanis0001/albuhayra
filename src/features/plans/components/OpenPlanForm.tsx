@@ -15,6 +15,7 @@ import { useActionState, useState } from "react";
 
 import { Button } from "@/components/Button";
 import { FormToast } from "@/components/FormToast";
+import { DateField } from "@/components/DateField";
 import { Input } from "@/components/Input";
 import { Select } from "@/components/Select";
 import { Textarea } from "@/components/Textarea";
@@ -155,10 +156,9 @@ export function OpenPlanForm({
 
       <div className="grid gap-4 sm:grid-cols-2">
         {/* Disabled controls are not submitted; the hidden field below carries the value when locked. */}
-        <Input
+        <DateField
           label={t.plans.startDate}
           name="startDate"
-          type="date"
           max={today}
           value={v.startDate}
           onChange={(e) => set("startDate", e.target.value)}
@@ -167,10 +167,9 @@ export function OpenPlanForm({
           error={fieldErrors?.startDate}
         />
         {locked ? <input type="hidden" name="startDate" value={v.startDate} /> : null}
-        <Input
+        <DateField
           label={t.openPlan.expectedEnd}
           name="expectedEndDate"
-          type="date"
           min={v.startDate || undefined}
           value={v.expectedEndDate}
           onChange={(e) => set("expectedEndDate", e.target.value)}
