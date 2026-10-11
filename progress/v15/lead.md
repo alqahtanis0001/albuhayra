@@ -10,3 +10,11 @@
 ## Checkpoints
 | CP | Commit | Gates | Notes |
 |---|---|---|---|
+| CP-A | `22259e7` v1.5: contract (pushed) | tsc 0 · 118/1613 · build 0 | spec, keys, briefs, baseline |
+
+## Pre-code review (reviewer)
+5 BLOCKER / 24 SHOULD / 14 NOTE (`progress/v15/reviewer.md`). Every finding ruled → D18–D35 in `docs/V15-SPEC.md` and an "Amendments" block in each brief. Lead edits made for them: stub `overviewReads.ts` / `salaryPick.ts` + gate `FILES`/S8 entries + two append zones in `scoping.test.ts`; `staffViews.test.ts` OWNER_READS +3 names; `ar.v15.ts` keys (centreSubCapped, arrows, plural cluster/clusterOverdue, salaryPick.empty; three duplicates retired); FRONTEND.md "Do not" and localStorage allow-list (six uses).
+Rulings where the reviewer offered options: D22 ring 3 keeps salary arrears (رواتب = all unpaid salary ≤ month end; علينا = Σ owedByUs − salaries); D23 ring 3 keeps the user's `?type=` links (difference recorded); D34 week row excludes SALARY.
+
+## Build
+- Spawned `theme` (T1 first, stops for the token-layer commit), `home`, `nav` in parallel; home/nav do logic first and check `git log` for `v1.5: token layer` before visuals.

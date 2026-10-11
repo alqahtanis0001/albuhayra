@@ -2480,6 +2480,9 @@ describe("static sweep: no call site escapes the runtime net", () => {
     "src/features/plans/openActions.ts",
     "src/features/plans/openRemaining.ts",
     "src/features/transactions/openPlanPayments.ts",
+    // v1.5 (D26): the home overview reads (`home`) and the salary pick reads (`nav`).
+    "src/features/dashboard/overviewReads.ts",
+    "src/features/employees/salaryPick.ts",
   ];
 
   it("every (model, method) pair in the source was exercised above", () => {
@@ -2622,6 +2625,8 @@ describe("static sweep: no call site escapes the runtime net", () => {
       "src/features/transactions/openPlanPayments.ts",
       // v1.4 part 2 (D25): reads for the first-run card — server-only, never an endpoint.
       "src/features/dashboard/firstRunReads.ts",
+      // v1.5 (D26): overview reads and salary pick reads — server-only, never an endpoint.
+      "src/features/dashboard/overviewReads.ts", "src/features/employees/salaryPick.ts",
     ];
     for (const file of serverOnly) {
       const source = readFileSync(file, "utf8");
@@ -2638,3 +2643,7 @@ describe("static sweep: no call site escapes the runtime net", () => {
     }
   });
 });
+
+// ---- v1.5 home (D26): `home` appends its overview-read cases below this line, nowhere else ----
+
+// ---- v1.5 nav (D26): `nav` appends its salary-pick cases below this line, nowhere else ----

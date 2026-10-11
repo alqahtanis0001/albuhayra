@@ -8,7 +8,8 @@
  * would replace it whole. Existing labels are reused, not repeated:
  * `t.addSheet.*`, `t.employees.paySalary` («صرف راتب»), `t.plans.add`
  * («اتفاقية جديدة»), `t.nav.home` («الرئيسية»), `t.nav.reports`,
- * `t.aging.tab`, `t.common.currency`, `t.dues.toUs` / `fromUs`.
+ * `t.aging.tab` and `t.reportFilter.byCategoryTab` (the two report sub-tabs),
+ * `t.addSheet.newProjectHint`, `t.common.currency`, `t.dues.toUs` / `fromUs`.
  */
 import type { PluralForms } from "@/lib/plural";
 
@@ -20,8 +21,17 @@ export const v15Sections = {
     /** The svg's accessible name. */
     aria: "نظرة شاملة: الرصيد، وارد وصادر الشهر، المصروفات حسب الفئة، الالتزامات، والثلاثون يومًا القادمة",
     centreLabel: "الرصيد الإجمالي",
-    /** `{net}` signed amount, `{arrow}` ↑ or ↓, `{pct}` Western digits. */
-    centreSub: "الصافي {net} · {arrow}{pct}٪",
+    /**
+     * D29: `{net}` = this month's net, signed, whole riyals; `{arrow}` = one of
+     * the three below; `{pct}` = `formatPercent(|pct|)` (unsigned, with its %,
+     * Western digits) — the direction is the arrow's job, never a second sign.
+     */
+    centreSub: "الصافي {net} · {arrow}{pct}",
+    /** Momentum above ±999% (the cards' `capped`). */
+    centreSubCapped: "الصافي {net} · {arrow}{pct} أو أكثر",
+    arrowUp: "↑",
+    arrowDown: "↓",
+    arrowFlat: "=",
     /** When last month's to-date net is 0 (no percentage to show). */
     centreSubNoPct: "الصافي {net}",
     empty: "لا توجد بيانات بعد",
@@ -38,8 +48,8 @@ export const v15Sections = {
     showAll: "إظهار الكل",
     /** sr-only: what a second activation does. */
     openHint: "اضغط مرة أخرى للفتح",
-    /** aria-label of a segment: `{name}` + amount. */
-    segment: "{name}: {amount} ر.س",
+    /** aria-label of a segment: `{name}` + `{amount}` (exact, formatted with its currency — D29). */
+    segment: "{name}: {amount}",
     ring1Name: "الحلقة الداخلية",
     ring2Name: "الحلقة الوسطى",
     ring3Name: "الحلقة الخارجية",
@@ -103,8 +113,22 @@ export const v15Sections = {
       many: "راتب {name} — بعد {n} يومًا",
       other: "راتب {name} — بعد {n} يوم",
     } satisfies PluralForms,
-    /** A cluster dot (more than 40 dots): `{n}` dues on `{date}`. */
-    cluster: "{n} مواعيد في {date}",
+    /** D18: a day-dot holding several dues; `{date}` = the compact date. */
+    cluster: {
+      one: "موعد واحد في {date}",
+      two: "موعدان في {date}",
+      few: "{n} مواعيد في {date}",
+      many: "{n} موعدًا في {date}",
+      other: "{n} موعد في {date}",
+    } satisfies PluralForms,
+    /** D18: three or more overdue dues collapse to one hollow dot. */
+    clusterOverdue: {
+      one: "قسط متأخر واحد",
+      two: "قسطان متأخران",
+      few: "{n} أقساط متأخرة",
+      many: "{n} قسطًا متأخرًا",
+      other: "{n} قسط متأخر",
+    } satisfies PluralForms,
   },
 
   /** `home`, A2 — the «يحتاج انتباهك» card. */
@@ -158,15 +182,12 @@ export const v15Sections = {
     newPlan: "إنشاء اتفاق/عقد جديد لعميل أو مورد يُدفع على أقساط أو حسب التيسير.",
     newParty: "عميل أو مورد تتعامل معه",
     newEmployee: "بياناته وراتبه ودوامه",
-    newProject: "مشروع أو مناسبة لها تكاليفها",
     myCheckIn: "تسجيل حضورك أو انصرافك",
   },
 
   /** `nav`, B2 — the reports tab inside السجل and its two sub-tabs. */
   reportsTabs: {
     tab: "التقارير",
-    byCategory: "حسب التصنيف",
-    aging: "المتأخرات حسب المدة",
     /** aria-label of the sub-tab strip. */
     label: "نوع التقرير",
   },
@@ -175,6 +196,8 @@ export const v15Sections = {
   salaryPick: {
     banner: "اختر الموظف لصرف راتبه",
     paid: "مدفوع",
+    /** No active employee has a salary instalment this month (D21). */
+    empty: "لا يوجد راتب مستحق لهذا الشهر.",
     cancel: "إلغاء الاختيار",
   },
 

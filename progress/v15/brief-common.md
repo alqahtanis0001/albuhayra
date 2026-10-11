@@ -2,7 +2,7 @@
 
 Ready for go: yes (after the reviewer's pre-code pass — see "Amendments after the pre-code review" at the bottom, if any)
 
-Lead: the session's lead agent. Product owner: the user (away; the lead rules in their place and records every decision in `docs/V15-SPEC.md › Decisions`). Spec: `docs/V15-SPEC.md` — binding, sections A–C verbatim from the user plus Decisions D1…; `docs/V14-SPEC.md` D1–D34 still apply where they touch your files. Branch `claude/v15-wheel-nav-theme` (from `main` `3369686`).
+Lead: the session's lead agent. Product owner: the user (away; the lead rules in their place and records every decision in `docs/V15-SPEC.md › Decisions`). Spec: `docs/V15-SPEC.md` — binding, sections A–C verbatim from the user plus Decisions D1–D35 (D18–D35 are the rulings on the reviewer's pre-code pass and amend D2–D15 where they say so); `docs/V14-SPEC.md` D1–D34 still apply where they touch your files. Branch `claude/v15-wheel-nav-theme` (from `main` `3369686`).
 
 **The user's visual theme (colours, cards, background, fonts, the v1.3 visuals) does NOT change in light mode. v1.5 adds, folds and reorders; it never restyles.**
 
@@ -15,7 +15,7 @@ Lead: the session's lead agent. Product owner: the user (away; the lead rules in
 6. `progress/v15/brief-<you>.md`, then `progress/v15/<you>.md` (already created from the template; keep it current — you are its only writer)
 
 ## What the lead already did (do not redo)
-- `docs/V15-SPEC.md` (A–C, team table, D1–D15); CLAUDE.md row + precedence + out-of-scope line.
+- `docs/V15-SPEC.md` (A–C, team table, D1–D35); CLAUDE.md row + precedence + out-of-scope line.
 - `src/i18n/ar.v15.ts` with every key the spec needs, wired into `t` (sections `wheel`, `attention`, `homeDetails`, `addHints`, `reportsTabs`, `salaryPick`, `theme`). Reuse existing labels as its header lists. A key you need that is missing → ask the lead (write it under *Questions* in your recording and message the lead); never add keys yourself. You may improve values only in your own sections.
 - Bundle baseline `progress/v15/bundle-baseline.json` (55 routes; `/owner` 323.7 KB gz). Gates at step 0: `tsc` 0, vitest 118 files / 1613 tests, build 0.
 
@@ -34,3 +34,10 @@ Lead: the session's lead agent. Product owner: the user (away; the lead rules in
 - **Bundle**: after your final build, `node progress/v13/measure-bundles.mjs progress/v15/bundles-<you>.json` and compare to `progress/v15/bundle-baseline.json`; no route may grow more than 40 KB gz. Client leaves import types and small constants only — never the `@/lib/validation` barrel, never a `server-only` module.
 - **Files**: under ~250 lines; new modules rather than growth. Boring, readable code that matches its neighbours (comment density, naming).
 - **Reporting**: short plain English. When done return: tasks done, tests added (with their mutations), gate output (counts), bundle deltas, requests to the lead, open questions. The reviewer reviews every completed task; a task is complete only when its review is closed.
+
+## Amendments after the pre-code review (lead, binding; D18–D35)
+- **Where a brief and a Decision differ, the Decision wins.** Read D18–D35 before your brief.
+- Fact fix: the CSP is `style-src 'self' 'unsafe-inline'` — inline `style=` is allowed (there is no style nonce). Keyframes still go in `globals.css` (D30).
+- **`scoping.test.ts`** (D26): the lead already added `src/features/dashboard/overviewReads.ts` and `src/features/employees/salaryPick.ts` (stubs) to `FILES` and the S8 server-only list, and two marked append zones at the very end of the file — `home` writes only under "v1.5 home", `nav` only under "v1.5 nav". Do not touch anything else in that file. `staffViews.test.ts` already lists `getOwnerOverview|listSalaryPick|hasSalaryEmployees` in `OWNER_READS`: use exactly those names.
+- **Existing tests that pin today's behaviour and will need updating by the owner of the change** (reviewer S16): `src/features/reports/components/reportFilters.test.ts:28` (renders the reports page → `nav`); `src/components/chrome/nav.test.ts` :42, :169, :208, :343, :410–417 (→ `nav`); `src/features/dashboard/components/FirstRunCard.test.ts:117` and `pendingJoinNotice.test.ts:33` (read `page.tsx` source → `home`); `src/i18n/v14Part3Wording.test.ts:119` (pins `t.addSheet.newProjectHint` — still used, keep green). Update a pin only to the new rule, never delete the rule it guards; record each in your recording.
+- New keys since the briefs were written: `t.wheel.centreSubCapped`, `t.wheel.arrowUp/Down/Flat`, plural `t.wheel.cluster`, `t.wheel.clusterOverdue`, `t.salaryPick.empty`. Retired (reuse the old key): `reportsTabs.byCategory` → `t.reportFilter.byCategoryTab`, `reportsTabs.aging` → `t.aging.tab`, `addHints.newProject` → `t.addSheet.newProjectHint`. `t.wheel.segment` is now `"{name}: {amount}"` with the formatted amount carrying its currency.

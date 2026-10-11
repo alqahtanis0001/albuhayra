@@ -85,7 +85,7 @@ src/app/page.tsx                  redirects to the role's home
 - Every input has a `<label>`. Icon buttons carry text or `aria-label`. Visible focus rings. Contrast ≥ 4.5:1. `ConfirmDialog` traps focus, closes on Escape.
 
 ## Do not
-- No dark mode, animations (beyond *Motion (v1.1d)* and *v1.3 — visual pass*), English toggle, UI kit, client-side data fetching, or localStorage beyond the last-used direction toggle and (v1.2a) the nav's used-groups set.
+- No dark mode (**superseded in v1.5**: light / dark / system theme, `docs/V15-SPEC.md` C), animations (beyond *Motion (v1.1d)*, *v1.3 — visual pass* and the v1.5 wheel, `docs/V15-SPEC.md` D6/D30), English toggle, UI kit, client-side data fetching, or localStorage beyond the last-used direction toggle and (v1.2a) the nav's used-groups set.
 - Never render an amount in the admin area, even if a query accidentally returns one.
 
 ## Loading, not found, errors, transitions (v1.1a)
@@ -176,6 +176,7 @@ Backend contract: `docs/BACKEND.md` → *v1.2a*. Strings: `src/i18n/ar.v12a.ts` 
 
 ### Rule changes
 - *Do not* list: `localStorage` is now allowed for **two** things — the last-used direction and the nav's used-groups set. Nothing else. **v1.4 part 2 (D24/D25): four things** — plus the entry form's «تفاصيل أكثر» state (`ledger:detailsOpen`) and the first-run card's «إخفاء» (`home:firstRunHidden`); every access in `try/catch`, read after mount only.
+- **v1.5 (`docs/V15-SPEC.md` D31): six things** — plus the theme choice (`ui:theme`, mirrored in the `theme` cookie so the server renders it) and the home's «التفاصيل والرسوم» state (`home:detailsOpen`); same rules.
 - The *Layout per role area* owner tab list above is superseded by *Owner navigation (CP1)*.
 
 ### v1.2a amendments after the pre-code review (binding)

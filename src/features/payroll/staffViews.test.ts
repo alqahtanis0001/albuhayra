@@ -38,7 +38,7 @@ function callsOf(source: string, name: string): string[] {
 const LEDGER_READS = ["listTransactions", "getTransaction", "recentTransactions"];
 const HIDES = /\bhideSalary:\s*true\b/;
 /** Reads whose shape is the owner's: plan titles, totals, salary rows, profiles. */
-const OWNER_READS = /\b(?:getDues|getInstalmentForPayment|listPlans|getPlan|getPartyStatement|listParties|getParty|getEmployee|listEmployees|getPayslip|getOwnerDashboard|getEmployeeMonth|getDaySheet|getMonthGrid|employeeMonth)\(/;
+const OWNER_READS = /\b(?:getDues|getInstalmentForPayment|listPlans|getPlan|getPartyStatement|listParties|getParty|getEmployee|listEmployees|getPayslip|getOwnerDashboard|getEmployeeMonth|getDaySheet|getMonthGrid|employeeMonth|getOwnerOverview|listSalaryPick|hasSalaryEmployees)\(/;
 
 const STAFF_FILES = walk("src/app/(staff)");
 
