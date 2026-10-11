@@ -14,7 +14,7 @@ import { isSalaryPayment, PaymentBanner, upcomingHalalas, type PaymentBannerProp
  */
 const common = { direction: "OUT" as const, partyId: "party_1", partyName: "سعد", instalmentId: "i_1", instalmentRemainingHalalas: 400000 };
 const salary: PaymentBannerProps = {
-  ...common, mode: "new", plan: { planId: "plan_s", planTitle: "راتب شهري — سعد", seq: 3, periodYm: "2026-10", planRemainingHalalas: 1200000 },
+  ...common, mode: "new", plan: { planId: "plan_s", planTitle: "راتب شهري — سعد", seq: 3, periodYm: "2026-10", planRemainingHalalas: 1200000, employeeId: "emp_1" },
 };
 const standard: PaymentBannerProps = {
   ...common, mode: "new", plan: { planId: "plan_1", planTitle: "عقد", seq: 2, periodYm: null, planRemainingHalalas: 900000 },
@@ -34,6 +34,18 @@ describe("PaymentBanner — salary wording (R6)", () => {
     expect(html).not.toContain(t.payment.planRemaining);
     expect(html).not.toContain(t.payment.remaining);
     expect(html).not.toContain(t.payment.rollsOver);
+    // Reviewer R2-S1: the heading is «صرف راتب» and the link opens the employee's file, never the salary plan.
+    expect(html).toContain(`<h2 class="text-base font-semibold text-accent-dark">${t.employees.paySalary}</h2>`);
+    expect(html).not.toContain(t.payment.title);
+    expect(html).toMatch(/<a [^>]*href="\/owner\/staff\/emp_1"[^>]*>فتح ملف الموظف<\/a>/);
+    expect(html).not.toContain("/owner/plans/plan_s");
+    expect(html).not.toContain(t.payment.viewPlan);
+  });
+
+  it("a salary month without an employee renders no link at all", () => {
+    const html = render({ ...salary, plan: { ...salary.plan!, employeeId: null } });
+    expect(html).not.toMatch(/<a /);
+    expect(html).toContain(t.employees.paySalary);
   });
 
   it("«الرواتب القادمة» is omitted when nothing remains beyond this month", () => {
@@ -52,6 +64,9 @@ describe("PaymentBanner — salary wording (R6)", () => {
     expect(html).toContain(t.payment.rollsOver);
     expect(html).not.toContain(t.payment.salaryRemaining);
     expect(html).not.toContain(t.payment.upcomingSalaries);
+    expect(html).toContain(`<h2 class="text-base font-semibold text-accent-dark">${t.payment.title}</h2>`);
+    expect(html).toMatch(/<a [^>]*href="\/owner\/plans\/plan_1"/);
+    expect(html).toContain(t.payment.viewPlan);
   });
 
   it("the staff banner (no plan) is generic (D31i), and the mode is derived from periodYm", () => {

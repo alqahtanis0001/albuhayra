@@ -240,7 +240,8 @@ describe("D23 — the added party joins the list and is selected", () => {
     for (const file of ["PlanForm", "OpenPlanForm"]) {
       const source = readFileSync(`src/features/plans/components/${file}.tsx`, "utf8");
       expect(source).toContain("const [partyList, setPartyList] = useState(parties);");
-      expect(source).toContain("const chooseParty = (id: string, list = partyList) => setV((old) => applyPartyChoice(old, id, list));");
+      // v1.4 part 3 (R8, D32 S7): the choice still goes through applyPartyChoice on the given list; the prefill runs on its result.
+      expect(source).toContain("applyAll(applyPartyChoice(v, id, list), list.find((p) => p.id === id)?.name);");
       expect(source).toMatch(/const list = applyAddedParty\(partyList, row\);\s*setPartyList\(list\);\s*chooseParty\(row\.id, list\);/);
       expect(source).toContain("const party = partyList.find((p) => p.id === v.partyId);");
     }

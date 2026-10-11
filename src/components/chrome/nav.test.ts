@@ -405,3 +405,17 @@ describe("used nav groups (localStorage)", () => {
     expect(rememberUsedGroup("staff")).toEqual(["staff"]);
   });
 });
+
+/** v1.4 part 3 (D29 R16, `flows`): the «نشاط جديد» row's second line. Appended block (D32 S1). */
+describe("R16 — the «نشاط جديد» row carries its hint", () => {
+  it("row 5 of the owner sheet has addSheet.newProjectHint, no other row has one, and the sheet renders it readable", () => {
+    const rows = addRows("OWNER");
+    expect(rows[4]!.href).toBe("/owner/projects/new");
+    expect(rows[4]!.hint).toBe(t.addSheet.newProjectHint);
+    expect(rows.filter((r) => r.hint !== undefined)).toHaveLength(1);
+    expect(addRows("STAFF", true).every((r) => r.hint === undefined)).toBe(true);
+    const html = render(createElement(AddSheet, { entry: addEntryOf(OWNER_NAV_GROUPS)!, variant: "tab" }), "/owner");
+    expect(html).toMatch(new RegExp(`<a [^>]*href="/owner/projects/new"[^>]*>[\\s\\S]*?${t.addSheet.newProject}<span class="text-\\[11px\\] font-normal text-gray-500">${t.addSheet.newProjectHint}</span>`));
+    expect(html).not.toMatch(new RegExp(`aria-hidden="true"[^>]*>${t.addSheet.newProjectHint}`));
+  });
+});

@@ -3,6 +3,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { t } from "@/i18n/ar";
+import { CUSTOMER_PAYMENT_CATEGORY } from "@/lib/categoryNames";
 
 /**
  * v1.4 part 3 (docs/V14-SPEC.md D29–D31): the product owner's wording rulings
@@ -131,7 +132,8 @@ describe("D29 sweeps — the old words are gone from the owner's screens", () =>
     expect(keysContaining("دفعة من عميل")).toEqual([]);
     // Anchored on the seed row's own syntax, so prose in a comment cannot match.
     const src = readFileSync(path.resolve(__dirname, "../features/admin/actions.ts"), "utf8");
-    expect(src).toContain('{ nameAr: "سداد من عميل", type: "IN" }');
+    expect(src).toContain('{ nameAr: CUSTOMER_PAYMENT_CATEGORY, type: "IN" }');
+    expect(CUSTOMER_PAYMENT_CATEGORY).toBe("سداد من عميل");
     expect(src).not.toContain('nameAr: "دفعة من عميل"');
   });
 

@@ -34,7 +34,7 @@ export type PaymentBannerProps =
       instalmentId: string;
       instalmentRemainingHalalas: number;
       /** `periodYm` is set on a salary month (S-L2a): named by its month, not its seq. */
-      plan?: OwnerPlan & { seq: number; periodYm: string | null; planRemainingHalalas: number };
+      plan?: OwnerPlan & { seq: number; periodYm: string | null; planRemainingHalalas: number; employeeId?: string | null };
     })
   | (Common & { mode: "edit"; plan?: OwnerPlan });
 
@@ -57,7 +57,7 @@ export function PaymentBanner(props: PaymentBannerProps) {
   return (
     <section className="flex flex-col gap-2 rounded-xl border border-accent-line bg-accent-soft p-4 text-sm text-gray-900">
       <h2 className="text-base font-semibold text-accent-dark">
-        {props.mode === "new" ? t.payment.title : t.payment.linkedNotice}
+        {salary ? t.employees.paySalary : props.mode === "new" ? t.payment.title : t.payment.linkedNotice}
       </h2>
       {props.mode === "new" && props.plan ? (
         <p>
@@ -105,7 +105,17 @@ export function PaymentBanner(props: PaymentBannerProps) {
       {props.mode === "new" ? (
         <p className="text-xs text-gray-700">{salary ? t.payment.salaryRollsOver : t.payment.rollsOver}</p>
       ) : null}
-      {plan ? (
+      {/* Salary mode (reviewer R2-S1): the link opens the employee's file, never the system-managed plan; none without an employee. */}
+      {salary ? (
+        props.mode === "new" && props.plan?.employeeId ? (
+          <Link
+            href={`/owner/staff/${props.plan.employeeId}`}
+            className="inline-flex min-h-11 items-center self-start text-accent-dark underline underline-offset-2"
+          >
+            {t.employees.openProfile}
+          </Link>
+        ) : null
+      ) : plan ? (
         <Link
           href={`/owner/plans/${plan.planId}`}
           className="inline-flex min-h-11 items-center self-start text-accent-dark underline underline-offset-2"

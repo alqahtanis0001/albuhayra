@@ -102,6 +102,7 @@ export default async function OwnerNewTransactionPage({
                 seq: pay.seq,
                 periodYm: pay.periodYm,
                 planRemainingHalalas: pay.planRemainingHalalas,
+                employeeId: pay.employeeId, // R6: the salary banner links to the employee's file.
               }}
             />
           ) : undefined

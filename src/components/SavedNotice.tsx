@@ -12,11 +12,11 @@ import { useEffect, useState } from "react";
 import { t } from "@/i18n/ar";
 
 import { withoutSaved } from "./savedParam";
+import { Toast } from "./Toast";
 
 // D32 S2: the client form imports `withSaved` from here; server pages use `./savedParam` directly (a
 // "use client" module's exports become client references on the server).
 export { withSaved } from "./savedParam";
-import { Toast } from "./Toast";
 
 export function SavedNotice({ saved }: { saved: boolean }) {
   const [shown, setShown] = useState(saved);

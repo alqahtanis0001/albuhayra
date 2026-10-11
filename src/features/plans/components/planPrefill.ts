@@ -9,9 +9,10 @@
  */
 import type { CategoryRow } from "@/features/settings/queries";
 import { t } from "@/i18n/ar";
+import { CUSTOMER_PAYMENT_CATEGORY, LEGACY_CUSTOMER_PAYMENT_CATEGORY } from "@/lib/categoryNames";
 
 /** The seeded IN category names a customer payment may carry (R7 renamed the first; older rows keep the second). */
-const CUSTOMER_PAYMENT_NAMES = ["سداد من عميل", "دفعة من عميل"] as const;
+const CUSTOMER_PAYMENT_NAMES = [CUSTOMER_PAYMENT_CATEGORY, LEGACY_CUSTOMER_PAYMENT_CATEGORY] as const;
 
 export type Prefills = { title: string; categoryId: string };
 export const NO_PREFILLS: Prefills = { title: "", categoryId: "" };
