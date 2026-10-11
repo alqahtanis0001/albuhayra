@@ -8,6 +8,7 @@ import { v12bSections } from "./ar.v12b";
 import { v12cSections } from "./ar.v12c";
 import { v13Sections } from "./ar.v13";
 import { v14Sections } from "./ar.v14";
+import { v15Sections } from "./ar.v15";
 
 const { errV12a, ...v12a } = v12aSections;
 const { errV12b, ...v12b } = v12bSections;
@@ -515,6 +516,9 @@ export const t = {
 
   // v1.4 sections (categoryQuick, categoriesPage, addSheet, ledgerTabs, openPlan, …, pendingJoin)
   ...v14,
+
+  // v1.5 sections (wheel, attention, homeDetails, addHints, reportsTabs, salaryPick, theme)
+  ...v15Sections,
 
   a11y: {
     skipToContent: "تجاوز إلى المحتوى",
