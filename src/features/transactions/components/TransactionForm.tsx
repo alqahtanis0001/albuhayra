@@ -187,6 +187,7 @@ export function TransactionForm({
         placeholder={t.transaction.chooseCategory}
         value={categoryId}
         onChange={(event) => setCategoryId(event.target.value)}
+        hint={direction === "IN" && !payment ? t.transaction.categoryHelpIn : undefined} // R7 (D32 S2)
         disabled={originalLocked}
         required
         error={fieldErrors?.categoryId}
