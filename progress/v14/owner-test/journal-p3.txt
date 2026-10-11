@@ -439,3 +439,4 @@ saad@zakham-test.sa
 2026-10-11T14:36:28.721Z [abu-fahd-p3-reshoot] taps=10 box {"text":"تم حفظ الحركة"} → {"x":29,"y":219,"width":332,"height":20}
 2026-10-11T14:36:28.848Z [abu-fahd-p3-reshoot] taps=10 box {"text":"إضافة حركة"} → {"x":16,"y":85,"width":128.515625,"height":44}
 2026-10-11T14:36:28.953Z [abu-fahd-p3-reshoot] taps=10 eval {"js":"({url: location.search, overlaps: (() => { const t=[...document.querySelectorAll(\"[role=status]\")].find(e=>e.textContent.includes(\"تم حفظ الحركة\")); if(!t) return null; const r=t.getBoundingClientRect(); return [...document.querySelectorAll(\"a,button\")].filter(b=>{const q=b.getBoundingClientRect(); return q.width>0 && q.left<r.right && q.right>r.left && q.top<r.bottom && q.bottom>r.top && !t.contains(b)}).map(b=>b.textContent.trim()); })()})"} → {"url":"","overlaps":[]}
+2026-10-11T14:37:33.929Z [abu-fahd-p3-reshoot] taps=10 quit {} → bye
