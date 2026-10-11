@@ -46,3 +46,10 @@ describe("SavedNotice (R4)", () => {
     expect(source).not.toMatch(/useSearchParams|useRouter/);
   });
 });
+
+
+describe("SavedNotice renders in flow (D34, qa-visual S1)", () => {
+  it("the source passes `inline` to the Toast", () => {
+    expect(readFileSync("src/components/SavedNotice.tsx", "utf8")).toMatch(/<Toast inline /);
+  });
+});

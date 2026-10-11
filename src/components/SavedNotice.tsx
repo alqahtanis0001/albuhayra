@@ -28,7 +28,8 @@ export function SavedNotice({ saved }: { saved: boolean }) {
   }, [saved]);
 
   if (!saved || !shown) return null;
-  return <Toast message={t.transaction.saved} tone="success" onDismiss={() => setShown(false)} />;
+  // D34 (qa-visual S1): in the page flow under the h1, so it never covers the action row.
+  return <Toast inline message={t.transaction.saved} tone="success" onDismiss={() => setShown(false)} />;
 }
 
 export default SavedNotice;

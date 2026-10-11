@@ -14,21 +14,26 @@ describe("Toast (D29 R3)", () => {
   const render = (tone: "error" | "success", onDismiss?: () => void) =>
     renderToStaticMarkup(createElement(Toast, { message: "تم", tone, onDismiss }));
 
-  it("the strip sits under the top bar on phones and at the bottom from md", () => {
+  it("the strip sits under the top bar at every width (D34: no bottom anchor anywhere)", () => {
     const box = /<div [^>]*>/.exec(render("success"))?.[0] ?? "";
     expect(box).toMatch(/class="[^"]*\btop-20\b/);
     expect(box).toMatch(/class="[^"]*\binset-x-4\b/);
-    expect(box).toMatch(/class="[^"]*\bmd:top-auto\b/);
-    expect(box).toMatch(/class="[^"]*\bmd:bottom-6\b/);
-    expect(box).not.toMatch(/\bbottom-24\b/);
+    expect(box).not.toMatch(/\bmd:top-auto\b|\bmd:bottom-6\b|\bbottom-24\b/);
   });
 
-  it("the strip ignores the pointer; only the ✕ takes taps", () => {
-    const html = render("success", () => undefined);
+  it("the strip ignores the pointer; only an error's ✕ takes taps, a success toast has none (D34)", () => {
+    const error = render("error", () => undefined);
+    expect(/<div [^>]*>/.exec(error)?.[0]).toMatch(/class="[^"]*\bpointer-events-none\b/);
+    expect(/<button [^>]*>/.exec(error)?.[0]).toMatch(/class="[^"]*\bpointer-events-auto\b/);
+    expect(render("success", () => undefined)).not.toContain("<button");
+  });
+
+  it("inline renders the same strip in the page flow: no fixed, no overlay classes (D34)", () => {
+    const html = renderToStaticMarkup(createElement(Toast, { message: "تم", tone: "success", inline: true, onDismiss: () => undefined }));
     const box = /<div [^>]*>/.exec(html)?.[0] ?? "";
-    expect(box).toMatch(/class="[^"]*\bpointer-events-none\b/);
-    const button = /<button [^>]*>/.exec(html)?.[0] ?? "";
-    expect(button).toMatch(/class="[^"]*\bpointer-events-auto\b/);
+    expect(box).not.toMatch(/\bfixed\b|\bz-50\b|\btop-20\b|\bpointer-events-none\b/);
+    expect(box).toMatch(/class="[^"]*\bw-full\b/);
+    expect(html).toMatch(/role="status"/);
   });
 
   it("the delay is exactly 3 000 ms and the strip is fixed (qa-tests p3 F1/F2)", () => {

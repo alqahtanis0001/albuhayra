@@ -21,6 +21,12 @@ export type ToastProps = {
   message: string;
   tone?: "error" | "success";
   onDismiss?: () => void;
+  /**
+   * v1.4 part 3 (D34, qa-visual S1): rendered in the page flow (under the h1)
+   * instead of fixed under the top bar — the landing pages' action row sits
+   * exactly where a fixed strip would cover it for 3 s. Same look, no overlay.
+   */
+  inline?: boolean;
 };
 
 export const SUCCESS_DISMISS_MS = 3000;
@@ -41,8 +47,11 @@ export function startAutoDismiss(tone: "error" | "success", onDismiss?: () => vo
   return () => clearTimeout(timer);
 }
 
-export function Toast({ message, tone = "error", onDismiss }: ToastProps) {
+export function Toast({ message, tone = "error", onDismiss, inline = false }: ToastProps) {
   const isError = tone === "error";
+  // D34: a success toast leaves on its own, so it carries no ✕ — the ✕ was the one
+  // pointer-taking spot of the strip and landed on «إضافة حركة» at 390 px.
+  const closable = isError && Boolean(onDismiss);
 
   // The latest onDismiss through a ref, so a parent re-render (a new inline
   // arrow) does not restart the 3 s timer.
@@ -58,10 +67,12 @@ export function Toast({ message, tone = "error", onDismiss }: ToastProps) {
     <div
       role={isError ? "alert" : "status"}
       aria-live={isError ? "assertive" : "polite"}
-      className={`no-print pointer-events-none fixed inset-x-4 top-20 z-50 mx-auto flex max-w-sm items-start gap-3 rounded-lg border p-3 shadow-lg md:top-auto md:bottom-6 ${TONES[tone]}`}
+      className={`no-print flex items-start gap-3 rounded-lg border p-3 ${
+        inline ? "w-full" : "pointer-events-none fixed inset-x-4 top-20 z-50 mx-auto max-w-sm shadow-lg"
+      } ${TONES[tone]}`}
     >
       <p className="flex-1 text-start text-sm font-medium">{message}</p>
-      {onDismiss ? (
+      {closable ? (
         <button
           type="button"
           onClick={onDismiss}
