@@ -61,3 +61,4 @@ Your own running notes. Only you write here. Keep entries short; newest at the b
 - Pre-"go": every D30 key with a draft value in its section's own file (D20); `dateCaption()` in `src/lib/dates.ts` (+ 2 cases); data migration `20261011000000_v14_p3_customer_payment_name` (guarded `UPDATE "Category"`); README nav lines; briefs `brief-p3-{common,words,flows}.md`. `tsc` 0; the one red test (`nav.test.ts:238`, literal «تسجيل دفعة») is `words`' first task.
 - Local stack for the browser pass: PostgreSQL 16 cluster `main`, db `ledger`, user `ledger`; `.env` written (random secret, no Brevo key; gitignored); 7 migrations applied; ADMIN seeded (`admin@zakham-test.sa`, password in the scratchpad). Neon untouched.
 - Team: `words`, `flows`, `reviewer`.
+- CP-E `938ea5c` → QA (qa-visual, qa-tests) → D34 + F8 pin + sweep → `v1.4 part 3: release prep` → merged into `main`, pushed. Gates 0 / 118 files 1613 / build 0 / +8.5 KB max. Part 3 done.

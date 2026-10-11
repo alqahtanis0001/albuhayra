@@ -419,3 +419,23 @@ saad@zakham-test.sa
 2026-10-11T14:08:40.213Z [abu-fahd-p3] taps=9 tap {"text":"إلغاء"} → tapped «إلغاء»
 2026-10-11T14:08:40.789Z [abu-fahd-p3] taps=10 goto {"url":"http://localhost:3000/owner/dues"} → at http://localhost:3000/owner/dues
 2026-10-11T14:08:40.898Z [abu-fahd-p3] taps=10 eval {"js":"({scrollWidth: document.documentElement.scrollWidth, ribbonTiles: [...document.querySelectorAll(\"#dues-ribbon li\")].map(l => l.getBoundingClientRect().right)})"} → {"scrollWidth":390,"ribbonTiles":[374.15301513671875,191.1529998779297,374.15301513671875,191.1529998779297,374.15301513671875,191.1529998779297,374.15301513671875,191.1529998779297]}
+2026-10-11T14:36:23.457Z [abu-fahd-p3-reshoot] taps=0 persona {"name":"abu-fahd-p3-reshoot"} → persona=abu-fahd-p3-reshoot
+2026-10-11T14:36:24.451Z [abu-fahd-p3-reshoot] taps=1 goto {"url":"http://localhost:3000/login"} → at http://localhost:3000/owner
+2026-10-11T14:36:24.584Z [abu-fahd-p3-reshoot] taps=2 ERROR {"cmd":"fill","label":"البريد الإلكتروني","value":"abufahd@zakham-test.sa"} → no visible field labelled «البريد الإلكتروني»
+2026-10-11T14:36:24.694Z [abu-fahd-p3-reshoot] taps=3 ERROR {"cmd":"fill","label":"كلمة المرور","value":"<password>"} → no visible field labelled «كلمة المرور»
+2026-10-11T14:36:24.842Z [abu-fahd-p3-reshoot] taps=4 ERROR {"cmd":"tap","text":"تسجيل الدخول"} → nothing visible on screen matches «تسجيل الدخول»
+2026-10-11T14:36:25.455Z [abu-fahd-p3-reshoot] taps=5 goto {"url":"http://localhost:3000/owner/transactions/new"} → at http://localhost:3000/owner/transactions/new
+2026-10-11T14:36:25.978Z [abu-fahd-p3-reshoot] taps=6 tap {"text":"وارد"} → tapped «وارد»
+2026-10-11T14:36:26.091Z [abu-fahd-p3-reshoot] taps=7 fill {"label":"المبلغ","value":"125"} → filled «المبلغ»
+2026-10-11T14:36:26.554Z [abu-fahd-p3-reshoot] taps=8 select {"label":"التصنيف","option":"مبيعات"} → selected «مبيعات» in «التصنيف»
+2026-10-11T14:36:27.054Z [abu-fahd-p3-reshoot] taps=9 tap {"text":"حفظ وإضافة أخرى"} → tapped «حفظ وإضافة أخرى»
+2026-10-11T14:36:27.241Z [abu-fahd-p3-reshoot] taps=9 shot {"name":"reshoot-save-and-add"} → progress/v14/owner-test/abu-fahd-p3-reshoot-001-reshoot-save-and-add.jpg
+2026-10-11T14:36:27.373Z [abu-fahd-p3-reshoot] taps=9 box {"text":"تم حفظ الحركة"} → {"x":29,"y":93,"width":332,"height":20}
+2026-10-11T14:36:27.485Z [abu-fahd-p3-reshoot] taps=9 box {"text":"حفظ","role":"button"} → {"x":309.625,"y":759,"width":64.375,"height":44}
+2026-10-11T14:36:27.610Z [abu-fahd-p3-reshoot] taps=9 box {"text":"حفظ وإضافة أخرى","role":"button"} → {"x":153.015625,"y":759,"width":148.609375,"height":44}
+2026-10-11T14:36:27.712Z [abu-fahd-p3-reshoot] taps=9 eval {"js":"[...document.querySelectorAll(\"[role=status] button\")].length"} → 0
+2026-10-11T14:36:28.361Z [abu-fahd-p3-reshoot] taps=10 goto {"url":"http://localhost:3000/owner/transactions?saved=1"} → at http://localhost:3000/owner/transactions
+2026-10-11T14:36:28.556Z [abu-fahd-p3-reshoot] taps=10 shot {"name":"reshoot-ledger-saved"} → progress/v14/owner-test/abu-fahd-p3-reshoot-002-reshoot-ledger-saved.jpg
+2026-10-11T14:36:28.721Z [abu-fahd-p3-reshoot] taps=10 box {"text":"تم حفظ الحركة"} → {"x":29,"y":219,"width":332,"height":20}
+2026-10-11T14:36:28.848Z [abu-fahd-p3-reshoot] taps=10 box {"text":"إضافة حركة"} → {"x":16,"y":85,"width":128.515625,"height":44}
+2026-10-11T14:36:28.953Z [abu-fahd-p3-reshoot] taps=10 eval {"js":"({url: location.search, overlaps: (() => { const t=[...document.querySelectorAll(\"[role=status]\")].find(e=>e.textContent.includes(\"تم حفظ الحركة\")); if(!t) return null; const r=t.getBoundingClientRect(); return [...document.querySelectorAll(\"a,button\")].filter(b=>{const q=b.getBoundingClientRect(); return q.width>0 && q.left<r.right && q.right>r.left && q.top<r.bottom && q.bottom>r.top && !t.contains(b)}).map(b=>b.textContent.trim()); })()})"} → {"url":"","overlaps":[]}
