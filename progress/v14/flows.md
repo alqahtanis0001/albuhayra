@@ -59,6 +59,13 @@ D30 › «`flows` owns»: `src/components/Toast.tsx`, new `src/components/{Saved
 | F13 | the read selects `email` too | scoping driver «listPendingStaffNames» |
 | F14 | drop the row's `hint` | the appended R16 `it` in `nav.test.ts` |
 | F8 (reviewer R2-S1) | — covered by the new salary-link pins (not separately mutated: the two pins are the same render as F8 mutation A, which fails them) | |
+| qa F1 | `SUCCESS_DISMISS_MS = 2000` | «the delay is exactly 3 000 ms and the strip is fixed» |
+| qa F2 | drop `fixed` from the strip | same case |
+| qa F3 | owner ledger passes `showing={false}` | «with a filter the panel is open and «مسح التصفية» is offered» |
+| qa F4 | delete `setSaved(true)` in the saveAndAdd arm | «the saveAndAdd arm calls setSaved(true) …» (static) |
+| qa F5 | drop `error={fieldErrors?.newPassword}` | «the server's error still lands under the field» (static) |
+| qa F6 | reverse `CUSTOMER_PAYMENT_NAMES`; and `find` by either name (first in list wins) | the matrix case (both names, old one first in the list, «سداد» wins) |
+| qa F7 | month `onChange` sets `month` only | «the month select's onChange goes through afterMonthChoice» (static) |
 | F4 | `SavedNotice` returns null always | 5 cases across `SavedNotice.test`, `ledgerPages.test`, `staff/page.test`, `owner/staff/[id]` test |
 
 ## In progress
