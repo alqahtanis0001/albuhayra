@@ -11,7 +11,7 @@ import { t } from "@/i18n/ar";
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/db", () => ({ db: {} })); // the row actions reach assertUnlocked, which opens the client at import
 vi.mock("@/lib/auth", () => ({
-  requireOwner: async () => ({ user: { id: "owner_1", role: "OWNER", canEdit: true }, establishmentId: "est_1" }),
+  requireOwner: async () => ({ user: { id: "owner_1", role: "OWNER", canEdit: true, establishmentName: "منشأة" }, establishmentId: "est_1" }),
   requireStaff: async () => ({ user: { id: "staff_1", role: "STAFF", canEdit: false }, establishmentId: "est_1" }),
 }));
 vi.mock("@/features/settings/queries", () => ({ listCategories: async () => [] }));
@@ -57,5 +57,29 @@ describe("the ledgers tolerate ?saved=1 (D32 S3c)", () => {
   it("neither ledger offers «مسح التصفية» for the flag alone", async () => {
     expect(await owner({ saved: "1" })).not.toContain(t.common.clearFilters);
     expect(await staff({ saved: "1" })).not.toContain(t.common.clearFilters);
+  });
+});
+
+describe("print on the owner ledger only (R11, D31d)", () => {
+  it("the owner ledger carries the print header with the filtered range, the footer and «طباعة»", async () => {
+    const html = await owner({ from: "2026-10-01", to: "2026-10-31" });
+    expect(html).toMatch(/<header class="print-only">/);
+    expect(html).toContain("منشأة");
+    expect(html).toContain("<bdi>2026-10-01</bdi>");
+    expect(html).toContain(`>${t.common.print}</button>`);
+    expect(html).toMatch(/class="print-only report-print-footer"/);
+  });
+
+  it("without a range the header names the establishment only, and the activities tab has no print button", async () => {
+    const html = await owner({});
+    expect(html).toMatch(/<header class="print-only">/);
+    expect(html).not.toContain(t.reports.rangeLabel);
+    expect(await owner({ tab: "activities" })).not.toContain(`>${t.common.print}</button>`);
+  });
+
+  it("the staff ledger prints as before: no header, no button", async () => {
+    const html = await staff({});
+    expect(html).not.toMatch(/print-only/);
+    expect(html).not.toContain(`>${t.common.print}</button>`);
   });
 });
