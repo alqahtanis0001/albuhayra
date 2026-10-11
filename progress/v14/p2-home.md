@@ -53,8 +53,15 @@ Not provable without a DOM (accepted, recorded): the component's after-mount bra
 - Mutations re-run on the new module (in-tree, `cmp` byte-exact): M15b unscoped `party.count` → 4 gate cases fail; M16b bare `{ establishmentId }` entry count → the same 4; **M21 drop `import "server-only"` → "S8: … server-only and never use-server" fails**.
 - Gates: `tsc --noEmit` 0; `vitest run` 90 files / 1454: **1453 pass, 1 fail = `entryDetails.test.ts › TransactionForm.tsx ends below 250 lines`** — `p2-forms`' in-progress file (excepted by the lead); every file of mine green. No client bundle change (server module only) — no rebuild.
 
+## qa-tests part 2 (S3, S4, N1, N2) — applied 2026-10-11
+- Code verified right first (`hide()` → `rememberFirstRunHidden(); setHidden(true)`; effect `setHidden(readFirstRunHidden())`; guard `shouldShowFirstRun(firstRun, hidden === true)`); no behaviour change.
+- `FirstRunCard.test.ts` gains "FirstRunCard wiring (static pins)" (3 cases on the source, anchored on the statements): S3 `hide()` remembers then hides; S4 the effect reads storage **and** the render passes `hidden === true` (and never a literal `true`/`false`); N2 `owner/page.tsx` has `<QuickActions />` < `<FirstRunCard firstRun={data.firstRun} />` < `<OwnerStatCards` by index.
+- N1: `ConfirmDialog.test.ts` source regex relaxed to `className="[^"]*\bm-auto\b` (no longer requires first position).
+- Mutations (in-tree, `cmp` byte-exact): M22 `hide()` without `rememberFirstRunHidden()` → S3 fails; M23 `shouldShowFirstRun(firstRun, false)` → S4 fails; M24 effect `setHidden(false)` → S4 fails; M25 card line moved below `OwnerStatCards` → N2 fails; M20b `m-auto` dropped → both dialog cases still fail under the relaxed regex.
+- Gates: `tsc --noEmit` 0; `vitest run` **91 files / 1481 tests, all green** (p2-forms' line-budget case now passes too). No bundle change (tests only) — no rebuild.
+
 ## In progress
-- Task: none — all P2-3 / P2-4 items done, lead's line-budget change applied; awaiting the reviewer.
+- Task: none — all P2-3 / P2-4 items done, lead's line-budget change and qa-tests S3/S4/N1/N2 applied; awaiting the reviewer.
 
 ## Gotchas I found
 - A `.test.ts` outside the repo root runs fine with `startVitest(…, { root: repo, dir: <scratch dir>, include: ["**/*.test.ts"], alias: [@/ → src/] })`; relative imports inside the copied files resolve to the copies, which is what makes a scratch-copy mutation of a component with relative imports possible (copy the whole small cluster, not one file).

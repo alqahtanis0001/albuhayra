@@ -224,6 +224,32 @@ describe("remembered per device (D24, S7)", () => {
   });
 });
 
+describe("after hydration the auto-open arms still win (qa-tests part 2, S1/S2)", () => {
+  it("S1: a remembered «compact» never collapses an entry whose details are set, a preset, or a field error", () => {
+    // The rule the mount effect runs, with the remembered value as its last input.
+    expect(shouldOpenDetails({ initial: { ...NONE, note: "ملاحظة" }, remembered: false })).toBe(true);
+    expect(shouldOpenDetails({ initial: { ...NONE, partyId: "party_1" }, remembered: false })).toBe(true);
+    expect(shouldOpenDetails({ presetProjectId: "proj_1", remembered: false })).toBe(true);
+    expect(shouldOpenDetails({ fieldErrors: { partyId: "err.partyInvalid" }, remembered: false })).toBe(true);
+    // Statically: the mount effect feeds the remembered value *through the rule*, the same rule object the initial
+    // state uses — never `setOpen(readDetailsOpen())` — and reads storage exactly once.
+    const source = readFileSync("src/features/transactions/components/EntryDetails.tsx", "utf8");
+    expect(source).toContain("const [open, setOpen] = useState(() => shouldOpenDetails({ ...rule, remembered: false }));");
+    expect(source).toMatch(/useEffect\(\(\) => \{\s*setOpen\(shouldOpenDetails\(\{ \.\.\.rule, remembered: readDetailsOpen\(\) \}\)\);/);
+    expect(source.match(/readDetailsOpen\(\)/g)).toHaveLength(1);
+    expect(source).not.toContain("setOpen(readDetailsOpen())");
+  });
+
+  it("S2: a refused submit naming one of the fields re-opens the panel later, whatever the user chose (static)", () => {
+    const source = readFileSync("src/features/transactions/components/EntryDetails.tsx", "utf8");
+    expect(source).toMatch(
+      /useEffect\(\(\) => \{\s*if \(shouldOpenDetails\(\{ fieldErrors, remembered: false \}\)\) setOpen\(true\);\s*\}, \[fieldErrors\]\);/,
+    );
+    // Only the user's toggle can close it: nothing else calls setOpen(false).
+    expect(source).not.toContain("setOpen(false)");
+  });
+});
+
 describe("the restructure (D24, D27)", () => {
   it("TransactionForm.tsx ends below 250 lines", () => {
     const lines = readFileSync("src/features/transactions/components/TransactionForm.tsx", "utf8").trimEnd().split("\n").length; // as `wc -l`

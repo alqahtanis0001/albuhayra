@@ -72,7 +72,7 @@ export function FirstRunCardView({
             <li key={step.key}>
               <Link
                 href={step.href}
-                className={`${ROW} justify-between text-gray-900 hover:bg-gray-200/60`}
+                className={`${ROW} justify-between rounded-lg text-gray-900 hover:bg-gray-200/60`}
               >
                 <span>{step.label}</span>
                 <ChevronEndIcon size={18} className="shrink-0 text-gray-600" />

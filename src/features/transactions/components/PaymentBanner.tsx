@@ -78,7 +78,7 @@ export function PaymentBanner(props: PaymentBannerProps) {
       {plan ? (
         <Link
           href={`/owner/plans/${plan.planId}`}
-          className="self-start text-accent-dark underline underline-offset-2"
+          className="inline-flex min-h-11 items-center self-start text-accent-dark underline underline-offset-2"
         >
           {plan.planTitle} — {t.payment.viewPlan}
         </Link>

@@ -29,9 +29,9 @@ describe("ConfirmDialog (D26a)", () => {
     expect(dialog).toMatch(/class="[^"]*\bm-auto\b/);
   });
 
-  it("the class lives in the source once, on the dialog element (not a wrapper)", () => {
+  it("the class lives in the source on the dialog element itself (not a wrapper)", () => {
     const source = readFileSync("src/components/ConfirmDialog.tsx", "utf8");
-    expect(source).toMatch(/<dialog[\s\S]*?className="m-auto /);
+    expect(source).toMatch(/<dialog[\s\S]*?className="[^"]*\bm-auto\b/);
   });
 
   it("still labels itself by its title and describes itself by the message", () => {

@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -91,5 +92,34 @@ describe("FirstRunCardView after mount", () => {
     expect(links.length).toBe(2);
     for (const a of links) expect(a).toMatch(/class="[^"]*\bmin-h-11\b/);
     expect(html).toMatch(/<button[^>]*class="[^"]*\bmin-h-11\b/);
+  });
+});
+
+/**
+ * qa-tests part 2 (S3, S4, N2): the wiring that a static render cannot reach —
+ * effects do not run and the hide handler is never called — pinned on the
+ * source, anchored on the statements themselves so prose cannot match.
+ */
+describe("FirstRunCard wiring (static pins)", () => {
+  const source = readFileSync("src/features/dashboard/components/FirstRunCard.tsx", "utf8");
+
+  it("S3: «إخفاء» remembers the choice, then hides", () => {
+    expect(source).toMatch(/function hide\(\) \{\s*rememberFirstRunHidden\(\);\s*setHidden\(true\);/);
+  });
+
+  it("S4: the mount effect reads storage, and the render decision uses that mounted state", () => {
+    expect(source).toMatch(/useEffect\(\(\) => \{\s*setHidden\(readFirstRunHidden\(\)\);/);
+    expect(source).toMatch(/if \(!shouldShowFirstRun\(firstRun, hidden === true\)\) return null;/);
+    expect(source).not.toMatch(/shouldShowFirstRun\(firstRun, (?:true|false)\)/);
+  });
+
+  it("N2: the owner home renders the card between the quick actions and the money cards", () => {
+    const page = readFileSync("src/app/(owner)/owner/page.tsx", "utf8");
+    const at = ["<QuickActions />", "<FirstRunCard firstRun={data.firstRun} />", "<OwnerStatCards"].map((s) =>
+      page.indexOf(s),
+    );
+    expect(at.every((i) => i >= 0)).toBe(true);
+    expect(at[0]).toBeLessThan(at[1]!);
+    expect(at[1]).toBeLessThan(at[2]!);
   });
 });

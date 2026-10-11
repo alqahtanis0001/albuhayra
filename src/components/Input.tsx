@@ -51,7 +51,9 @@ export function Input({
         {required ? <span aria-hidden="true"> *</span> : null}
       </label>
 
-      <div className="relative">
+      {/* v1.4 part 2 (qa-visual): with a suffix the wrapper takes the input's own
+          direction, so `end-3` and `pe-14` resolve to the same side. */}
+      <div className="relative" dir={suffix ? rest.dir : undefined}>
         <input
           id={fieldId}
           name={name}

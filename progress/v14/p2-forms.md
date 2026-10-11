@@ -14,6 +14,12 @@ Own running notes. Only `p2-forms` writes here. Newest at the bottom.
 
 | Reviewer round 1 (R-p2-1-S1 + 2 NOTEs) | `quickPartyList.ts` (+ `shownPartyChoice(choice, adding)`), `PartyQuickAdd.tsx` (toast removed — the caller shows it; returns `null` when closed), `PlanPartySelect.tsx` (local `adding` state: the select *shows* the sentinel and the hidden input posts "" while the box is open, but the form's party/direction/category are never written — «إلغاء» just closes the box, so even a user-overridden direction survives, which a `chooseParty(before)` restore would have recomputed; toast as sibling), `LinkFields.tsx` (same `adding` flag; gate `manageParties && !lockParty && !disabled`; cancel never `setParty("")`), `EntryDetails.tsx` (toast state here, rendered as a **sibling** of the `hidden` panel), `partyQuick.test.ts` +5 cases (21) incl. the reviewer's round-trip pin `applyPartyChoice(applyPartyChoice(v, NEW_PARTY, list), v.partyId, list) == v` | tsc 0; vitest **91 / 1475** all pass; rebuilt under the lock (exit 0, 0 error/warn); re-measured below | Design note for the reviewer: I kept the choice out of the form state instead of a `before` snapshot — strictly stronger restore (see left). `applyPartyChoice`'s sentinel arm stays as a guard but is no longer reached from the select. |
 
+| qa-tests part 2 (S1, S2) | `entryDetails.test.ts` +2 cases (18). **No code change:** the mount effect already ran `setOpen(shouldOpenDetails({ ...rule, remembered: readDetailsOpen() }))` with one `readDetailsOpen()` call (S1 described `setOpen(readDetailsOpen())`, which the source never had) — the missing piece was the pin. S1: unit on the four auto-open arms with `remembered: false` + static pins (initial state and mount effect both run the same `rule`; `readDetailsOpen()` exactly once; no `setOpen(readDetailsOpen())`). S2: static pin on the late-`fieldErrors` `useEffect` block + "nothing but the toggle calls `setOpen(false)`". | tsc 0; vitest green (counts in the report); no rebuild (no markup change) | — |
+
+## qa-tests part-2 mutations (`scratchpad/p2-forms/qa2-mutations.log`; each restored `cmp` byte-exact)
+- M43 mount effect → `setOpen(readDetailsOpen())` → "S1: a remembered «compact» never collapses an entry whose details are set, a preset, or a field error".
+- M44 the late-`fieldErrors` effect deleted → "S2: a refused submit naming one of the fields re-opens the panel later, whatever the user chose (static)".
+
 ## Reviewer-round mutations (`scratchpad/p2-forms/r1-mutations.log`, plan `r1.json`; each restored `cmp` byte-exact)
 - M37 `PlanPartySelect` cancel → `onChoose("")` / M38 `LinkFields` cancel → `setParty("")` / M42 the select writes the sentinel into the form's choice → "the components never write the sentinel into the form's choice: cancel only closes the box (static, anchored)".
 - M39 drop `&& !disabled` → "N: a locked month (disabled select) offers no sentinel on the entry form either".
@@ -50,7 +56,7 @@ After the reviewer round (re-measured): 55 routes, none missing, none over +40. 
 - M14 page ignores `p.active` → "an unknown id, an inactive party, a list or an empty value are ignored". M15 page passes the preset in payment mode → "a payment keeps the plan's party".
 
 ## In progress
-- Nothing. D24, D23 and reviewer round 1 done; reports returned to the lead. Lead ruled (after hand-off 1) the field order as built: direction → amount → date → category → method → «تفاصيل أكثر»; payment mode: note after the method.
+- Nothing. D24, D23, reviewer round 1 and qa-tests part 2 (S1/S2) done; reports returned to the lead. Lead ruled (after hand-off 1) the field order as built: direction → amount → date → category → method → «تفاصيل أكثر»; payment mode: note after the method.
 
 ## Gotchas I found
 - **Next's webpack resolves `.tsx` before `.ts`** (`node_modules/next/dist/build/webpack-config.js`: `['.js','.mjs','.tsx','.ts',…]`). A module `partyList.ts` beside the existing `PartyList.tsx` would resolve `./partyList` to the *wrong file* on a case-insensitive filesystem (the user's click-test machine) — the brief's name was unsafe, so the module is `quickPartyList.ts`. Rule: never name a `.ts` module as a case-variant of a sibling `.tsx`.
