@@ -45,7 +45,9 @@ export function AmountField({
         {required ? <span aria-hidden="true"> *</span> : null}
       </label>
 
-      <div className="relative">
+      {/* v1.4 part 2 (qa-visual S-P2-1): the wrapper is LTR like the input, so `end-3`
+          lands on the same side `pe-14` reserves — the badge never covers the digits. */}
+      <div className="relative" dir="ltr">
         <input
           id={id}
           name={`${id}Input`}

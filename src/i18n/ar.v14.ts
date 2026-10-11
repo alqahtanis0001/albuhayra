@@ -31,7 +31,8 @@ export const v14Sections = {
 
   /** `cats`, A5 — the settings page that keeps every function. */
   categoriesPage: {
-    back: "← الإعدادات",
+    /** v1.4 part 2 (D26): the arrow points the RTL "back" way (to the right). */
+    back: "→ الإعدادات",
     hint: "يمكنك أيضًا إضافة التصنيفات وإخفاؤها مباشرة من نموذج الحركة.",
   },
 
@@ -95,6 +96,38 @@ export const v14Sections = {
     recorded: "تم تسجيل الدفعة",
     /** D10 (user): one informational line on the party statement; `{amount}` is a formatted SAR amount. */
     statementRemaining: "اتفاقيات مفتوحة: المتبقي {amount}",
+  },
+
+  /** v1.4 part 2 (D23) — `p2-forms`: inline quick-add of a party from the party select. */
+  partyQuick: {
+    /** The trailing option of the party select (owner only). */
+    add: "+ جهة جديدة",
+    name: "اسم الجهة الجديدة",
+    type: "نوع الجهة",
+    added: "تمت إضافة الجهة",
+  },
+
+  /** v1.4 part 2 (D24) — `p2-forms`: the «تفاصيل أكثر» disclosure on the entry form. */
+  entryDetails: {
+    more: "تفاصيل أكثر",
+    less: "تفاصيل أقل",
+    /** sr-only hint on the button: what the disclosure holds. */
+    holds: "الجهة، النشاط، الملاحظة",
+  },
+
+  /** v1.4 part 2 (D25) — `p2-home`: the first-run checklist card on the owner home. */
+  firstRun: {
+    title: "ابدأ هنا",
+    hint: "أربع خطوات تجعل زخم مفيدًا من أول يوم.",
+    stepEntry: "سجّل أول حركة",
+    stepParty: "أضف جهة: عميلًا أو موردًا",
+    stepPlan: "سجّل اتفاقية",
+    stepEmployee: "أضف موظفًا",
+    /** sr text on a ticked step. */
+    done: "تم",
+    /** `{done}` = number of ticked steps, Western digits. */
+    progress: "{done} من 4",
+    hide: "إخفاء",
   },
 
   /** v1.4 error keys. Merged into `t.err` by ar.ts. */

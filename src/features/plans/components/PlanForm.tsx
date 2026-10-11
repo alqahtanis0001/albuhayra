@@ -8,6 +8,10 @@
  * plan's own party and category stay offered even if since deactivated,
  * labelled, as on the entry form. حفظ stays disabled until the schedule's rows
  * add up to the total; they are posted as one JSON `instalments` field.
+ *
+ * v1.4 part 2 (D23): the party block is `PlanPartySelect` — the list is client
+ * state so an owner can add a party inline; the select posts through a hidden
+ * `partyId` input, never the «+ جهة جديدة» sentinel.
  */
 import { useRouter } from "next/navigation";
 import { useActionState, useState } from "react";
@@ -15,23 +19,18 @@ import { useActionState, useState } from "react";
 import { Button } from "@/components/Button";
 import { FormToast } from "@/components/FormToast";
 import { Input } from "@/components/Input";
-import { Select, type SelectGroup } from "@/components/Select";
+import { Select } from "@/components/Select";
 import { Textarea } from "@/components/Textarea";
+import { applyAddedParty } from "@/features/parties/components/quickPartyList";
 import type { PartyOption } from "@/features/parties/queries";
 import type { CategoryRow } from "@/features/settings/queries";
 import { AmountField } from "@/features/transactions/components/AmountField";
 import { t } from "@/i18n/ar";
 import { parseSAR } from "@/lib/money";
-import {
-  PartyTypeEnum,
-  PlanInputSchema,
-  invalid,
-  type ActionResult,
-  type DirectionValue,
-} from "@/lib/validation";
+import { PlanInputSchema, invalid, type ActionResult, type DirectionValue } from "@/lib/validation";
 
-import { DEFAULT_DIRECTION } from "./PlanBits";
 import { PlanDirectionCards } from "./PlanDirectionCards";
+import { PlanPartySelect, applyPartyChoice } from "./PlanPartySelect";
 import { ScheduleBuilder } from "./ScheduleBuilder";
 import { draftToRows, type DraftRow } from "./scheduleDraft";
 
@@ -57,6 +56,7 @@ export function PlanForm({
   parties,
   categories,
   planId,
+  manageParties = false,
 }: {
   action: PlanFormAction;
   initial: PlanFormInitial;
@@ -64,9 +64,12 @@ export function PlanForm({
   categories: CategoryRow[];
   /** Edit: the plan's id (bound into the action by the page) and where حفظ returns. */
   planId?: string;
+  /** Owner pages only (D23): «+ جهة جديدة» in the party select. */
+  manageParties?: boolean;
 }) {
   const router = useRouter();
   const [v, setV] = useState(initial);
+  const [partyList, setPartyList] = useState(parties);
   const set = <K extends keyof PlanFormInitial>(key: K, value: PlanFormInitial[K]) =>
     setV((old) => ({ ...old, [key]: value }));
 
@@ -76,7 +79,7 @@ export function PlanForm({
 
   const totalHalalas = parseSAR(v.total);
   const rows = draftToRows(v.rows, totalHalalas, v.startDate);
-  const party = parties.find((p) => p.id === v.partyId);
+  const party = partyList.find((p) => p.id === v.partyId);
 
   const [state, formAction, pending] = useActionState(
     async (prev: Result | null, formData: FormData): Promise<Result | null> => {
@@ -97,26 +100,17 @@ export function PlanForm({
   );
   const fieldErrors = state && !state.ok ? state.fieldErrors : undefined;
 
-  const partyGroups: SelectGroup[] = PartyTypeEnum.options.map((type) => ({
-    label: t.partyType[type],
-    options: parties
-      .filter((p) => p.type === type && (p.active || p.id === own.partyId))
-      .map((p) => ({ value: p.id, label: p.active ? p.name : `${p.name} (${t.status.DISABLED})` })),
-  }));
   const categoryOptions = categories
     .filter((c) => c.type === v.direction && (c.active || c.id === own.categoryId))
     .map((c) => ({ value: c.id, label: c.active ? c.nameAr : `${c.nameAr} (${t.status.DISABLED})` }));
 
-  function chooseParty(id: string) {
-    const next = parties.find((p) => p.id === id);
-    const direction = next ? DEFAULT_DIRECTION[next.type] : "";
-    setV((old) => ({
-      ...old,
-      partyId: id,
-      direction,
-      categoryId: direction === old.direction ? old.categoryId : "",
-    }));
-  }
+  // Looks the party up in the client-state list (S6); the new row is passed in before the state settles.
+  const chooseParty = (id: string, list = partyList) => setV((old) => applyPartyChoice(old, id, list));
+  const addParty = (row: PartyOption) => {
+    const list = applyAddedParty(partyList, row);
+    setPartyList(list);
+    chooseParty(row.id, list);
+  };
 
   return (
     <form action={formAction} className="flex flex-col gap-4" noValidate>
@@ -126,20 +120,16 @@ export function PlanForm({
         </p>
       ) : null}
 
-      <Select
-        label={t.plans.party}
-        name={locked ? undefined : "partyId"}
-        id="partyId"
-        options={[]}
-        groups={partyGroups}
-        placeholder={t.parties.choose}
+      <PlanPartySelect
+        parties={partyList}
         value={v.partyId}
-        onChange={(e) => chooseParty(e.target.value)}
-        disabled={locked}
-        required
+        ownPartyId={own.partyId}
+        locked={locked}
+        manageParties={manageParties}
         error={fieldErrors?.partyId}
+        onChoose={chooseParty}
+        onAdded={addParty}
       />
-      {locked ? <input type="hidden" name="partyId" value={v.partyId} /> : null}
 
       <PlanDirectionCards
         value={v.direction}

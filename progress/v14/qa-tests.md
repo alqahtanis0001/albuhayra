@@ -120,3 +120,92 @@ Checked by reading, not run (equivalent or already listed by the builder): `rece
 
 ## Questions / requests sent to lead
 - F1 is the one BLOCKER; F2–F8 are SHOULDs the owners can close in minutes (all are added cases, no code change). Nothing in the tree was changed by me.
+
+## Part 2 (2026-10-11)
+Scope: HEAD `3e00d7b` (`v1.4 part 2: forms and first run`), the seven test files in `git diff --name-only 5abaf5a..HEAD -- 'src/**/*.test.ts'`, rules D23–D28 of `docs/V14-SPEC.md`, `docs/BACKEND.md › Security` + the v1.4 part-2 bullet, and the builders' lists (`p2-forms` M1–M42, `p2-home` M1–M21, reviewer's spot-checks) — every mutation below is one they did not list. Same method as CP-C: `src` re-copied to `<scratchpad>/qa-tests/tree/src` (the part-1 copy moved aside as `src.part1`), `node_modules`/`prisma` symlinked, `vitest.config.mts` copied; `mut.sh` applies one unique replacement, runs vitest from the copy, restores from the repo and `cmp`-verifies; scripts `p2-d24.sh`, `p2-d23.sh`, `p2-d25.sh`, logs `p2-d24.log`, `p2-d23-d25.log`. `diff -rq src <copy>/src` empty at the end. No source, test or doc edited; no git write.
+
+### Mutations run — 32 (27 killed, 5 survived)
+| # | Mutation (file:line, scratch copy) | Tests run | Result |
+|---|---|---|---|
+| E1 | `shouldOpenDetails` B1 arm counts **any** `fieldErrors` key (`entryDetailsState.ts:43`) | entryDetails | K — "B1: opens when a server field error names one of the three fields" (`amountHalalas` → false, :121) |
+| E2 | `return remembered` → `initial ? remembered : false` (:44) | entryDetails | K — "otherwise the remembered value decides" :126 |
+| E3 | `readDetailsOpen` catch returns `true` (:51) | entryDetails | K — :198 (throwing storage) |
+| E4 | mount effect also calls `rememberDetailsOpen(next)` (`EntryDetails.tsx:78`) | entryDetails | K — S7 **static** pin only (`rememberDetailsOpen\(` count :222); the render half cannot see an effect |
+| E5 | `hidden={!open}` → `className={open ? … : "hidden"}` (`EntryDetails.tsx:143`) | entryDetails, partyQuick | K — :141 `\shidden=""` and the toast static pin :294. Correct strictness: D24 says the *attribute* (it is also what removes the panel from the a11y tree behind `aria-controls`) → N3 |
+| E6 | `lockParty={payment}` → `{false}` (:107) | entryDetails, partyQuick | K — payment-mode cases :166, PQ :130 |
+| E7 | page passes `?partyId=` unvalidated (`transactions/new/page.tsx:40`) | new/page | K — "an unknown id, an inactive party, a list or an empty value are ignored" |
+| E8 | `DETAIL_FIELDS` drops `counterparty` (:19) | entryDetails | K — :101 and the B1 case |
+| E9 | the **late-error effect** removed (`EntryDetails.tsx:85–87`) | entryDetails | **S** → S2 |
+| E12 | mount effect `setOpen(readDetailsOpen())` — remembered overrides the rule after hydration (:78) | entryDetails | **S** → S1 |
+| E13 | `TransactionForm.tsx` padded to 251 lines | entryDetails | K — "ends below 250 lines" :229 |
+| Q1 | plan hidden input posts `postedPartyId(value)` not `(shown)` (`PlanPartySelect.tsx:95`) | partyQuick | K — static pin :276 (`value={postedPartyId(shown)}`); behaviourally: while the box is open the old party would post |
+| Q4 | box type `Select` lists every `PartyTypeEnum` value (`PartyQuickAdd.tsx:139`) | partyQuick | K — :309 `value="EMPLOYEE"` |
+| Q5 | `applyAddedParty` upsert keeps the old `active` (`quickPartyList.ts:52`) | partyQuick | K — revived-namesake assertion :197–198 |
+| Q7 | `PlanForm.chooseParty` default list = `parties` (stale prop) (`PlanForm.tsx:108`) | partyQuick | K — anchored static pin :235 |
+| Q9 | `createParty` → `requireUser()` (`parties/actions.ts:41`, first occurrence only) | parties | K — "createParty calls requireOwner and nothing weaker" + "writes nothing when requireOwner refuses" (`parties.test.ts:87–100`) — the D23 control holds |
+| Q12 | `LinkFields.onAdded` leaves the box open (no `setAdding(false)`) (`LinkFields.tsx:120`) | partyQuick | K — only by the anchored static pin :240 (misleading case name) → N6 |
+| Q13 | `EntryDetails.onPartyAdded` appends instead of upserting (:111) | partyQuick | K — S3 static pin :212 |
+| Q15 | `PartyQuickAdd` posts the raw `name`, not `parsed.data` (:57) | partyQuick | K — static pin :337 |
+| Q22 | staff `transactions/new/page.tsx` passes `manageParties` | partyQuick | K — static sweep :140 |
+| Q25 | `onKeyDown={swallowEnter…}` removed (`PartyQuickAdd.tsx:132`) | partyQuick | K — static pin :336 |
+| Q26 | `quickAdd = !locked` (sentinel for staff) (`PlanPartySelect.tsx:77`) | partyQuick | K — "staff renders … have no «+ جهة جديدة»" |
+| F2 | `allDone` over three steps (`firstRun.ts:52`) | firstRun, FirstRunCard | K — "allDone only when all four flags are true" |
+| F11 | plan step borrows `stepParty`'s label (`firstRun.ts:38`) | firstRun, FirstRunCard | K — order + labels cases |
+| F6 | `FirstRunCard` `useState(false)` — shown before storage is read (`FirstRunCard.tsx:90`) | FirstRunCard | K — "renders the card hidden and no-print until storage has been read" |
+| F8 | `hide()` without `rememberFirstRunHidden()` (:98–101) | firstRun, FirstRunCard | **S** → S3 |
+| F12 | `shouldShowFirstRun(firstRun, false)` — stored flag ignored after mount (:96) | firstRun, FirstRunCard | **S** → S4 |
+| F13 | progress prints the remaining count (:61) | FirstRunCard | K — "«0 من 4»" :82 (the `twoDone` fixture alone would not: 2 = 4 − 2) |
+| F4 | `db.plan.count({})` (`firstRunReads.ts:25`) | scoping | K — 4 cases (driver, first-run case, categories case, the sweep) |
+| F9 | `getOwnerDashboard` returns constant flags (`queries.ts:222`) | scoping | K — "first-run reads are scoped and reduce to four booleans" (`toEqual` on the flags, :843) |
+| C1 | `m-auto` moved to the **end** of the class string (`ConfirmDialog.tsx:61`) | ConfirmDialog | K — but only by the over-strict static pin :34 (`className="m-auto `); the render pin :29 is satisfied → N1 |
+| C2 | `categoriesPage.back` loses the «→» (`ar.v14.ts:35`) | settingsPages, v14Rename | **S** → B1 |
+
+Checked by reading, not run: `presetPartyId` joining `preset` (builder M13, static :235); the owner page passing the preset in payment mode (M15, page test :88); `postedPartyId` returning the sentinel (M17); `QUICK_PARTY_TYPES` with EMPLOYEE (M16); duplicate on a second add (M18); `addedParty` raw name (M19); cancel writing `""` (M37/M38); toast inside the panel (M40); the plan select regaining `name` (M24); `locked`/`disabled` sentinel (M22/M39); `firstRunSteps` order/href/flag (M1–M3); `shouldShowFirstRun` ignoring `hidden` (M5); `readFirstRunFlags` dropping `establishmentId`/`deletedAt` (M15/M16/M19 — F4 re-proved the plan read); `firstRun` gaining a number (M17); `no-print`/`m-auto` dropped (M9/M20); all-done render (M10).
+
+### Rule → pin
+| Rule | Pin | Verdict |
+|---|---|---|
+| D23 owner-only / last option / locked / payment | `partyQuick.test.ts` :88–153 | real (Q22, Q26; builder M20–M23, M35) |
+| D23 sentinel never posts | :155–184 (pure `postedPartyId` + hidden-input renders) | real; the "while the box is open" half is a static pin (Q1) |
+| D23 upsert + select + direction; S3; S5 | :186–250 | real (Q5, Q7, Q13, Q15 — Q7/Q13/Q15 static-anchored) |
+| D23 box: three types, no `name`, no submit, Enter swallowed, refusal shown | :300–339 | real (Q4; Q25 static) |
+| D23 control `createParty` → `requireOwner` | `parties.test.ts:87–100` | real (Q9) |
+| D24 `shouldOpenDetails` matrix, B1 arm | `entryDetails.test.ts:98–128` | real (E1, E2, E8) |
+| D24 collapsed-in-DOM / `hidden` / ARIA / payment / staff / `no-print` | :130–187 | real (E5, E6) |
+| D24 remembered per device, S7 | :189–225 | pure helpers real (E3); **the component's effects are unpinned** (E9, E12 → S1, S2) |
+| D24 `?partyId=` on the owner page | `new/page.test.ts` | real (E7) |
+| D24/D28 `TransactionForm` < 250, `preset` excludes `presetPartyId` | :227–240 (static) | real (E13) |
+| D25 steps order/href/flag, `allDone`, `shouldShowFirstRun`, storage | `firstRun.test.ts` | real (F2, F11) |
+| D25 card renders (hidden pre-mount, null when done, ticks, links, digits, 44 px) | `FirstRunCard.test.ts` | real (F6, F13); **the component's `hide()` and after-mount `hidden` wiring are unpinned** (F8, F12 → S3, S4); the page's placement unpinned (N2) |
+| D25 four scoped boolean reads | `scoping.test.ts:829–849` + FILES :2399 + S8 :2607 | real (F4, F9) |
+| D26a `m-auto` | `ConfirmDialog.test.ts` | real; the source pin over-strict (N1) |
+| D26b «→» prefix | — | **unpinned** (C2 → B1): `settingsPages.test.ts:71` reads the value through `t`, so any value passes |
+| D27 S1 nameless `Select`, no radios | `partyQuick.test.ts:311, :318` | real |
+| D28 `firstRunReads.ts` server-only, `quickPartyList.ts` name | gate S8; PQ header comment | real / by construction |
+
+### Static sweeps
+- New server-only module since part 1: `src/features/dashboard/firstRunReads.ts` only — in FILES (`scoping.test.ts:2399`) and S8 (:2607); `queries.ts` already listed. The other seven new files are `"use client"` (4) or pure (3).
+- No new `"use client"` file imports a server-only module: `PartyQuickAdd` → `@/features/parties/actions` (`"use server"`, the `CategoryQuickActions` pattern), `categoryList` (pure), the validation barrel (value import — part-1 N2 class, bundle measured by `p2-forms`); `PlanPartySelect` → `PlanBits`; `FirstRunCard` → `dashboard/visuals` → `lib/dates`, `lib/money` (no `server-only`); `src/lib/validation/{auth,email}.ts` mention "server-only" in comments only.
+- Staff pages: no `(staff)` file mentions `manageParties` (sweep :140, Q22 proves it live).
+
+### Findings
+
+#### BLOCKER
+- **B1 — D26b's «→» is unpinned.** The spec's test list says "the i18n value starts with «→»"; `src/features/settings/components/settingsPages.test.ts:71` only checks `out` contains `t.categoriesPage.back`, so `back: "الإعدادات"` (C2) passes everything. One line, no code change — **`lead`** (owns `ar.v14.ts`; or `p2-home`, D26's owner): after :71 add `expect(t.categoriesPage.back.startsWith("→ ")).toBe(true);`. Trivial, but by this brief's definition (an unpinned spec rule) it is the one BLOCKER.
+
+#### SHOULD
+- **S1 — D24 "opens automatically regardless of the remembered state" holds only on the server render.** `src/features/transactions/components/EntryDetails.tsx:78` replaced by `setOpen(readDetailsOpen())` (E12) passes `entryDetails.test.ts`: after hydration, an edited entry with a note on a device that remembers «compact» would collapse the note — the exact value-hiding D24 forbids. `renderToStaticMarkup` runs no effects, so pin it statically in the S7 case (:213–225), **`p2-forms`**: `expect(source).toContain("setOpen(shouldOpenDetails({ ...rule, remembered: readDetailsOpen() }));"); expect(source.match(/readDetailsOpen\(\)/g)).toHaveLength(1);`.
+- **S2 — D27 B1's real path is unpinned.** The B1 arm is pinned on the pure rule and on the *initial* render (the `useState` initialiser), but the effect that opens the panel when a **later** submit is refused (`EntryDetails.tsx:85–87`) can be deleted (E9) and every case passes — which is the scenario B1 was raised for (the error sits in a `hidden` field, the user sees only the toast). Static pin, same case, **`p2-forms`**: `expect(source).toMatch(/useEffect\(\(\) => \{\s*if \(shouldOpenDetails\(\{ fieldErrors, remembered: false \}\)\) setOpen\(true\);\s*\}, \[fieldErrors\]\);/);`.
+- **S3 — D25 «إخفاء» remembered: the component may never write it.** `FirstRunCard.tsx:98–101` `hide()` without `rememberFirstRunHidden()` (F8) survives `firstRun.test.ts` + `FirstRunCard.test.ts`; the pure helpers are pinned, their wiring is not (the builder recorded the after-mount branch as "not provable without a DOM" — the static half is). **`p2-home`**, new case in `FirstRunCard.test.ts`: `const source = readFileSync("src/features/dashboard/components/FirstRunCard.tsx","utf8"); expect(source).toMatch(/function hide\(\) \{\s*rememberFirstRunHidden\(\);\s*setHidden\(true\);\s*\}/);`.
+- **S4 — D25 the stored flag never reaches the render.** `FirstRunCard.tsx:96` `shouldShowFirstRun(firstRun, false)` (F12) survives: a dismissed card comes back on every visit. Same new case, **`p2-home`**: `expect(source).toContain("shouldShowFirstRun(firstRun, hidden === true)"); expect(source).toContain("setHidden(readFirstRunHidden())");`.
+
+#### NOTE
+- **N1** `ConfirmDialog.test.ts:34` `/<dialog[\s\S]*?className="m-auto /` requires `m-auto` to be the **first** class; a class reorder (C1 — what a Tailwind class sorter does) fails a test whose name says the class moved to a wrapper. `/<dialog[\s\S]*?className="[^"]*\bm-auto\b/` keeps the intent. `p2-home`.
+- **N2** `src/app/(owner)/owner/page.tsx:45` — no test renders or reads the owner home, so `<FirstRunCard firstRun={data.firstRun} />` moved below `OwnerStatCards`, or handed a constant, survives by construction. One static `toMatch(/<QuickActions \/>\s*<FirstRunCard firstRun=\{data\.firstRun\} \/>\s*<OwnerStatCards/)` in `FirstRunCard.test.ts`. `p2-home`.
+- **N3** The `hidden`-attribute pin (:141) rejects a `display:none` class (E5). Intended: D24 names the attribute, and only the attribute removes the panel from the accessibility tree the button's `aria-controls` points at. No change.
+- **N4** Q12 (box left open after a successful add) is killed only by the anchored string pin "the plan forms select and derive through the client-state list" (:240) — a misleading name for that failure, same class as part-1 N6. Acceptable for v1.4.
+- **N5** F13 shows the `twoDone` fixture is symmetric (2 done = 2 remaining); the `none` render (:82) is what carries the digit rule — keep both fixtures.
+- **N6** `git status --short` → only ` M progress/v14/qa-tests.md` (this file). Scratch copy byte-identical to `src` after every run.
+
+### Gates (real tree, end of part 2)
+`npx vitest run` → **91 files / 1475 tests green**; `npx tsc --noEmit` → **0 errors**.

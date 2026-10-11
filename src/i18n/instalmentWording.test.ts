@@ -74,6 +74,14 @@ describe("v1.4 keys the lead adds before go (D16–D17)", () => {
     expect(plural(t.navItem.pendingBadge, 5)).toBe("5 طلبات انضمام");
   });
 
+  it("part 2 keys exist and the categories back link points the RTL back way (D26b)", () => {
+    expect(t.categoriesPage.back.startsWith("→ ")).toBe(true);
+    for (const k of [t.partyQuick.add, t.partyQuick.type, t.entryDetails.more, t.entryDetails.less, t.firstRun.title, t.firstRun.hide]) {
+      expect(typeof k === "string" && k.length > 0).toBe(true);
+    }
+    expect(t.firstRun.progress.replace("{done}", "2")).toBe("2 من 4");
+  });
+
   it("no new value uses Eastern digits", () => {
     const eastern = /[٠-٩]/;
     const hits = strings.filter(([, v]) => eastern.test(v)).map(([k]) => k);

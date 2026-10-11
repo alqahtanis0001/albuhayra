@@ -48,6 +48,7 @@ export default async function NewPlanPage({
           parties={parties}
           categories={categories}
           today={today}
+          manageParties // v1.4 D23: owner only — «+ جهة جديدة» in the party select.
           initial={{
             partyId: party?.id ?? "",
             direction: party ? DEFAULT_DIRECTION[party.type] : "",
@@ -64,6 +65,7 @@ export default async function NewPlanPage({
           action={createPlan}
           parties={parties}
           categories={categories}
+          manageParties // v1.4 D23: owner only — «+ جهة جديدة» in the party select.
           initial={{
             partyId: party?.id ?? "",
             direction: party ? DEFAULT_DIRECTION[party.type] : "",

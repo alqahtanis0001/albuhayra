@@ -52,10 +52,13 @@ export function ConfirmDialog({
       // Escape lands here, as does our own close() above; the parent owns `open`.
       // A backdrop click does *not* dismiss a native modal dialog, and that is
       // wanted: a stray click outside must not cancel a destructive confirm.
+      // `m-auto` (v1.4 D26a): Tailwind v4's preflight resets `margin: 0` on every
+      // element, which strips the UA stylesheet's `margin: auto` that centres a
+      // modal <dialog>; without it every confirm opens at the top-start corner.
       onClose={onCancel}
       aria-labelledby={titleId}
       aria-describedby={message ? messageId : undefined}
-      className="w-[min(28rem,calc(100vw-2rem))] rounded-xl border border-gray-200 bg-white p-0 text-gray-900 backdrop:bg-black/50"
+      className="m-auto w-[min(28rem,calc(100vw-2rem))] rounded-xl border border-gray-200 bg-white p-0 text-gray-900 backdrop:bg-black/50"
     >
       <div className="flex flex-col gap-3 p-5 text-start">
         <h2 id={titleId} className="text-base font-semibold">

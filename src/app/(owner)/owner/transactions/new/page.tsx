@@ -35,6 +35,9 @@ export default async function OwnerNewTransactionPage({
   // establishment is preselected; anything else is ignored, not an error.
   const sp = await searchParams;
   const presetProjectId = projects.find((p) => p.id === sp.projectId && p.status === "ACTIVE")?.id;
+  // v1.4 D24: a party's page may link here with ?partyId=; only an active party
+  // of this establishment is preselected (and opens «تفاصيل أكثر»).
+  const presetPartyId = parties.find((p) => p.id === sp.partyId && p.active)?.id;
   // «تسجيل دفعة» links here with ?instalmentId= (it wins over ?projectId=, W9,
   // though a valid project still preselects). Unknown, closed or fully paid →
   // the ordinary form with a toast.
@@ -63,10 +66,13 @@ export default async function OwnerNewTransactionPage({
         lockedMonths={lockedMonths}
         today={todayISO()}
         presetProjectId={presetProjectId}
+        // A payment's party is the plan's (D27): the preset applies to ordinary entries only.
+        presetPartyId={pay ? undefined : presetPartyId}
         // حفظ returns to the plan (payment) or the إضافة («تسجيل تكلفة»).
         doneHref={doneHref}
         notice={notice}
         manageCategories // v1.4 A2: owner only — decided here, on the server (D12).
+        manageParties // v1.4 D23: owner only — «+ جهة جديدة» in the party select.
         payment={
           pay
             ? { direction: pay.direction, amountHalalas: pay.instalmentRemainingHalalas, categoryId: pay.categoryId }
