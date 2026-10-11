@@ -49,6 +49,9 @@ function ProjectChip({ row, linked }: { row: LedgerRow; linked: boolean }) {
 
 export function LedgerList({ page, lockedMonths, permissions, basePath }: LedgerListProps) {
   const ownerChips = basePath === "/owner/transactions";
+  // v1.4 (D17 c4, D21 M1): owner-ness is derived here, from the same basePath,
+  // so neither ledger page changes. Staff rows get no lock link.
+  const lockHref = ownerChips ? "/owner/settings/locks" : undefined;
   const isLocked = (row: LedgerRow) => lockedMonths.includes(monthOf(row.date));
   const editHref = (row: LedgerRow) => `${basePath}/${row.id}/edit`;
 
@@ -85,6 +88,9 @@ export function LedgerList({ page, lockedMonths, permissions, basePath }: Ledger
                 id={row.id}
                 editHref={editHref(row)}
                 locked={isLocked(row)}
+                lockHref={lockHref}
+                planId={row.planId}
+                ownerLedger={ownerChips}
                 permissions={permissions}
               />
             </div>
@@ -134,6 +140,9 @@ export function LedgerList({ page, lockedMonths, permissions, basePath }: Ledger
                     id={row.id}
                     editHref={editHref(row)}
                     locked={isLocked(row)}
+                    lockHref={lockHref}
+                    planId={row.planId}
+                    ownerLedger={ownerChips}
                     permissions={permissions}
                   />
                 </Td>

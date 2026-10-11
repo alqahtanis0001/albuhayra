@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import { SavedNotice } from "@/components/SavedNotice";
 import { AttendanceHeatStrip } from "@/features/attendance/components/AttendanceHeatStrip";
 import { heatCells } from "@/features/attendance/components/attendanceVisual";
 import { getAttendanceYear } from "@/features/attendance/queries";
@@ -24,8 +25,15 @@ export const metadata: Metadata = { title: t.employees.title };
  * latest months with their payslips. Salary months are generated first (D2).
  * An unknown id and another establishment's id both reach notFound().
  */
-export default async function EmployeePage({ params }: { params: Promise<{ id: string }> }) {
+export default async function EmployeePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { establishmentId } = await requireOwner();
+  const sp = await searchParams;
   await ensureSalaryInstalments(establishmentId);
   const { id } = await params;
   const today = todayISO();
@@ -40,6 +48,8 @@ export default async function EmployeePage({ params }: { params: Promise<{ id: s
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-xl font-semibold text-gray-900">{employee.name}</h1>
+      {/* R4/R6: a salary payment returns here with ?saved=1. */}
+      <SavedNotice saved={sp.saved === "1"} />
 
       <EmployeeActions
         employeeId={employee.id}

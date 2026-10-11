@@ -61,3 +61,27 @@ export async function getJoinCode(establishmentId: string): Promise<string | nul
   });
   return row?.joinCode ?? null;
 }
+
+/**
+ * v1.4 (D17 c10): the badge on حسابات الدخول — how many STAFF join requests
+ * wait for the owner. A count only: no name, no email, no amount reaches the
+ * layout. Runs on every owner request, covered by the (establishmentId, role,
+ * status) index.
+ */
+export async function countPendingStaff(establishmentId: string): Promise<number> {
+  return db.user.count({ where: { establishmentId, role: "STAFF", status: "PENDING" } });
+}
+
+/**
+ * v1.4 part 3 (D29 R9): the owner home's «طلب انضمام جديد من {name}» lines —
+ * the pending STAFF names, newest first. Names only: no email, no id, nothing
+ * else leaves this read.
+ */
+export async function listPendingStaffNames(establishmentId: string): Promise<string[]> {
+  const rows = await db.user.findMany({
+    where: { establishmentId, role: "STAFF", status: "PENDING" },
+    select: NAME_SELECT,
+    orderBy: { createdAt: "desc" },
+  });
+  return rows.map((row) => fullName(row));
+}

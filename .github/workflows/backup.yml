@@ -1,0 +1,270 @@
+# Nightly encrypted backup of the Neon database. See docs/BACKUP.md.
+#
+# Every run: pg_dump (custom format) → openssl AES-256-CBC → restore the copy
+# into a throwaway Postgres 18 service container → sanity queries → upload the
+# encrypted file + its sha256 as a 90-day artifact. The plaintext dump, the
+# connection string and the passphrase never leave the runner and are never
+# printed (a last step fails the job if a connection string reached the log).
+#
+# Secrets (Settings → Secrets and variables → Actions):
+#   NEON_DIRECT_URL    Neon's DIRECT connection string (no "-pooler" in the host)
+#   BACKUP_PASSPHRASE  the encryption passphrase — keep a copy outside GitHub,
+#                      a backup is useless without it
+name: backup
+
+on:
+  schedule:
+    - cron: "0 23 * * *" # 23:00 UTC = 02:00 Riyadh, every day
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backup
+  cancel-in-progress: false
+
+env:
+  PG_MAJOR: "18" # Neon runs Postgres 18; the client must not be older than the server
+  MIN_DUMP_BYTES: "10240"
+  MIN_TABLES: "18" # 17 Prisma models + _prisma_migrations (see docs/BACKUP.md)
+
+jobs:
+  backup:
+    name: dump, encrypt, verify, upload
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    services:
+      verify-db:
+        image: postgres:18
+        env:
+          POSTGRES_USER: verify
+          POSTGRES_PASSWORD: verify-only-local
+          POSTGRES_DB: verify
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd "pg_isready -U verify"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    steps:
+      - name: Check secrets are set
+        env:
+          NEON_DIRECT_URL: ${{ secrets.NEON_DIRECT_URL }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          exec > >(tee -a "$RUNNER_TEMP/steps.log") 2>&1
+          ok=1
+          [ -n "$NEON_DIRECT_URL" ] || { echo "::error::Secret NEON_DIRECT_URL is not set (Settings → Secrets and variables → Actions)."; ok=0; }
+          [ -n "$BACKUP_PASSPHRASE" ] || { echo "::error::Secret BACKUP_PASSPHRASE is not set."; ok=0; }
+          [ "$ok" = 1 ] || exit 1
+          case "$NEON_DIRECT_URL" in
+            *-pooler*) echo "::error::NEON_DIRECT_URL looks like the POOLED string (host contains -pooler). Use the direct one."; exit 1 ;;
+          esac
+          [ "${#BACKUP_PASSPHRASE}" -ge 20 ] || { echo "::error::BACKUP_PASSPHRASE is shorter than 20 characters."; exit 1; }
+          echo "Both secrets present."
+
+      - name: Checkout (scripts and schema only)
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install PostgreSQL ${{ env.PG_MAJOR }} client from PGDG
+        run: |
+          set -euo pipefail
+          exec > >(tee -a "$RUNNER_TEMP/steps.log") 2>&1
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+            -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc
+          . /etc/os-release
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends "postgresql-client-${PG_MAJOR}"
+          echo "/usr/lib/postgresql/${PG_MAJOR}/bin" >> "$GITHUB_PATH"
+          "/usr/lib/postgresql/${PG_MAJOR}/bin/pg_dump" --version
+
+      - name: Check client version against the server
+        env:
+          NEON_DIRECT_URL: ${{ secrets.NEON_DIRECT_URL }}
+        run: |
+          set -euo pipefail
+          exec > >(tee -a "$RUNNER_TEMP/steps.log") 2>&1
+          client_major="$(pg_dump --version | awk '{print $3}' | cut -d. -f1)"
+          server_num="$(timeout 60 psql "$NEON_DIRECT_URL" -XAtc "SHOW server_version_num")"
+          server_major=$(( server_num / 10000 ))
+          echo "pg_dump major: $client_major · server major: $server_major"
+          if [ "$client_major" -lt "$server_major" ]; then
+            echo "::error::pg_dump $client_major is OLDER than the Neon server (Postgres $server_major). Raise PG_MAJOR in backup.yml."
+            exit 1
+          fi
+          if [ "$client_major" -gt "$server_major" ]; then
+            echo "::warning::pg_dump $client_major is newer than the server ($server_major); that is fine, pg_dump supports older servers."
+          fi
+
+      - name: Dump the database
+        env:
+          NEON_DIRECT_URL: ${{ secrets.NEON_DIRECT_URL }}
+        run: |
+          set -euo pipefail
+          exec > >(tee -a "$RUNNER_TEMP/steps.log") 2>&1
+          work="$RUNNER_TEMP/backup-work"
+          mkdir -p "$work" && chmod 700 "$work"
+          stamp="$(date -u +%Y-%m-%d-%H%M)"
+          name="zakham-${stamp}"
+          echo "WORK=$work" >> "$GITHUB_ENV"
+          echo "NAME=$name" >> "$GITHUB_ENV"
+          echo "DUMP_STARTED=$(date -u +%s)" >> "$GITHUB_ENV"
+          start=$(date +%s)
+          timeout --signal=TERM 600 pg_dump \
+            --format=custom --no-owner --no-privileges --compress=6 \
+            --dbname="$NEON_DIRECT_URL" \
+            --file="$work/$name.dump"
+          chmod 600 "$work/$name.dump"
+          bytes="$(stat -c %s "$work/$name.dump")"
+          echo "DUMP_BYTES=$bytes" >> "$GITHUB_ENV"
+          echo "DUMP_SECONDS=$(( $(date +%s) - start ))" >> "$GITHUB_ENV"
+          echo "Dump written: $bytes bytes"
+          if [ "$bytes" -lt "$MIN_DUMP_BYTES" ]; then
+            echo "::error::Dump is only $bytes bytes (< $MIN_DUMP_BYTES). Refusing to call this a backup."
+            exit 1
+          fi
+
+      - name: Encrypt and hash
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          exec > >(tee -a "$RUNNER_TEMP/steps.log") 2>&1
+          out="$RUNNER_TEMP/backup-out"
+          mkdir -p "$out" && chmod 700 "$out"
+          echo "OUT=$out" >> "$GITHUB_ENV"
+          openssl enc -aes-256-cbc -pbkdf2 -iter 600000 -salt \
+            -pass env:BACKUP_PASSPHRASE \
+            -in "$WORK/$NAME.dump" -out "$out/$NAME.dump.enc"
+          ( cd "$out" && sha256sum "$NAME.dump.enc" > "$NAME.dump.enc.sha256" )
+          enc_bytes="$(stat -c %s "$out/$NAME.dump.enc")"
+          sha="$(cut -d' ' -f1 "$out/$NAME.dump.enc.sha256")"
+          echo "ENC_BYTES=$enc_bytes" >> "$GITHUB_ENV"
+          echo "SHA256=$sha" >> "$GITHUB_ENV"
+          echo "Encrypted: $enc_bytes bytes, sha256 $sha"
+          # Verify the encrypted file decrypts byte-for-byte before the plaintext goes away.
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 \
+            -pass env:BACKUP_PASSPHRASE \
+            -in "$out/$NAME.dump.enc" | cmp -s - "$WORK/$NAME.dump" \
+            || { echo "::error::Round-trip decrypt does not match the dump."; exit 1; }
+          shred -u "$WORK/$NAME.dump"
+          echo "Plaintext dump shredded."
+
+      - name: Verify — restore the encrypted copy into a throwaway Postgres ${{ env.PG_MAJOR }}
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+          PGHOST: localhost
+          PGPORT: "55432"
+          PGUSER: verify
+          PGPASSWORD: verify-only-local
+          PGDATABASE: verify
+        run: |
+          set -euo pipefail
+          exec > >(tee -a "$RUNNER_TEMP/steps.log") 2>&1
+          sha_now="$(sha256sum "$OUT/$NAME.dump.enc" | cut -d' ' -f1)"
+          [ "$sha_now" = "$SHA256" ] || { echo "::error::sha256 changed between encrypt and verify."; exit 1; }
+          restore="$WORK/verify.dump"
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 \
+            -pass env:BACKUP_PASSPHRASE \
+            -in "$OUT/$NAME.dump.enc" -out "$restore"
+          chmod 600 "$restore"
+          pg_restore --version
+          pg_restore --no-owner --no-privileges --exit-on-error --dbname="$PGDATABASE" "$restore"
+          shred -u "$restore"
+          echo "Restore finished."
+
+          q() { psql -X -v ON_ERROR_STOP=1 -At -c "$1"; }
+          tables="$(q "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'")"
+          echo "Tables restored: $tables"
+          if [ "$tables" -lt "$MIN_TABLES" ]; then
+            echo "::error::Only $tables tables restored (expected at least $MIN_TABLES)."
+            exit 1
+          fi
+          # Every model in prisma/schema.prisma must have come back as a table.
+          missing=0
+          for m in $(sed -nE 's/^model ([A-Za-z0-9_]+) \{.*/\1/p' prisma/schema.prisma); do
+            present="$(q "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name='${m}'")"
+            if [ "$present" != "1" ]; then echo "::error::Table \"$m\" is missing from the restored copy."; missing=1; fi
+          done
+          [ "$missing" = 0 ] || exit 1
+          migrations="$(q "SELECT count(*) FROM \"_prisma_migrations\" WHERE finished_at IS NOT NULL")"
+          echo "Applied migrations in the copy: $migrations"
+          echo "TABLES=$tables" >> "$GITHUB_ENV"
+          echo "MIGRATIONS=$migrations" >> "$GITHUB_ENV"
+          for t in Establishment Transaction Party Plan; do
+            n="$(q "SELECT count(*) FROM \"$t\"")"
+            echo "ROWS_$t=$n" >> "$GITHUB_ENV"
+            echo "$t rows: $n"
+          done
+
+      - name: Upload the encrypted backup (90 days)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.NAME }}
+          path: |
+            ${{ env.OUT }}/${{ env.NAME }}.dump.enc
+            ${{ env.OUT }}/${{ env.NAME }}.dump.enc.sha256
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+
+      - name: Job summary
+        run: |
+          set -euo pipefail
+          exec > >(tee -a "$RUNNER_TEMP/steps.log") 2>&1
+          total=$(( $(date -u +%s) - DUMP_STARTED ))
+          mb="$(awk -v b="$ENC_BYTES" 'BEGIN{printf "%.2f", b/1048576}')"
+          {
+            echo "## نسخة احتياطية · Backup \`$NAME\`"
+            echo
+            echo "✅ تمّ أخذ النسخة وتشفيرها والتحقق من استعادتها. · Dumped, encrypted, restore-verified."
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| الحجم · Size | ${mb} MB (${ENC_BYTES} bytes encrypted; dump ${DUMP_BYTES} bytes) |"
+            echo "| sha256 | \`$SHA256\` |"
+            echo "| الجداول · Tables | $TABLES (migrations applied: $MIGRATIONS) |"
+            echo "| المنشآت · Establishment | $ROWS_Establishment |"
+            echo "| الحركات · Transaction | $ROWS_Transaction |"
+            echo "| الجهات · Party | $ROWS_Party |"
+            echo "| الاتفاقيات · Plan | $ROWS_Plan |"
+            echo "| المدة · Duration | ${total}s total (pg_dump ${DUMP_SECONDS}s) |"
+            echo
+            echo "الملف في Artifacts أسفل هذه الصفحة، يُحفظ 90 يوماً. · The file is under Artifacts on this page, kept 90 days. Restore: \`docs/BACKUP.md\`."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Guard — no connection string or passphrase in this job's output
+        if: always()
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          # Every step above tee'd its stdout+stderr into steps.log. GitHub masks
+          # the secrets' exact values, so a hit here means a connection string was
+          # built or echoed some other way. Fail loudly; rotate the Neon password.
+          log="$RUNNER_TEMP/steps.log"
+          [ -f "$log" ] || { echo "No step output recorded."; exit 0; }
+          if grep -Eiq 'postgres(ql)?://' "$log"; then
+            echo "::error::A connection string reached the job output. Rotate the Neon password now."
+            exit 1
+          fi
+          if [ -n "$BACKUP_PASSPHRASE" ] && grep -Fq -- "$BACKUP_PASSPHRASE" "$log"; then
+            echo "::error::The passphrase reached the job output. Rotate it and re-encrypt."
+            exit 1
+          fi
+          echo "Output check passed: no connection string, no passphrase."
+
+      - name: Clean up
+        if: always()
+        run: |
+          rm -rf "$RUNNER_TEMP/backup-work" "$RUNNER_TEMP/backup-out" 2>/dev/null || true

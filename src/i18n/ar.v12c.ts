@@ -10,7 +10,7 @@ export const v12cSections = {
   reminderSettings: {
     title: "التذكيرات",
     digestTitle: "ملخص يومي بالبريد",
-    digestHelp: "رسالة يومية إلى بريدك فيها الدفعات المتأخرة والمستحقة قريبًا، لنا وعلينا. لا تُرسل إن لم يكن هناك ما يُذكر.",
+    digestHelp: "رسالة يومية إلى بريدك فيها الأقساط المتأخرة والمستحقة قريبًا، لنا وعلينا. لا تُرسل إن لم يكن هناك ما يُذكر.",
     enabled: "إرسال الملخص اليومي",
     hour: "ساعة الإرسال (بتوقيت الرياض)",
     hourHelp: "يُرسل الملخص مرة واحدة في اليوم عند هذه الساعة أو بعدها",
@@ -48,7 +48,7 @@ export const v12cSections = {
   /** Client reminders (C9–C12). */
   clientReminder: {
     optIn: "تذكير هذه الجهة بالمستحقات",
-    optInHelp: "عند التفعيل يظهر زر «تذكير» على دفعاتها المستحقة لنا. لا يُرسل شيء إلا بضغطك.",
+    optInHelp: "عند التفعيل يظهر زر «تذكير» على أقساطها المستحقة لنا. لا يُرسل شيء إلا بضغطك.",
     remind: "تذكير",
     dialogTitle: "تذكير {name}",
     byEmail: "إرسال بريد إلكتروني",
@@ -60,15 +60,16 @@ export const v12cSections = {
     copyFailed: "تعذّر النسخ تلقائيًا، حدّد النص وانسخه يدويًا",
     whatsAppHelp: "انسخ النص وأرسله من واتساب بنفسك.",
     /** The email and WhatsApp text sent to the party. */
-    subject: "تذكير بدفعة مستحقة — {establishment}",
-    body: "السلام عليكم،\nنذكّركم بدفعة مستحقة لـ{establishment} بقيمة {amount}، تاريخ استحقاقها {date}، ضمن «{title}».\nمع الشكر.",
+    subject: "تذكير بقسط مستحق — {establishment}",
+    body: "السلام عليكم،\nنذكّركم بقسط مستحق لـ{establishment} بقيمة {amount}، تاريخ استحقاقه {date}، ضمن «{title}».\nمع الشكر.",
     mailFooter: "أُرسلت هذه الرسالة من {establishment} عبر زخم. لا تردّ على هذه الرسالة؛ للتواصل راسل {establishment} مباشرة.",
   },
 
   aging: {
-    title: "أعمار المستحقات",
-    tab: "أعمار المستحقات",
-    help: "الدفعات المتأخرة غير المسددة، موزعة حسب عدد أيام التأخير.",
+    /** v1.4 part 3 (R11): «أعمار» was opaque. */
+    title: "المتأخرات حسب المدة",
+    tab: "المتأخرات حسب المدة",
+    help: "الأقساط المتأخرة غير المسددة، موزعة حسب عدد أيام التأخير.",
     bucket0: "0–30 يومًا",
     bucket31: "31–60 يومًا",
     bucket61: "61–90 يومًا",
@@ -78,7 +79,7 @@ export const v12cSections = {
     party: "الجهة",
     total: "الإجمالي",
     empty: "لا توجد مستحقات متأخرة.",
-    printTitle: "تقرير أعمار المستحقات",
+    printTitle: "تقرير المتأخرات حسب المدة",
   },
 
   statementExport: {
@@ -103,8 +104,8 @@ export const v12cSections = {
   /** v1.2c error keys. Merged into `t.err` by ar.ts. */
   errV12c: {
     remindersNotOptedIn: "هذه الجهة لم تُفعَّل لها التذكيرات",
-    reminderNotApplicable: "لا يمكن التذكير بهذه الدفعة",
-    reminderTooSoon: "أُرسل تذكير بهذه الدفعة اليوم، حاول غدًا",
+    reminderNotApplicable: "لا يمكن التذكير بهذا القسط",
+    reminderTooSoon: "أُرسل تذكير بهذا القسط اليوم، حاول غدًا",
     partyNoEmail: "لا يوجد بريد إلكتروني لهذه الجهة",
     mailFailed: "تعذّر إرسال البريد الآن، حاول لاحقًا",
     clientReminderDailyCap: "بلغت منشأتك الحد اليومي لرسائل التذكير (20 رسالة)، حاول غدًا",

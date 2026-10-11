@@ -7,6 +7,7 @@
  * `form="__none"` so they never reach FormData (see ScheduleBuilder).
  */
 import { Button } from "@/components/Button";
+import { DateField } from "@/components/DateField";
 import { Input } from "@/components/Input";
 import { LockIcon, TrashIcon } from "@/components/icons";
 import { t } from "@/i18n/ar";
@@ -54,11 +55,10 @@ export function ScheduleRows({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1">
-              <Input
+              <DateField
                 label={t.schedule.dueDate}
                 name={`due-${row.key}`}
                 form="__none"
-                type="date"
                 value={row.dueDate}
                 min={startDate || undefined}
                 readOnly={row.fixed}

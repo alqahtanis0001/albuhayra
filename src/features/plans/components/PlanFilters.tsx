@@ -32,9 +32,12 @@ export function parsePlanFilters(raw: Raw, parties: PartyOption[]): PlanFilter {
 export function PlanFilters({
   filter,
   parties,
+  pick = false,
 }: {
   filter: PlanFilter;
   parties: PartyOption[];
+  /** v1.4 C6 / P11: `?pick=payment` travels through the filter form and the clear link. */
+  pick?: boolean;
 }) {
   const showing = Boolean(filter.direction || filter.status || filter.partyId);
   return (
@@ -43,6 +46,7 @@ export function PlanFilters({
       action="/owner/plans"
       className="no-print flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4"
     >
+      {pick ? <input type="hidden" name="pick" value="payment" /> : null}
       <div className="grid gap-3 sm:grid-cols-3">
         <Select
           label={t.planDirection.label}
@@ -56,7 +60,8 @@ export function PlanFilters({
           name="status"
           placeholder={t.plans.allStatuses}
           defaultValue={filter.status ?? ""}
-          options={STATUSES.map((s) => ({ value: s, label: t.planStatus[s] }))}
+          // v1.4 (D17 c18): the ARCHIVED option also names open agreements that were ended.
+          options={STATUSES.map((s) => ({ value: s, label: s === "ARCHIVED" ? t.plans.archivedFilter : t.planStatus[s] }))}
         />
         <Select
           label={t.plans.party}
@@ -73,7 +78,7 @@ export function PlanFilters({
         <Button type="submit">{t.common.apply}</Button>
         {showing ? (
           <Link
-            href="/owner/plans"
+            href={pick ? "/owner/plans?pick=payment" : "/owner/plans"}
             className="inline-flex min-h-11 items-center rounded-lg border border-gray-300 bg-white px-4 text-sm font-medium text-gray-900 hover:bg-gray-50"
           >
             {t.common.clearFilters}

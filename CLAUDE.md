@@ -48,6 +48,8 @@ Team shape: **lead** + `backend` + `frontend` + `reviewer`. Do not spawn more wi
 - Before marking a task complete: `npm run build` and `npm test` pass; you appended what you did and any gotchas to `progress/<your-name>.md`.
 - If blocked for more than a few minutes, message the lead with the exact blocker.
 
+**Pushing (user's ruling, 2026-10-11):** Claude Code commits and pushes its `claude/*` session branch at every checkpoint, and at a release checkpoint (all gates green, reviewer and QA closed) merges that branch into `main` and pushes `main` itself — Render deploys `main` automatically, so this is the moment the user's site changes; say so in the report. Never force-push, never amend, never rewrite `main` history; `.claude/settings.json` denies force pushes. Mid-work commits stay on the branch.
+
 **Reviewer** (read-only): checks every completed task against the Security section of `docs/BACKEND.md` and the RTL rules of `docs/FRONTEND.md`, then messages findings to the responsible teammate and the lead. Never edits code.
 
 ### File ownership map

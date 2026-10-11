@@ -4,8 +4,7 @@ import { listPartyOptions } from "@/features/parties/queries";
 import { PrintButton } from "@/features/reports/components/PrintButton";
 import { PrintFooter } from "@/features/reports/components/PrintFooter";
 import { PrintHeader } from "@/features/reports/components/PrintHeader";
-import { ReportPartyFilter } from "@/features/reports/components/ReportPartyFilter";
-import { ReportRangePicker } from "@/features/reports/components/ReportRangePicker";
+import { ReportFilters } from "@/features/reports/components/ReportFilters";
 import { ReportTables } from "@/features/reports/components/ReportTables";
 import { ReportTabs } from "@/features/reports/components/ReportTabs";
 import { parseReportRange } from "@/features/reports/components/reportRange";
@@ -60,8 +59,10 @@ export default async function OwnerReportsPage({
         printedAt={todayISO()}
       />
 
-      <ReportRangePicker range={range} basePath={BASE} partyId={partyId} />
-      <ReportPartyFilter range={range} basePath={BASE} parties={parties} partyId={rawParty} />
+      {/* R11: one GET form; on phones the report renders first (order-last), from md the DOM order holds. */}
+      <div className="no-print order-last md:order-none">
+        <ReportFilters range={range} basePath={BASE} parties={parties} partyId={rawParty} />
+      </div>
 
       {report ? (
         <>

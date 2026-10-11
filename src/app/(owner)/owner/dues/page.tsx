@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { Card } from "@/components/Card";
 import { DateText } from "@/components/DateText";
@@ -16,6 +17,10 @@ import { plural } from "@/lib/plural";
 
 export const metadata: Metadata = { title: t.dues.title };
 
+/** The two links of the empty week (R1): 44 px tap targets, stacked on phones. */
+const EMPTY_LINK =
+  "inline-flex min-h-11 items-center text-sm font-medium text-accent-dark underline underline-offset-2";
+
 /**
  * المستحقات: what is late first (a red strip that says how many), then what
  * falls due in the next 7 days including today — the range stated on screen
@@ -31,7 +36,18 @@ export default async function DuesPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-xl font-semibold text-gray-900">{t.dues.title}</h1>
+      <div className="flex flex-col gap-1">
+        <h1 className="text-xl font-semibold text-gray-900">{t.dues.title}</h1>
+        {/* v1.4 part 3 (R16): what the page holds, in the owner's words. */}
+        <p className="text-sm text-gray-600">{t.dues.subtitle}</p>
+      </div>
+      {/* v1.4 (D17 c2): a payment on an agreement nothing is due on yet goes through the pick list. */}
+      <Link
+        href="/owner/plans?pick=payment"
+        className="no-print inline-flex min-h-11 items-center self-start text-sm text-accent-dark underline-offset-2 hover:underline"
+      >
+        {t.dues.pickOther}
+      </Link>
 
       <WeekRibbon {...buildRibbon(dues)} />
 
@@ -73,7 +89,23 @@ export default async function DuesPage() {
           bodyClassName=""
         >
           {dues.thisWeek.length === 0 ? (
-            <EmptyState kind="dues" title={t.dues.empty} />
+            /* v1.4 part 3 (R1): the empty week says what belongs here and where cash
+               without an agreement goes — the test's dead end for "زبون دفع لي". */
+            <EmptyState
+              kind="dues"
+              title={t.dues.empty}
+              hint={t.dues.emptyIntro}
+              action={
+                <div className="no-print flex flex-col items-center gap-1 sm:flex-row sm:gap-4">
+                  <Link href="/owner/transactions/new" className={EMPTY_LINK}>
+                    {t.dues.cashLink}
+                  </Link>
+                  <Link href="/owner/parties" className={EMPTY_LINK}>
+                    {t.dues.partiesLink}
+                  </Link>
+                </div>
+              }
+            />
           ) : (
             <DueSplit
               remind

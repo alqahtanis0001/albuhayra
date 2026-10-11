@@ -34,6 +34,8 @@ export type TransactionRow = Pick<
   | "partyId"
   | "projectId"
   | "instalmentId"
+  // v1.4 (P6): the edit pages tell an open-plan payment by it.
+  | "planId"
 >;
 
 export { getTransaction } from "@/features/transactions/queries";

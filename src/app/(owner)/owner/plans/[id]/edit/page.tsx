@@ -5,24 +5,76 @@ import { Card } from "@/components/Card";
 import { LinkButton } from "@/components/LinkButton";
 import { listPartyOptions } from "@/features/parties/queries";
 import { updatePlan } from "@/features/plans/actions";
+import { OpenPlanForm } from "@/features/plans/components/OpenPlanForm";
 import { PlanForm } from "@/features/plans/components/PlanForm";
 import { toAmountText } from "@/features/plans/components/scheduleDraft";
+import { updateOpenPlan } from "@/features/plans/openActions";
+import { getOpenPlan } from "@/features/plans/openQueries";
 import { getPlan } from "@/features/plans/queries";
 import { listCategories } from "@/features/settings/queries";
 import { t } from "@/i18n/ar";
 import { requireOwner } from "@/lib/auth";
+import { todayISO } from "@/lib/dates";
 
 export const metadata: Metadata = { title: t.plans.editTitle };
+
+/** The action refuses a closed plan (err.planClosed); the page says so up front. */
+function ClosedNotice({ planId }: { planId: string }) {
+  return (
+    <Card>
+      <div className="flex flex-col items-start gap-3">
+        <p className="text-sm text-gray-700">{t.err.planClosed}</p>
+        <LinkButton href={`/owner/plans/${planId}`} variant="secondary">
+          {t.common.back}
+        </LinkButton>
+      </div>
+    </Card>
+  );
+}
 
 export default async function EditPlanPage({ params }: { params: Promise<{ id: string }> }) {
   const { establishmentId } = await requireOwner();
   // The id comes from the route only; another establishment's reads as missing.
   const { id } = await params;
-  const [plan, parties, categories] = await Promise.all([
+  const [openPlan, plan, parties, categories] = await Promise.all([
+    getOpenPlan(establishmentId, id),
     getPlan(establishmentId, id),
     listPartyOptions(establishmentId),
     listCategories(establishmentId),
   ]);
+
+  if (openPlan) {
+    // v1.4 C6: the open form; party, direction, start and category lock once a payment exists.
+    return (
+      <div className="flex flex-col gap-4">
+        <h1 className="text-xl font-semibold text-gray-900">{t.plans.editTitle}</h1>
+        {openPlan.status !== "ACTIVE" ? (
+          <ClosedNotice planId={openPlan.id} />
+        ) : (
+          <OpenPlanForm
+            action={updateOpenPlan.bind(null, openPlan.id)}
+            planId={openPlan.id}
+            parties={parties}
+            categories={categories}
+            today={todayISO()}
+            locked={openPlan.partyLocked}
+            manageParties // v1.4 D23: owner only — «+ جهة جديدة» in the party select.
+            initial={{
+              partyId: openPlan.partyId,
+              direction: openPlan.direction,
+              title: openPlan.title,
+              total: openPlan.totalHalalas === null ? "" : toAmountText(openPlan.totalHalalas),
+              categoryId: openPlan.categoryId,
+              startDate: openPlan.startDate,
+              expectedEndDate: openPlan.expectedEndDate ?? "",
+              notes: openPlan.notes ?? "",
+            }}
+          />
+        )}
+      </div>
+    );
+  }
+
   if (!plan) notFound();
   const closed = plan.status === "ARCHIVED" || plan.status === "CANCELLED";
 
@@ -42,21 +94,14 @@ export default async function EditPlanPage({ params }: { params: Promise<{ id: s
           </div>
         </Card>
       ) : closed ? (
-        // updatePlan refuses a closed plan (err.planClosed); say so up front.
-        <Card>
-          <div className="flex flex-col items-start gap-3">
-            <p className="text-sm text-gray-700">{t.err.planClosed}</p>
-            <LinkButton href={`/owner/plans/${plan.id}`} variant="secondary">
-              {t.common.back}
-            </LinkButton>
-          </div>
-        </Card>
+        <ClosedNotice planId={plan.id} />
       ) : (
         <PlanForm
           action={updatePlan.bind(null, plan.id)}
           planId={plan.id}
           parties={parties}
           categories={categories}
+          manageParties // v1.4 D23: owner only — «+ جهة جديدة» in the party select.
           initial={{
             partyId: plan.partyId,
             direction: plan.direction,

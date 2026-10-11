@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { updateTransaction } from "@/features/transactions/components/actions";
 import { salaryCategoryIds } from "@/features/payroll/privacy";
@@ -42,6 +42,8 @@ export default async function StaffEditTransactionPage({
     salaryCategoryIds(establishmentId),
   ]);
   if (!row) notFound();
+  // v1.4 P4: an open-plan payment is OWNER-only to edit (the action refuses too).
+  if (row.planId) redirect("/staff/transactions");
   // A payment keeps its plan's direction and party (W1): locked, not editable.
   const link = row.instalmentId ? await getPaymentLink(establishmentId, row.instalmentId) : null;
   const lockedMonths = locks.filter((l) => l.locked).map((l) => l.ym);
@@ -59,7 +61,7 @@ export default async function StaffEditTransactionPage({
         projects={projects}
         lockedMonths={lockedMonths}
         today={todayISO()}
-        doneHref="/staff/transactions"
+        doneHref="/staff/transactions?saved=1" // R4
         initial={row}
         payment={link ? { direction: link.direction } : undefined}
         banner={

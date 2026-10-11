@@ -8,6 +8,7 @@ import { MoneyText } from "@/components/MoneyText";
 import { ensureSalaryInstalments } from "@/features/payroll/generate";
 import { InstalmentBarDetail } from "@/features/plans/components/InstalmentBar";
 import { InstalmentList } from "@/features/plans/components/InstalmentList";
+import { OpenPlanDetail } from "@/features/plans/components/OpenPlanDetail";
 import { PaymentRecorded } from "@/features/plans/components/PaymentRecorded";
 import { PlanActions, SalaryPlanNotice } from "@/features/plans/components/PlanActions";
 import {
@@ -15,9 +16,11 @@ import {
   directionWording,
   progressText,
 } from "@/features/plans/components/PlanBits";
+import { getOpenPlan } from "@/features/plans/openQueries";
 import { getPlan } from "@/features/plans/queries";
 import { t } from "@/i18n/ar";
 import { requireOwner } from "@/lib/auth";
+import { todayISO } from "@/lib/dates";
 
 export const metadata: Metadata = { title: t.plans.title };
 
@@ -25,6 +28,7 @@ export const metadata: Metadata = { title: t.plans.title };
  * An agreement: who, which way, how much is paid and left, then every
  * instalment. Statuses and countdowns arrive computed from the server's today
  * (W8). An unknown id and another establishment's id both reach notFound().
+ * v1.4 C3: an open-ended agreement branches to `OpenPlanDetail` first.
  */
 export default async function PlanPage({
   params,
@@ -37,12 +41,19 @@ export default async function PlanPage({
   // D2: this month's salary rows exist before anything reads them (cached per request).
   await ensureSalaryInstalments(establishmentId);
   const { id } = await params;
+  const sp = await searchParams;
+  const openPlan = await getOpenPlan(establishmentId, id);
+  if (openPlan) {
+    // ?paid=<transactionId> names one of its payments (else ignored); ?closed=1 says it completed the total.
+    const paidId = openPlan.payments.find((p) => p.transactionId === sp.paid)?.transactionId;
+    return <OpenPlanDetail plan={openPlan} today={todayISO()} paidId={paidId} autoClosed={Boolean(paidId) && sp.closed === "1"} />;
+  }
   const plan = await getPlan(establishmentId, id);
   if (!plan) notFound();
   const open = plan.status !== "ARCHIVED" && plan.status !== "CANCELLED";
   // v1.3 item 8: «تسجيل دفعة» returns here with ?paid=<instalmentId>; an id
   // that is not one of this plan's instalments is ignored.
-  const { paid } = await searchParams;
+  const { paid } = sp;
   const paidId = plan.instalments.find((i) => i.id === paid)?.id;
   // v1.2c (C10): «تذكير» only when the party owes us and opted in; the actions re-check.
   const remind =
@@ -129,9 +140,12 @@ export default async function PlanPage({
         </div>
       ) : null}
 
-      <Card title={t.plans.instalments} bodyClassName="">
-        <InstalmentList instalments={plan.instalments} open={open} remind={remind} paidId={paidId} />
-      </Card>
+      {/* v1.4 C6: the pick-mode anchor of a scheduled agreement. */}
+      <div id="instalments" className="scroll-mt-4">
+        <Card title={t.plans.instalments} bodyClassName="">
+          <InstalmentList instalments={plan.instalments} open={open} remind={remind} paidId={paidId} />
+        </Card>
+      </div>
     </div>
   );
 }

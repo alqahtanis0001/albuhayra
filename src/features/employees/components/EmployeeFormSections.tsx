@@ -8,6 +8,7 @@
  * «رواتب» (X4).
  */
 import { Card } from "@/components/Card";
+import { DateField } from "@/components/DateField";
 import { Input } from "@/components/Input";
 import { MoneyText } from "@/components/MoneyText";
 import { Select } from "@/components/Select";
@@ -93,10 +94,9 @@ export function InfoSection({ values, set, errors, adoptable }: Props & { adopta
           maxLength={80}
           error={errors?.jobTitle}
         />
-        <Input
+        <DateField
           label={t.employees.startDate}
           name="startDate"
-          type="date"
           value={values.startDate}
           onChange={(e) => set("startDate", e.target.value)}
           required

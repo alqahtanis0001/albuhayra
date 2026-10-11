@@ -19,6 +19,7 @@ import {
   type LedgerRow,
 } from "@/features/transactions/queries";
 
+import { readFirstRunFlags, type FirstRunFlags } from "./firstRunReads";
 import {
   bucketByMonth,
   dailySeries,
@@ -85,6 +86,8 @@ export type OwnerDashboard = {
    * day-of-month as today, clamped to its last day.
    */
   prevMonthToDateNetHalalas: number;
+  /** v1.4 D25: the first-run card's four existence facts — booleans, never an amount. */
+  firstRun: FirstRunFlags;
 };
 
 export type StaffDashboard = {
@@ -165,7 +168,7 @@ export async function getOwnerDashboard(
   const allTime = ledgerWhere(establishmentId);
   const thisMonth = { ...allTime, date: { gte: from, lte: to } };
 
-  const [balance, month, byMethod, topOut, windowRows, recent, beforeWindow] =
+  const [balance, month, byMethod, topOut, windowRows, recent, beforeWindow, firstRun] =
     await Promise.all([
       sumByDirection(allTime),
       sumByDirection(thisMonth),
@@ -190,6 +193,7 @@ export async function getOwnerDashboard(
       // each month's opening and last month's to-date net are all derived
       // from this and `windowRows` in pure, tested code (./series.ts).
       sumByDirection({ ...allTime, date: { lt: windowStart } }),
+      readFirstRunFlags(establishmentId, allTime), // v1.4 D25 (./firstRunReads.ts)
     ]);
 
   const today = todayISO();
@@ -215,6 +219,7 @@ export async function getOwnerDashboard(
     recent,
     daily30: dailySeries(seriesRows, beforeWindow.netHalalas, today),
     prevMonthToDateNetHalalas: prevMonthToDateNet(seriesRows, today),
+    firstRun,
   };
 }
 

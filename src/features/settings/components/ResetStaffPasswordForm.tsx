@@ -4,6 +4,9 @@
  * The owner sets a staff password directly — there is no old password to compare,
  * so this is not `ChangePasswordSchema`. The user id is **bound on the server**
  * by the caller, so it is never a form field a client could point elsewhere.
+ * v1.4 part 3 (D29 R5): the field is optional on the client (no `required`,
+ * no asterisk — the label says «(اختياري)»); the server rule is unchanged and
+ * its error shows under the field.
  */
 import { useActionState, useEffect, useState } from "react";
 
@@ -53,7 +56,6 @@ export function ResetStaffPasswordForm({
           type="password"
           autoComplete="new-password"
           minLength={MIN_PASSWORD_LENGTH}
-          required
           error={fieldErrors?.newPassword}
         />
       </div>

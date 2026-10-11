@@ -30,7 +30,8 @@
     "deny": [
       "Bash(npx prisma migrate reset*)",
       "Bash(npx prisma db push*)",
-      "Bash(git push*)",
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
       "Bash(rm -rf*)",
       "Read(.env)",
       "Edit(.env)"

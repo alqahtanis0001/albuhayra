@@ -5,8 +5,10 @@ import { LinkButton } from "@/components/LinkButton";
 import { PlusIcon } from "@/components/icons";
 import { listPartyOptions } from "@/features/parties/queries";
 import { ensureSalaryInstalments } from "@/features/payroll/generate";
+import { PaymentPickBanner } from "@/features/plans/components/PaymentPickBanner";
 import { PlanFilters, parsePlanFilters } from "@/features/plans/components/PlanFilters";
 import { PlanList } from "@/features/plans/components/PlanList";
+import { pickRows } from "@/features/plans/components/openPlanView";
 import { listPlans } from "@/features/plans/queries";
 import { t } from "@/i18n/ar";
 import { requireOwner } from "@/lib/auth";
@@ -21,33 +23,42 @@ export default async function PlansPage({
   const { establishmentId } = await requireOwner();
   // D2: this month's salary rows exist before anything reads them (cached per request).
   await ensureSalaryInstalments(establishmentId);
+  const sp = await searchParams;
+  // v1.4 C6 / P11: «تسجيل دفعة» → pick an agreement; only payable ones are offered.
+  const pick = sp.pick === "payment";
   const parties = await listPartyOptions(establishmentId);
-  const filter = parsePlanFilters(await searchParams, parties);
-  const rows = await listPlans(establishmentId, filter);
+  const filter = parsePlanFilters(sp, parties);
+  const all = await listPlans(establishmentId, filter);
+  const rows = pickRows(all, pick);
   const filtered = Boolean(filter.direction || filter.status || filter.partyId);
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold text-gray-900">{t.plans.title}</h1>
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-xl font-semibold text-gray-900">{t.plans.title}</h1>
+          {/* v1.4 part 3 (R16): «عقد؟» — one line says what an agreement is here. */}
+          <p className="text-sm text-gray-600">{t.plans.subtitle}</p>
+        </div>
         <LinkButton href="/owner/plans/new" className="no-print">
           <PlusIcon size={18} />
           {t.plans.add}
         </LinkButton>
       </div>
 
-      <PlanFilters filter={filter} parties={parties} />
+      {pick ? <PaymentPickBanner /> : null}
+      <PlanFilters filter={filter} parties={parties} pick={pick} />
 
       {rows.length === 0 ? (
         <div className="rounded-xl border border-gray-200 bg-white">
           <EmptyState
-            title={filtered ? t.plans.emptyFiltered : t.plans.empty}
-            hint={filtered ? undefined : t.plans.emptyHint}
-            kind={filtered ? undefined : "reminders"}
+            title={filtered || pick ? t.plans.emptyFiltered : t.plans.empty}
+            hint={filtered || pick ? undefined : t.plans.emptyHint}
+            kind={filtered || pick ? undefined : "reminders"}
           />
         </div>
       ) : (
-        <PlanList rows={rows} />
+        <PlanList rows={rows} pick={pick} />
       )}
     </div>
   );

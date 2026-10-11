@@ -1,0 +1,441 @@
+2026-10-11T14:07:17.668Z [abu-fahd-p3] taps=0 persona {"name":"abu-fahd-p3"} → persona=abu-fahd-p3
+2026-10-11T14:07:18.318Z [abu-fahd-p3] taps=1 goto {"url":"http://localhost:3000/login"} → at http://localhost:3000/login
+2026-10-11T14:07:18.494Z [abu-fahd-p3] taps=2 fill {"label":"البريد الإلكتروني","value":"abufahd@zakham-test.sa"} → filled «البريد الإلكتروني»
+2026-10-11T14:07:18.635Z [abu-fahd-p3] taps=3 fill {"label":"كلمة المرور","value":"<password>"} → filled «كلمة المرور»
+2026-10-11T14:07:19.144Z [abu-fahd-p3] taps=4 tap {"text":"تسجيل الدخول"} → tapped «تسجيل الدخول»
+2026-10-11T14:07:19.384Z [abu-fahd-p3] taps=4 shot {"name":"home-first"} → progress/v14/owner-test/abu-fahd-p3-001-home-first.jpg
+2026-10-11T14:07:19.512Z [abu-fahd-p3] taps=4 see {} → تسجيل الدخول للنظام
+البريد الإلكتروني *
+كلمة المرور *
+نسيت كلمة المرور؟
+جارٍ التحميل…
+ليس لديك حساب؟ تقديم طلب تسجيل
+
+زخم · الإصدار 0.1.0
+
+للتواصل والدعم الفني: support@example.com
+2026-10-11T14:07:19.672Z [abu-fahd-p3] taps=0 resetTaps {} → taps=0
+2026-10-11T14:07:20.536Z [abu-fahd-p3] taps=1 tap {"text":"حركة جديدة"} → tapped «حركة جديدة»
+2026-10-11T14:07:20.736Z [abu-fahd-p3] taps=1 shot {"name":"t2-form"} → progress/v14/owner-test/abu-fahd-p3-002-t2-form.jpg
+2026-10-11T14:07:21.230Z [abu-fahd-p3] taps=2 tap {"text":"وارد"} → tapped «وارد»
+2026-10-11T14:07:21.363Z [abu-fahd-p3] taps=3 fill {"label":"المبلغ","value":"500"} → filled «المبلغ»
+2026-10-11T14:07:21.510Z [abu-fahd-p3] taps=3 options {"label":"التصنيف"} → اختر التصنيف | مبيعات | دفعة من عميل | رصيد افتتاحي / رأس مال | أخرى
+2026-10-11T14:07:21.710Z [abu-fahd-p3] taps=3 shot {"name":"t2-category-helper"} → progress/v14/owner-test/abu-fahd-p3-003-t2-category-helper.jpg
+2026-10-11T14:07:26.849Z [abu-fahd-p3] taps=4 ERROR {"cmd":"select","label":"التصنيف","option":"سداد من عميل"} → locator.selectOption: Timeout 5000ms exceeded.
+2026-10-11T14:07:27.336Z [abu-fahd-p3] taps=5 tap {"text":"حفظ"} → tapped «حفظ»
+2026-10-11T14:07:27.507Z [abu-fahd-p3] taps=5 shot {"name":"t2-after-save"} → progress/v14/owner-test/abu-fahd-p3-004-t2-after-save.jpg
+2026-10-11T14:07:27.605Z [abu-fahd-p3] taps=5 url {} → http://localhost:3000/owner/transactions/new
+2026-10-11T14:07:27.715Z [abu-fahd-p3] taps=5 ERROR {"cmd":"box","text":"تم حفظ الحركة"} → nothing visible on screen matches «تم حفظ الحركة»
+2026-10-11T14:07:27.829Z [abu-fahd-p3] taps=5 boxes {"selector":"ul.md\\:hidden > li"} → []
+2026-10-11T14:07:27.942Z [abu-fahd-p3] taps=5 taps {} → taps=5
+2026-10-11T14:07:28.083Z [abu-fahd-p3] taps=0 resetTaps {} → taps=0
+2026-10-11T14:07:28.567Z [abu-fahd-p3] taps=1 tap {"text":"إضافة"} → tapped «إضافة»
+2026-10-11T14:07:28.725Z [abu-fahd-p3] taps=1 shot {"name":"t4-add-sheet"} → progress/v14/owner-test/abu-fahd-p3-005-t4-add-sheet.jpg
+2026-10-11T14:07:29.198Z [abu-fahd-p3] taps=2 tap {"text":"اتفاقية جديدة"} → tapped «اتفاقية جديدة»
+2026-10-11T14:07:29.679Z [abu-fahd-p3] taps=3 tap {"text":"دفعات محددة"} → tapped «دفعات محددة»
+2026-10-11T14:07:29.859Z [abu-fahd-p3] taps=3 shot {"name":"t4-form"} → progress/v14/owner-test/abu-fahd-p3-006-t4-form.jpg
+2026-10-11T14:07:30.349Z [abu-fahd-p3] taps=4 select {"label":"الجهة","option":"+ جهة جديدة (تُحفظ للمرات القادمة)"} → selected «+ جهة جديدة (تُحفظ للمرات القادمة)» in «الجهة»
+2026-10-11T14:07:30.463Z [abu-fahd-p3] taps=5 fill {"label":"اسم الجهة الجديدة","value":"محمد"} → filled «اسم الجهة الجديدة»
+2026-10-11T14:07:30.954Z [abu-fahd-p3] taps=6 tap {"text":"حفظ"} → tapped «حفظ»
+2026-10-11T14:07:31.124Z [abu-fahd-p3] taps=6 shot {"name":"t4-party-added"} → progress/v14/owner-test/abu-fahd-p3-007-t4-party-added.jpg
+2026-10-11T14:07:31.246Z [abu-fahd-p3] taps=6 box {"text":"تمت إضافة الجهة"} → {"x":81,"y":93,"width":280,"height":20}
+2026-10-11T14:07:31.349Z [abu-fahd-p3] taps=6 box {"text":"حفظ","role":"button"} → {"x":309.625,"y":1530,"width":64.375,"height":44}
+2026-10-11T14:07:31.451Z [abu-fahd-p3] taps=6 see {} → تجاوز إلى المحتوى
+
+قطع غيار أبو فهد
+
+فهد القحطاني
+تسجيل الخروج
+اتفاقية جديدة
+الجهة *
+اختر الجهة
+محمد
+سعد العتيبي
++ جهة جديدة (تُحفظ للمرات القادمة)
+
+تمت إضافة الجهة
+
+الاتجاه *
+محمد
+سيدفع لنا
+محمد
+سندفع له
+عنوان الاتفاقية *
+
+مثل: عقد توريد، أقساط سيارة، إيجار المستودع
+
+المبلغ الإجمالي *
+ر.س
+التصنيف *
+اختر التصنيف
+مبيعات
+دفعة من عميل
+رصيد افتتاحي / رأس مال
+أخرى
+
+تُسجَّل كل دفعة تحت هذا التصنيف، ويمكن تغييره عند التسجيل
+
+تاريخ البدء *
+
+الأحد 11-10-2026
+
+التذكير قبل الاستحقاق (أيام)
+
+يظهر القسط «مستحقًا» قبل موعده بهذا العدد من الأيام
+
+ملاحظات (اختياري)
+جدول الأقساط
+أقساط متساوية
+تواريخ ومبالغ مخصصة
+عدد الأقساط
+تاريخ أول قسط
+
+الأحد 11-10-2026
+
+التكرار
+شهري
+أسبوعي
+كل عدد من الأيام
+توليد الجدول
+
+يمكنك تعديل أي صف بعد التوليد
+
+إضافة قسط
+
+مجموع الأقساط: 0.00 ر.س
+
+حفظ
+
+زخم · الإصدار 0.1.0
+
+للتواصل والدعم الفني: support@example.com
+
+الرئيسية
+إضافة
+السجل
+المستحقات
+1
+المزيد
+2026-10-11T14:07:31.561Z [abu-fahd-p3] taps=7 fill {"label":"المبلغ الإجمالي","value":"6000"} → filled «المبلغ الإجمالي»
+2026-10-11T14:07:31.689Z [abu-fahd-p3] taps=8 fill {"label":"عدد الأقساط","value":"3"} → filled «عدد الأقساط»
+2026-10-11T14:07:31.915Z [abu-fahd-p3] taps=8 shot {"name":"t4-schedule-before"} → progress/v14/owner-test/abu-fahd-p3-008-t4-schedule-before.jpg
+2026-10-11T14:07:32.440Z [abu-fahd-p3] taps=9 tap {"text":"توليد الجدول"} → tapped «توليد الجدول»
+2026-10-11T14:07:32.629Z [abu-fahd-p3] taps=9 shot {"name":"t4-schedule-generated"} → progress/v14/owner-test/abu-fahd-p3-009-t4-schedule-generated.jpg
+2026-10-11T14:07:33.118Z [abu-fahd-p3] taps=10 tap {"text":"حفظ"} → tapped «حفظ»
+2026-10-11T14:07:33.297Z [abu-fahd-p3] taps=10 shot {"name":"t4-after-save"} → progress/v14/owner-test/abu-fahd-p3-010-t4-after-save.jpg
+2026-10-11T14:07:33.431Z [abu-fahd-p3] taps=10 url {} → http://localhost:3000/owner/plans/cmv3wdsxd0003y77d447jve0q
+2026-10-11T14:07:33.533Z [abu-fahd-p3] taps=10 taps {} → taps=10
+2026-10-11T14:07:33.642Z [abu-fahd-p3] taps=0 resetTaps {} → taps=0
+2026-10-11T14:07:34.132Z [abu-fahd-p3] taps=1 tap {"text":"تسجيل دفعة"} → tapped «تسجيل دفعة»
+2026-10-11T14:07:34.315Z [abu-fahd-p3] taps=1 shot {"name":"t5-pay-form"} → progress/v14/owner-test/abu-fahd-p3-011-t5-pay-form.jpg
+2026-10-11T14:07:34.814Z [abu-fahd-p3] taps=2 tap {"text":"حفظ"} → tapped «حفظ»
+2026-10-11T14:07:34.987Z [abu-fahd-p3] taps=2 shot {"name":"t5-after-save"} → progress/v14/owner-test/abu-fahd-p3-012-t5-after-save.jpg
+2026-10-11T14:07:35.083Z [abu-fahd-p3] taps=2 taps {} → taps=2
+2026-10-11T14:07:35.191Z [abu-fahd-p3] taps=0 resetTaps {} → taps=0
+2026-10-11T14:07:35.697Z [abu-fahd-p3] taps=1 tap {"text":"المستحقات"} → tapped «المستحقات»
+2026-10-11T14:07:35.859Z [abu-fahd-p3] taps=1 shot {"name":"t6-dues"} → progress/v14/owner-test/abu-fahd-p3-013-t6-dues.jpg
+2026-10-11T14:07:36.345Z [abu-fahd-p3] taps=2 tap {"text":"كم باقي على عميل؟ افتح الجهات"} → tapped «كم باقي على عميل؟ افتح الجهات»
+2026-10-11T14:07:36.565Z [abu-fahd-p3] taps=2 shot {"name":"t6-parties"} → progress/v14/owner-test/abu-fahd-p3-014-t6-parties.jpg
+2026-10-11T14:07:36.676Z [abu-fahd-p3] taps=2 see {} → تجاوز إلى المحتوى
+
+قطع غيار أبو فهد
+
+فهد القحطاني
+تسجيل الخروج
+الجهات
+إضافة جهة
+الكل
+العملاء
+الموردون
+الموظفون
+أخرى
+
+سعد العتيبي
+
+موظف
+علينا: 8,000.00 ر.س
+
+محمد
+
+عميل
+لنا: 4,000.00 ر.س
+
+المتبقي من الاتفاقيات القائمة
+
+زخم · الإصدار 0.1.0
+
+للتواصل والدعم الفني: support@example.com
+
+الرئيسية
+إضافة
+السجل
+المستحقات
+1
+المزيد
+2026-10-11T14:07:36.813Z [abu-fahd-p3] taps=2 taps {} → taps=2
+2026-10-11T14:07:36.921Z [abu-fahd-p3] taps=0 resetTaps {} → taps=0
+2026-10-11T14:07:37.400Z [abu-fahd-p3] taps=1 tap {"text":"المزيد"} → tapped «المزيد»
+2026-10-11T14:07:37.914Z [abu-fahd-p3] taps=2 tap {"text":"الموظفون"} → tapped «الموظفون»
+2026-10-11T14:07:38.395Z [abu-fahd-p3] taps=3 tap {"text":"سعد العتيبي"} → tapped «سعد العتيبي»
+2026-10-11T14:07:38.980Z [abu-fahd-p3] taps=4 tap {"text":"صرف راتب"} → tapped «صرف راتب»
+2026-10-11T14:07:39.180Z [abu-fahd-p3] taps=4 shot {"name":"t10-salary-form"} → progress/v14/owner-test/abu-fahd-p3-015-t10-salary-form.jpg
+2026-10-11T14:07:39.283Z [abu-fahd-p3] taps=4 see {} → تجاوز إلى المحتوى
+
+قطع غيار أبو فهد
+
+فهد القحطاني
+تسجيل الخروج
+صرف راتب
+صرف راتب
+
+راتب شهر أكتوبر 2026 — سعد العتيبي
+
+الجهة
+سعد العتيبي
+النوع
+صادر
+المتبقي من راتب الشهر
+4,000.00 ر.س
+الرواتب القادمة
+4,000.00 ر.س
+
+ما يزيد عن راتب هذا الشهر يُحتسب للرواتب القادمة.
+
+فتح ملف الموظف
+المبلغ *
+ر.س
+التاريخ *
+
+الأحد 11-10-2026
+
+التصنيف *
+اختر التصنيف
+إيجار
+رواتب
+مشتريات
+كهرباء وماء
+اتصالات
+صيانة
+مواصلات
+رسوم حكومية
+أخرى
+طريقة الدفع *
+نقد
+تحويل بنكي
+مدى
+STC Pay
+أخرى
+ضمن نشاط (اختياري)
+بدون نشاط
+ملاحظة (اختياري)
+حفظ
+
+زخم · الإصدار 0.1.0
+
+للتواصل والدعم الفني: support@example.com
+
+الرئيسية
+إضافة
+السجل
+المستحقات
+1
+المزيد
+2026-10-11T14:07:39.767Z [abu-fahd-p3] taps=5 tap {"text":"حفظ"} → tapped «حفظ»
+2026-10-11T14:07:39.948Z [abu-fahd-p3] taps=5 shot {"name":"t10-after-save"} → progress/v14/owner-test/abu-fahd-p3-016-t10-after-save.jpg
+2026-10-11T14:07:40.063Z [abu-fahd-p3] taps=5 url {} → http://localhost:3000/owner/staff/cmv3ve64r000qmf7danuubf1x
+2026-10-11T14:07:40.173Z [abu-fahd-p3] taps=5 taps {} → taps=5
+2026-10-11T14:07:40.305Z [abu-fahd-p3] taps=0 resetTaps {} → taps=0
+2026-10-11T14:07:40.988Z [abu-fahd-p3] taps=1 goto {"url":"http://localhost:3000/owner"} → at http://localhost:3000/owner
+2026-10-11T14:07:41.257Z [abu-fahd-p3] taps=1 shot {"name":"t13-home-notice"} → progress/v14/owner-test/abu-fahd-p3-017-t13-home-notice.jpg
+2026-10-11T14:07:41.379Z [abu-fahd-p3] taps=0 resetTaps {} → taps=0
+2026-10-11T14:07:41.964Z [abu-fahd-p3] taps=1 tap {"text":"المزيد"} → tapped «المزيد»
+2026-10-11T14:07:42.162Z [abu-fahd-p3] taps=1 shot {"name":"t13-more"} → progress/v14/owner-test/abu-fahd-p3-018-t13-more.jpg
+2026-10-11T14:07:42.649Z [abu-fahd-p3] taps=2 tap {"text":"دخول الموظفين"} → tapped «دخول الموظفين»
+2026-10-11T14:07:42.809Z [abu-fahd-p3] taps=2 shot {"name":"t13-logins"} → progress/v14/owner-test/abu-fahd-p3-019-t13-logins.jpg
+2026-10-11T14:07:43.288Z [abu-fahd-p3] taps=3 tap {"text":"قبول"} → tapped «قبول»
+2026-10-11T14:07:43.473Z [abu-fahd-p3] taps=3 shot {"name":"t13-after-accept"} → progress/v14/owner-test/abu-fahd-p3-020-t13-after-accept.jpg
+2026-10-11T14:07:43.572Z [abu-fahd-p3] taps=3 see {} → تجاوز إلى المحتوى
+
+قطع غيار أبو فهد
+
+فهد القحطاني
+تسجيل الخروج
+دخول الموظفين
+طلبات الانضمام
+
+لا توجد طلبات انضمام.
+
+حسابات الموظفين
+
+لربط حساب الدخول بملف الموظف: الموظفون ← الموظف ← تعديل ← حساب الدخول المرتبط
+
+سعد العتيبي
+saad@zakham-test.sa
+معتمد
+البريد مؤكَّد
+2026-10-11
+التعديل: غير مسموح
+
+الموظف يضيف الحركات دائمًا؛ هذا الخيار يسمح له بتعديلها.
+
+تعطيل
+تعيين كلمة مرور جديدة (اختياري)
+إعادة تعيين كلمة المرور
+
+زخم · الإصدار 0.1.0
+
+للتواصل والدعم الفني: support@example.com
+
+الرئيسية
+إضافة
+السجل
+المستحقات
+المزيد
+0.00
+2026-10-11T14:07:43.667Z [abu-fahd-p3] taps=3 taps {} → taps=3
+2026-10-11T14:08:09.690Z [abu-fahd-p3] taps=4 goto {"url":"http://localhost:3000/owner"} → at http://localhost:3000/owner
+2026-10-11T14:08:09.800Z [abu-fahd-p3] taps=0 resetTaps {} → taps=0
+2026-10-11T14:08:10.318Z [abu-fahd-p3] taps=1 tap {"text":"حركة جديدة"} → tapped «حركة جديدة»
+2026-10-11T14:08:10.909Z [abu-fahd-p3] taps=2 tap {"text":"وارد"} → tapped «وارد»
+2026-10-11T14:08:11.043Z [abu-fahd-p3] taps=3 fill {"label":"المبلغ","value":"500"} → filled «المبلغ»
+2026-10-11T14:08:11.187Z [abu-fahd-p3] taps=3 options {"label":"التصنيف"} → اختر التصنيف | مبيعات | سداد من عميل | رصيد افتتاحي / رأس مال | أخرى
+2026-10-11T14:08:11.376Z [abu-fahd-p3] taps=3 shot {"name":"t2-category-helper"} → progress/v14/owner-test/abu-fahd-p3-021-t2-category-helper.jpg
+2026-10-11T14:08:11.854Z [abu-fahd-p3] taps=4 select {"label":"التصنيف","option":"سداد من عميل"} → selected «سداد من عميل» in «التصنيف»
+2026-10-11T14:08:12.337Z [abu-fahd-p3] taps=5 tap {"text":"حفظ"} → tapped «حفظ»
+2026-10-11T14:08:12.515Z [abu-fahd-p3] taps=5 shot {"name":"t2-after-save"} → progress/v14/owner-test/abu-fahd-p3-022-t2-after-save.jpg
+2026-10-11T14:08:12.610Z [abu-fahd-p3] taps=5 url {} → http://localhost:3000/owner/transactions
+2026-10-11T14:08:12.751Z [abu-fahd-p3] taps=5 box {"text":"تم حفظ الحركة"} → {"x":81,"y":93,"width":280,"height":20}
+2026-10-11T14:08:12.878Z [abu-fahd-p3] taps=5 boxes {"selector":"ul.md\\:hidden > li"} → [{"x":17,"y":413,"width":356,"height":136},{"x":17,"y":549,"width":356,"height":136},{"x":17,"y":685,"width":356,"height":135}]
+2026-10-11T14:08:12.986Z [abu-fahd-p3] taps=5 taps {} → taps=5
+2026-10-11T14:08:38.014Z [abu-fahd-p3] taps=6 goto {"url":"http://localhost:3000/owner/reports"} → at http://localhost:3000/owner/reports
+2026-10-11T14:08:38.207Z [abu-fahd-p3] taps=6 shot {"name":"reports-top"} → progress/v14/owner-test/abu-fahd-p3-023-reports-top.jpg
+2026-10-11T14:08:38.308Z [abu-fahd-p3] taps=6 eval {"js":"(() => { const r = document.querySelector(\"table\")?.getBoundingClientRect(); const f = document.querySelector(\"form\")?.getBoundingClientRect(); return {reportTop: r && r.top, formTop: f && f.top, scrollWidth: document.documentElement.scrollWidth, buttons: [...document.querySelectorAll(\"button[type=submit]\")].map(b=>b.textContent)}; })()"} → {"reportTop":300,"formTop":14,"scrollWidth":390,"buttons":["تسجيل الخروج","عرض"]}
+2026-10-11T14:08:38.916Z [abu-fahd-p3] taps=7 goto {"url":"http://localhost:3000/owner/settings/locks"} → at http://localhost:3000/owner/settings/locks
+2026-10-11T14:08:39.448Z [abu-fahd-p3] taps=8 tap {"text":"إقفال","role":"button"} → tapped «إقفال»
+2026-10-11T14:08:39.645Z [abu-fahd-p3] taps=8 shot {"name":"lock-confirm"} → progress/v14/owner-test/abu-fahd-p3-024-lock-confirm.jpg
+2026-10-11T14:08:39.745Z [abu-fahd-p3] taps=8 see {} → تجاوز إلى المحتوى
+
+قطع غيار أبو فهد
+
+فهد القحطاني
+تسجيل الخروج
+إقفال الأشهر
+
+منع التعديل على شهر منتهٍ
+
+العودة إلى السجل
+إقفال الأشهر
+
+بعد إقفال الشهر لا يمكن إضافة أو تعديل أو حذف حركاته.
+
+أكتوبر 2026
+مفتوح
+لا يمكن إقفال الشهر الحالي أو شهر قادم.
+سبتمبر 2026
+مفتوح
+إقفال
+إقفال: سبتمبر 2026
+
+سيُقفل سبتمبر 2026: لا يمكن بعدها إضافة حركاته أو تعديلها حتى تفتحه.
+
+تأكيد
+إلغاء
+أغسطس 2026
+مفتوح
+إقفال
+يوليو 2026
+مفتوح
+إقفال
+يونيو 2026
+مفتوح
+إقفال
+مايو 2026
+مفتوح
+إقفال
+أبريل 2026
+مفتوح
+إقفال
+مارس 2026
+مفتوح
+إقفال
+فبراير 2026
+مفتوح
+إقفال
+يناير 2026
+مفتوح
+إقفال
+ديسمبر 2025
+مفتوح
+إقفال
+نوفمبر 2025
+مفتوح
+إقفال
+أكتوبر 2025
+مفتوح
+إقفال
+سبتمبر 2025
+مفتوح
+إقفال
+أغسطس 2025
+مفتوح
+إقفال
+يوليو 2025
+مفتوح
+إقفال
+يونيو 2025
+مفتوح
+إقفال
+مايو 2025
+مفتوح
+إقفال
+أبريل 2025
+مفتوح
+إقفال
+مارس 2025
+مفتوح
+إقفال
+فبراير 2025
+مفتوح
+إقفال
+يناير 2025
+مفتوح
+إقفال
+ديسمبر 2024
+مفتوح
+إقفال
+نوفمبر 2024
+مفتوح
+إقفال
+
+زخم · الإصدار 0.1.0
+
+للتواصل والدعم الفني: support@example.com
+
+الرئيسية
+إضافة
+السجل
+المستحقات
+المزيد
+2026-10-11T14:08:40.213Z [abu-fahd-p3] taps=9 tap {"text":"إلغاء"} → tapped «إلغاء»
+2026-10-11T14:08:40.789Z [abu-fahd-p3] taps=10 goto {"url":"http://localhost:3000/owner/dues"} → at http://localhost:3000/owner/dues
+2026-10-11T14:08:40.898Z [abu-fahd-p3] taps=10 eval {"js":"({scrollWidth: document.documentElement.scrollWidth, ribbonTiles: [...document.querySelectorAll(\"#dues-ribbon li\")].map(l => l.getBoundingClientRect().right)})"} → {"scrollWidth":390,"ribbonTiles":[374.15301513671875,191.1529998779297,374.15301513671875,191.1529998779297,374.15301513671875,191.1529998779297,374.15301513671875,191.1529998779297]}
+2026-10-11T14:36:23.457Z [abu-fahd-p3-reshoot] taps=0 persona {"name":"abu-fahd-p3-reshoot"} → persona=abu-fahd-p3-reshoot
+2026-10-11T14:36:24.451Z [abu-fahd-p3-reshoot] taps=1 goto {"url":"http://localhost:3000/login"} → at http://localhost:3000/owner
+2026-10-11T14:36:24.584Z [abu-fahd-p3-reshoot] taps=2 ERROR {"cmd":"fill","label":"البريد الإلكتروني","value":"abufahd@zakham-test.sa"} → no visible field labelled «البريد الإلكتروني»
+2026-10-11T14:36:24.694Z [abu-fahd-p3-reshoot] taps=3 ERROR {"cmd":"fill","label":"كلمة المرور","value":"<password>"} → no visible field labelled «كلمة المرور»
+2026-10-11T14:36:24.842Z [abu-fahd-p3-reshoot] taps=4 ERROR {"cmd":"tap","text":"تسجيل الدخول"} → nothing visible on screen matches «تسجيل الدخول»
+2026-10-11T14:36:25.455Z [abu-fahd-p3-reshoot] taps=5 goto {"url":"http://localhost:3000/owner/transactions/new"} → at http://localhost:3000/owner/transactions/new
+2026-10-11T14:36:25.978Z [abu-fahd-p3-reshoot] taps=6 tap {"text":"وارد"} → tapped «وارد»
+2026-10-11T14:36:26.091Z [abu-fahd-p3-reshoot] taps=7 fill {"label":"المبلغ","value":"125"} → filled «المبلغ»
+2026-10-11T14:36:26.554Z [abu-fahd-p3-reshoot] taps=8 select {"label":"التصنيف","option":"مبيعات"} → selected «مبيعات» in «التصنيف»
+2026-10-11T14:36:27.054Z [abu-fahd-p3-reshoot] taps=9 tap {"text":"حفظ وإضافة أخرى"} → tapped «حفظ وإضافة أخرى»
+2026-10-11T14:36:27.241Z [abu-fahd-p3-reshoot] taps=9 shot {"name":"reshoot-save-and-add"} → progress/v14/owner-test/abu-fahd-p3-reshoot-001-reshoot-save-and-add.jpg
+2026-10-11T14:36:27.373Z [abu-fahd-p3-reshoot] taps=9 box {"text":"تم حفظ الحركة"} → {"x":29,"y":93,"width":332,"height":20}
+2026-10-11T14:36:27.485Z [abu-fahd-p3-reshoot] taps=9 box {"text":"حفظ","role":"button"} → {"x":309.625,"y":759,"width":64.375,"height":44}
+2026-10-11T14:36:27.610Z [abu-fahd-p3-reshoot] taps=9 box {"text":"حفظ وإضافة أخرى","role":"button"} → {"x":153.015625,"y":759,"width":148.609375,"height":44}
+2026-10-11T14:36:27.712Z [abu-fahd-p3-reshoot] taps=9 eval {"js":"[...document.querySelectorAll(\"[role=status] button\")].length"} → 0
+2026-10-11T14:36:28.361Z [abu-fahd-p3-reshoot] taps=10 goto {"url":"http://localhost:3000/owner/transactions?saved=1"} → at http://localhost:3000/owner/transactions
+2026-10-11T14:36:28.556Z [abu-fahd-p3-reshoot] taps=10 shot {"name":"reshoot-ledger-saved"} → progress/v14/owner-test/abu-fahd-p3-reshoot-002-reshoot-ledger-saved.jpg
+2026-10-11T14:36:28.721Z [abu-fahd-p3-reshoot] taps=10 box {"text":"تم حفظ الحركة"} → {"x":29,"y":219,"width":332,"height":20}
+2026-10-11T14:36:28.848Z [abu-fahd-p3-reshoot] taps=10 box {"text":"إضافة حركة"} → {"x":16,"y":85,"width":128.515625,"height":44}
+2026-10-11T14:36:28.953Z [abu-fahd-p3-reshoot] taps=10 eval {"js":"({url: location.search, overlaps: (() => { const t=[...document.querySelectorAll(\"[role=status]\")].find(e=>e.textContent.includes(\"تم حفظ الحركة\")); if(!t) return null; const r=t.getBoundingClientRect(); return [...document.querySelectorAll(\"a,button\")].filter(b=>{const q=b.getBoundingClientRect(); return q.width>0 && q.left<r.right && q.right>r.left && q.top<r.bottom && q.bottom>r.top && !t.contains(b)}).map(b=>b.textContent.trim()); })()})"} → {"url":"","overlaps":[]}

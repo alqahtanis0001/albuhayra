@@ -34,10 +34,17 @@ Your own running notes. Only you write here. Keep entries short; newest at the b
 
 | Follow-up after the handover commit: `plans`' late Q4/Q5/Q12/Q13 ruled in `brief-plans.md`; key `t.openPlan.expectedEndShort` added | `brief-plans.md`, `ar.v14.ts` | — | Second commit, no amend |
 
+| UX research session (new machine, branch `claude/zakham-v14-ux-research-o9ns6l`): spawned read-only `ux-scout` → `docs/UX-REVIEW-v14.md` + `progress/v14/ux-scout.md`; committed `d149237 docs: ux review v1.4`; two nav/page/action trees given in chat | `docs/UX-REVIEW-v14.md`, `progress/v14/ux-scout.md` | n/a (no code) | WebFetch DNS-blocked here; Firecrawl worked but rate-limited |
+| User's rulings → D16–D19 in `docs/V14-SPEC.md` (B1/B2 amended inline), "Amendments after the UX review" blocks in the four briefs, PROGRESS anchored edits (Current phase + pre-"go" list, Done, Decisions, Waiting on user, new *Later*, session log) | `docs/V14-SPEC.md`, `progress/v14/brief-*.md`, `PROGRESS.md`, this file | n/a | Commit `v1.4: ux rulings`, pushed this branch only |
+| Release 1 + part 2 to CP-D (2026-10-11): merged `origin/main` policy; merged branch → `main` `8930e7c`, pushed; spec D23–D28, keys, briefs; reviewer pre-code → D27; `p2-forms`/`p2-home` built; round 1 closed; docs/CHANGELOG/README part-2 text; skeleton rows | `docs/*`, `PROGRESS.md`, `CHANGELOG.md`, `README.md`, `src/i18n/ar.v14.ts`, `src/components/skeletons/screens.tsx`, briefs, this file | tsc 0 · vitest 91 / 1475 · build 0 · bundles max +6.3 KB | Commit `v1.4 part 2: forms and first run`, pushed |
+| CP-C (same session): user confirmed the CP-B flags; `qa-tests` (28 mutations, 6 survived → F1–F8) and `qa-visual` (static Playwright harness, 201 PNGs, 6 SHOULD) spawned in parallel; findings routed to fresh `plans-fix`, `cats-fix`, `ui-fix` (the builders were no longer resumable); S6 residual + README block + PROGRESS log by the lead | `README.md`, `PROGRESS.md`, `src/features/plans/components/OpenPlanDetail.tsx` (one class), this file | tsc 0 · vitest 85 / 1414 · build 0 · bundles max +4.7 KB | Commit `v1.4: release prep`, pushed; not merged |
+| CP-B (same session): reviewer R-amend → D21 + brief amendments; "go"; P0 hand-off; reviewer R1/R2 routed and closed; bundle alert routed to `plans`; R1 prop on the party page; `ProjectsSkeleton` removed; BACKEND/FRONTEND v1.4 sections; CHANGELOG v1.4; D22; PROGRESS merge | `docs/*`, `CHANGELOG.md`, `PROGRESS.md`, `src/app/(owner)/owner/parties/[id]/(detail)/page.tsx`, `src/components/skeletons/v12a.tsx`, this file | tsc 0 · vitest 84 / 1405 · build 0 · bundles max +4.6 KB | Commit `v1.4: simpler owner flows`, pushed |
+| Build session (cloud, branch `claude/zakham-v14-build-01QtmW` from merged `main` `78a93f8`, no `.env`): pre-"go" list — nine D17 keys (in their sections' files, D20), `navGroup.staff` → «الموظفون والحضور», the «قسط» sweep over `ar.v12a/v12c/v13.ts` + `src/i18n/instalmentWording.test.ts` (12 cases, 4 mutations), pending-page button `t.pending.checkStatus`, attendance empty state hint + «إضافة موظف» link (both tabs) | `src/i18n/ar.ts`, `ar.v12a.ts`, `ar.v12c.ts`, `ar.v13.ts`, `ar.v14.ts`, `instalmentWording.test.ts`, `(auth)/pending/page.tsx`, `owner/staff/attendance/page.tsx`, `docs/V14-SPEC.md` (D20), `PROGRESS.md` | typecheck: still exactly the 8 P0 errors; vitest 68 files / **1230** ✓ (was 1218); build not run (fails on P0 types until `plans` lands it) | Commit `v1.4: lead prep`, pushed. Next: spawn `reviewer` (re-reads the amended briefs), `cats`, `add`, `plans` |
+
 ## In progress
-- Task: handed over — build phase not started
-- Where I am: everything the next lead needs is in `PROGRESS.md › Current phase`, `docs/V14-SPEC.md` D1–D15, `progress/v14/brief-*.md`, `progress/v14/{cats,add,plans,reviewer}.md`
-- Next action (next session): spawn the four agents from the briefs, give "go"; `plans` P0 first
+- Task: v1.4 complete — part 1 `main` `8930e7c`, part 2 `main` `eeee963`; final report sent; session ends. Nothing parked, no teammates running.
+- Where I am: branch `claude/zakham-v14-build-01QtmW`; `reviewer` re-reads the amended briefs and posts concerns before "go"; then `cats`, `add`, `plans` ("go"); `plans` P0 first; sequencing: `cats`' `manageCategories` line before `plans`' `PaymentBanner` line on the owner edit page; `plans` P6 + `hasPlans` before `add`'s staff badge and hidden dues card
+- Next action: CP-B gates (build, test, bundles), commit `v1.4: simpler owner flows`, push, merge recordings into PROGRESS, report with click-list, wait for the user's OK
 - Where I am: nothing applied to Neon; nothing committed since `1459a39`
 - Next action: on "apply" → `npx prisma migrate deploy` (DIRECT_URL per prisma.config.ts), `npx prisma migrate status`, `npx prisma generate`; then brief `reviewer` first with all three briefs, then `cats`, `add`, `plans`
 
@@ -47,3 +54,11 @@ Your own running notes. Only you write here. Keep entries short; newest at the b
 
 ## Questions / requests sent to lead
 - (n/a — I am the lead; questions for the user are in the CP-A report)
+
+## v1.4 part 3 — wording and first day (2026-10-11, branch `claude/zakhm-v14-part3-wording-z53lw5`)
+- Merged `claude/owner-test-v14-018cTVXu` into `main` first (fast-forward, docs + screenshots only; `main` `4967449`, pushed); the branch starts there.
+- Spec: D29 (the user's R1–R16 verbatim with the lead's readings), D30 (keys, migration, ownership, tests), D31 (lead's rulings) appended to `docs/V14-SPEC.md`.
+- Pre-"go": every D30 key with a draft value in its section's own file (D20); `dateCaption()` in `src/lib/dates.ts` (+ 2 cases); data migration `20261011000000_v14_p3_customer_payment_name` (guarded `UPDATE "Category"`); README nav lines; briefs `brief-p3-{common,words,flows}.md`. `tsc` 0; the one red test (`nav.test.ts:238`, literal «تسجيل دفعة») is `words`' first task.
+- Local stack for the browser pass: PostgreSQL 16 cluster `main`, db `ledger`, user `ledger`; `.env` written (random secret, no Brevo key; gitignored); 7 migrations applied; ADMIN seeded (`admin@zakham-test.sa`, password in the scratchpad). Neon untouched.
+- Team: `words`, `flows`, `reviewer`.
+- CP-E `938ea5c` → QA (qa-visual, qa-tests) → D34 + F8 pin + sweep → `v1.4 part 3: release prep` → merged into `main`, pushed. Gates 0 / 118 files 1613 / build 0 / +8.5 KB max. Part 3 done.

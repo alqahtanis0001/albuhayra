@@ -17,7 +17,7 @@ export function ActiveProjects({ rows }: { rows: ProjectRow[] }) {
     <Card
       title={t.projects.activeOnHome}
       action={
-        <Link href="/owner/projects" className="text-sm text-accent-dark underline-offset-2 hover:underline">
+        <Link href="/owner/transactions?tab=activities" className="text-sm text-accent-dark underline-offset-2 hover:underline">
           {t.projects.viewAll}
         </Link>
       }

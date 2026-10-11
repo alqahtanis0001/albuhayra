@@ -107,6 +107,8 @@ export type Snapshot = {
   partyId: string | null;
   projectId: string | null;
   instalmentId: string | null;
+  /** v1.4 (P19): present only on an open-plan payment, so older snapshots stay byte-identical. */
+  planId?: string;
 };
 
 export function snapshot(row: {
@@ -118,6 +120,7 @@ export function snapshot(row: {
   partyId?: string | null;
   projectId?: string | null;
   instalmentId?: string | null;
+  planId?: string | null;
 }): Snapshot {
   return {
     date: dateToISO(row.date),
@@ -128,6 +131,7 @@ export function snapshot(row: {
     partyId: row.partyId ?? null,
     projectId: row.projectId ?? null,
     instalmentId: row.instalmentId ?? null,
+    ...(row.planId ? { planId: row.planId } : {}),
   };
 }
 
@@ -141,4 +145,6 @@ export const EXISTING_SELECT = {
   partyId: true,
   projectId: true,
   instalmentId: true,
+  // v1.4 D9: an open-plan payment is told apart by it.
+  planId: true,
 } as const;

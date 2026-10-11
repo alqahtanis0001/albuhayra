@@ -13,6 +13,8 @@ import { t } from "@/i18n/ar";
 import type { DirectionValue } from "@/lib/validation";
 
 const KEY = "ledger:lastDirection";
+/** One toggle per form, so a fixed id is safe; `aria-describedby` on the fieldset points at it. */
+const HELP_ID = "direction-help";
 
 export function readLastDirection(): DirectionValue {
   try {
@@ -40,7 +42,7 @@ export function DirectionToggle({
   disabled?: boolean;
 }) {
   return (
-    <fieldset disabled={disabled} className="flex flex-col gap-1">
+    <fieldset disabled={disabled} aria-describedby={HELP_ID} className="flex flex-col gap-1">
       <legend className="mb-1 text-sm font-medium text-gray-700">
         {t.direction.label}
       </legend>
@@ -58,6 +60,10 @@ export function DirectionToggle({
           onChange={onChange}
         />
       </div>
+      {/* v1.4 part 3 (R2): «وارد / صادر» in the owner's words, owner and staff alike. */}
+      <p id={HELP_ID} className="text-xs text-gray-600">
+        {t.direction.help}
+      </p>
     </fieldset>
   );
 }

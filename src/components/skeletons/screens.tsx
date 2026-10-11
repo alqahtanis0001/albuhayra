@@ -105,10 +105,12 @@ export function EntryFormSkeleton({ mode }: { mode: "new" | "edit" }) {
         <Bone onBody className="mb-1 h-4 w-20" />
         <div className="grid min-h-11 grid-cols-2 rounded-lg border border-gray-300 bg-white" />
       </div>
-      {Array.from({ length: 6 }, (_, i) => (
+      {/* v1.4 part 2 (D24): amount, date, category, method; الجهة / النشاط / الملاحظة sit
+          behind «تفاصيل أكثر», collapsed by default — one button-height line. */}
+      {Array.from({ length: 4 }, (_, i) => (
         <SkeletonField key={i} onBody />
       ))}
-      <SkeletonField onBody tall />
+      <Bone onBody className="h-11 w-32 rounded-lg" />
       <SkeletonButtons onBody count={mode === "new" ? 2 : 1} />
     </SkeletonPage>
   );

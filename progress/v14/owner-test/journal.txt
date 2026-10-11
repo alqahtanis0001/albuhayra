@@ -1,0 +1,439 @@
+2026-10-11T12:10:33.309Z [abu-fahd] taps=0 resetTaps {} → taps=0
+2026-10-11T12:10:33.663Z [abu-fahd] taps=1 goto {"url":"http://localhost:3000"} → at http://localhost:3000/login
+2026-10-11T12:10:34.331Z [abu-fahd] taps=1 see {} → ok
+2026-10-11T12:10:39.143Z [abu-fahd] taps=1 shot {"name":"login"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-001-login.jpg
+2026-10-11T12:10:39.281Z [abu-fahd] taps=2 fill {"label":"البريد الإلكتروني","value":"abufahd@zakham-test.sa"} → filled «البريد الإلكتروني»
+2026-10-11T12:10:39.406Z [abu-fahd] taps=3 fill {"label":"كلمة المرور","value":"<password>"} → filled «كلمة المرور»
+2026-10-11T12:10:39.632Z [abu-fahd] taps=4 tap {"text":"تسجيل الدخول"} → tapped «تسجيل الدخول»
+2026-10-11T12:10:41.779Z [abu-fahd] taps=4 see {} → ok
+2026-10-11T12:10:41.986Z [abu-fahd] taps=4 shot {"name":"home-first"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-002-home-first.jpg
+2026-10-11T12:11:11.703Z [abu-fahd] taps=5 tap {"text":"المزيد"} → tapped «المزيد»
+2026-10-11T12:11:11.845Z [abu-fahd] taps=5 see {} → ok
+2026-10-11T12:11:12.092Z [abu-fahd] taps=5 shot {"name":"more-menu"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-003-more-menu.jpg
+2026-10-11T12:11:26.212Z [abu-fahd] taps=6 tap {"text":"إغلاق"} → tapped «إغلاق»
+2026-10-11T12:11:26.334Z [abu-fahd] taps=0 resetTaps {} → taps=0
+2026-10-11T12:11:26.507Z [abu-fahd] taps=1 tap {"text":"تسجيل دفعة"} → tapped «تسجيل دفعة»
+2026-10-11T12:11:26.650Z [abu-fahd] taps=1 see {} → ok
+2026-10-11T12:11:26.908Z [abu-fahd] taps=1 shot {"name":"t2-dues"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-004-t2-dues.jpg
+2026-10-11T12:11:32.718Z [abu-fahd] taps=1 see {} → ok
+2026-10-11T12:11:32.936Z [abu-fahd] taps=1 shot {"name":"t2-dues"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-005-t2-dues.jpg
+2026-10-11T12:11:46.675Z [abu-fahd] taps=2 tap {"text":"الرئيسية"} → tapped «الرئيسية»
+2026-10-11T12:11:46.867Z [abu-fahd] taps=2 ERROR {"cmd":"tap","text":"حركة جديدة"} → nothing visible on screen matches «حركة جديدة»
+2026-10-11T12:11:51.230Z [abu-fahd] taps=2 see {} → ok
+2026-10-11T12:11:55.891Z [abu-fahd] taps=3 tap {"text":"حركة جديدة"} → tapped «حركة جديدة»
+2026-10-11T12:11:57.502Z [abu-fahd] taps=3 see {} → ok
+2026-10-11T12:11:57.668Z [abu-fahd] taps=3 shot {"name":"t2-new-tx"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-006-t2-new-tx.jpg
+2026-10-11T12:12:10.480Z [abu-fahd] taps=3 ERROR {"cmd":"tap","text":"وارد"} → locator.click: Timeout 5000ms exceeded.
+2026-10-11T12:12:16.226Z [abu-fahd] taps=3 ERROR {"cmd":"tap","text":"وارد","nth":1} → nothing visible on screen matches «وارد»
+2026-10-11T12:12:16.353Z [abu-fahd] taps=3 see {} → ok
+2026-10-11T12:12:40.310Z [abu-fahd] taps=3 ERROR {"cmd":"tap","text":"وارد"} → locator.click: Timeout 5000ms exceeded.
+2026-10-11T12:13:12.177Z [abu-fahd] taps=3 taps {} → ok
+2026-10-11T12:13:26.535Z [abu-fahd] taps=1 goto {"url":"http://localhost:3000"} → at http://localhost:3000/login
+2026-10-11T12:13:26.717Z [abu-fahd] taps=2 fill {"label":"البريد الإلكتروني","value":"abufahd@zakham-test.sa"} → filled «البريد الإلكتروني»
+2026-10-11T12:13:26.863Z [abu-fahd] taps=3 fill {"label":"كلمة المرور","value":"<password>"} → filled «كلمة المرور»
+2026-10-11T12:13:28.446Z [abu-fahd] taps=4 tap {"text":"تسجيل الدخول"} → tapped «تسجيل الدخول»
+2026-10-11T12:13:30.560Z [abu-fahd] taps=0 resetTaps {} → taps=0
+2026-10-11T12:13:30.755Z [abu-fahd] taps=1 tap {"text":"حركة جديدة"} → tapped «حركة جديدة»
+2026-10-11T12:13:37.070Z [abu-fahd] taps=2 tap {"text":"وارد"} → tapped «وارد»
+2026-10-11T12:13:37.189Z [abu-fahd] taps=2 see {} → ok
+2026-10-11T12:13:37.311Z [abu-fahd] taps=2 options {"label":"التصنيف"} → ok
+2026-10-11T12:13:47.893Z [abu-fahd] taps=3 fill {"label":"المبلغ","value":"500"} → filled «المبلغ»
+2026-10-11T12:13:48.034Z [abu-fahd] taps=4 select {"label":"التصنيف","option":"دفعة من عميل"} → selected «دفعة من عميل» in «التصنيف»
+2026-10-11T12:13:48.269Z [abu-fahd] taps=4 shot {"name":"t2-filled"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-007-t2-filled.jpg
+2026-10-11T12:13:48.481Z [abu-fahd] taps=5 tap {"text":"حفظ"} → tapped «حفظ»
+2026-10-11T12:13:50.617Z [abu-fahd] taps=5 see {} → ok
+2026-10-11T12:13:50.815Z [abu-fahd] taps=5 shot {"name":"t2-after-save"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-008-t2-after-save.jpg
+2026-10-11T12:13:56.416Z [abu-fahd] taps=5 scroll {"dy":900} → scrolled 900
+2026-10-11T12:13:56.629Z [abu-fahd] taps=5 shot {"name":"t2-list-scrolled"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-009-t2-list-scrolled.jpg
+2026-10-11T12:14:19.067Z [abu-fahd] taps=0 resetTaps {} → taps=0
+2026-10-11T12:14:19.347Z [abu-fahd] taps=1 tap {"text":"إضافة"} → tapped «إضافة»
+2026-10-11T12:14:20.476Z [abu-fahd] taps=1 see {} → ok
+2026-10-11T12:14:20.699Z [abu-fahd] taps=1 shot {"name":"t3-add-sheet"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-010-t3-add-sheet.jpg
+2026-10-11T12:14:29.122Z [abu-fahd] taps=2 tap {"text":"حركة جديدة"} → tapped «حركة جديدة»
+2026-10-11T12:14:30.299Z [abu-fahd] taps=3 fill {"label":"المبلغ","value":"1200"} → filled «المبلغ»
+2026-10-11T12:14:46.407Z [abu-fahd] taps=3 ERROR {"cmd":"select","label":"التصنيف","option":"مشتريات"} → locator.selectOption: Timeout 8000ms exceeded.
+2026-10-11T12:14:49.621Z [abu-fahd] taps=3 see {} → ok
+2026-10-11T12:14:57.230Z [abu-fahd] taps=3 shot {"name":"t3-sticky-type"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-011-t3-sticky-type.jpg
+2026-10-11T12:15:02.531Z [abu-fahd] taps=4 tap {"text":"صادر"} → tapped «صادر»
+2026-10-11T12:15:02.658Z [abu-fahd] taps=5 select {"label":"التصنيف","option":"مشتريات"} → selected «مشتريات» in «التصنيف»
+2026-10-11T12:15:02.776Z [abu-fahd] taps=6 select {"label":"طريقة الدفع","option":"تحويل بنكي"} → selected «تحويل بنكي» in «طريقة الدفع»
+2026-10-11T12:15:02.999Z [abu-fahd] taps=7 tap {"text":"تفاصيل أكثر"} → tapped «تفاصيل أكثر»
+2026-10-11T12:15:04.170Z [abu-fahd] taps=7 see {} → ok
+2026-10-11T12:15:04.401Z [abu-fahd] taps=7 shot {"name":"t3-more-details"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-012-t3-more-details.jpg
+2026-10-11T12:15:12.213Z [abu-fahd] taps=8 select {"label":"الجهة (اختياري)","option":"أخرى (اكتب الاسم)"} → selected «أخرى (اكتب الاسم)» in «الجهة (اختياري)»
+2026-10-11T12:15:13.407Z [abu-fahd] taps=8 see {} → ok
+2026-10-11T12:15:13.664Z [abu-fahd] taps=8 shot {"name":"t3-party-other"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-013-t3-party-other.jpg
+2026-10-11T12:15:18.302Z [abu-fahd] taps=9 fill {"label":"اسم الجهة","value":"ابو خالد"} → filled «اسم الجهة»
+2026-10-11T12:15:18.431Z [abu-fahd] taps=10 fill {"label":"ملاحظة (اختياري)","value":"بضاعة"} → filled «ملاحظة (اختياري)»
+2026-10-11T12:15:18.642Z [abu-fahd] taps=11 tap {"text":"حفظ"} → tapped «حفظ»
+2026-10-11T12:15:20.779Z [abu-fahd] taps=11 see {} → ok
+2026-10-11T12:15:20.995Z [abu-fahd] taps=11 shot {"name":"t3-after-save"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-014-t3-after-save.jpg
+2026-10-11T12:15:43.519Z [abu-fahd] taps=0 resetTaps {} → taps=0
+2026-10-11T12:15:43.718Z [abu-fahd] taps=1 tap {"text":"إضافة"} → tapped «إضافة»
+2026-10-11T12:15:44.930Z [abu-fahd] taps=2 tap {"text":"اتفاقية جديدة"} → tapped «اتفاقية جديدة»
+2026-10-11T12:15:46.572Z [abu-fahd] taps=2 see {} → ok
+2026-10-11T12:15:46.761Z [abu-fahd] taps=2 shot {"name":"t4-plan-new"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-015-t4-plan-new.jpg
+2026-10-11T12:15:58.312Z [abu-fahd] taps=3 tap {"text":"دفعات محددة"} → tapped «دفعات محددة»
+2026-10-11T12:15:59.944Z [abu-fahd] taps=3 see {} → ok
+2026-10-11T12:16:00.126Z [abu-fahd] taps=3 shot {"name":"t4-fixed-form"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-016-t4-fixed-form.jpg
+2026-10-11T12:16:06.192Z [abu-fahd] taps=4 select {"label":"الجهة","option":"+ جهة جديدة"} → selected «+ جهة جديدة» in «الجهة»
+2026-10-11T12:16:07.814Z [abu-fahd] taps=4 see {} → ok
+2026-10-11T12:16:08.041Z [abu-fahd] taps=4 shot {"name":"t4-new-party"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-017-t4-new-party.jpg
+2026-10-11T12:16:13.948Z [abu-fahd] taps=5 fill {"label":"اسم الجهة الجديدة","value":"محمد"} → filled «اسم الجهة الجديدة»
+2026-10-11T12:16:14.131Z [abu-fahd] taps=6 tap {"text":"حفظ"} → tapped «حفظ»
+2026-10-11T12:16:15.780Z [abu-fahd] taps=6 see {} → ok
+2026-10-11T12:16:22.377Z [abu-fahd] taps=6 shot {"name":"t4-party-added"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-018-t4-party-added.jpg
+2026-10-11T12:16:22.521Z [abu-fahd] taps=6 options {"label":"التصنيف"} → ok
+2026-10-11T12:16:22.642Z [abu-fahd] taps=6 see {} → ok
+2026-10-11T12:16:32.041Z [abu-fahd] taps=7 fill {"label":"عنوان الاتفاقية","value":"محمد ٣ دفعات"} → filled «عنوان الاتفاقية»
+2026-10-11T12:16:32.213Z [abu-fahd] taps=8 fill {"label":"المبلغ الإجمالي","value":"6000"} → filled «المبلغ الإجمالي»
+2026-10-11T12:16:32.379Z [abu-fahd] taps=9 select {"label":"التصنيف","option":"دفعة من عميل"} → selected «دفعة من عميل» in «التصنيف»
+2026-10-11T12:16:32.553Z [abu-fahd] taps=10 fill {"label":"عدد الأقساط","value":"3"} → filled «عدد الأقساط»
+2026-10-11T12:16:32.697Z [abu-fahd] taps=10 see {} → ok
+2026-10-11T12:16:32.924Z [abu-fahd] taps=10 shot {"name":"t4-schedule-before"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-019-t4-schedule-before.jpg
+2026-10-11T12:16:40.572Z [abu-fahd] taps=11 tap {"text":"توليد الجدول"} → tapped «توليد الجدول»
+2026-10-11T12:16:41.696Z [abu-fahd] taps=11 see {} → ok
+2026-10-11T12:16:41.926Z [abu-fahd] taps=11 shot {"name":"t4-schedule-generated"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-020-t4-schedule-generated.jpg
+2026-10-11T12:16:58.836Z [abu-fahd] taps=11 ERROR {"cmd":"tap","text":"حفظ"} → nothing visible on screen matches «حفظ»
+2026-10-11T12:17:03.592Z [abu-fahd] taps=11 scroll {"dy":1200} → scrolled 1200
+2026-10-11T12:17:03.754Z [abu-fahd] taps=11 see {} → ok
+2026-10-11T12:17:04.004Z [abu-fahd] taps=11 shot {"name":"t4-bottom"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-021-t4-bottom.jpg
+2026-10-11T12:17:11.427Z [abu-fahd] taps=12 tap {"text":"إغلاق"} → tapped «إغلاق»
+2026-10-11T12:17:11.635Z [abu-fahd] taps=13 tap {"text":"حفظ"} → tapped «حفظ»
+2026-10-11T12:17:13.851Z [abu-fahd] taps=13 see {} → ok
+2026-10-11T12:17:14.040Z [abu-fahd] taps=13 shot {"name":"t4-after-save"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-022-t4-after-save.jpg
+2026-10-11T12:17:46.663Z [abu-fahd] taps=0 resetTaps {} → taps=0
+2026-10-11T12:17:46.902Z [abu-fahd] taps=1 tap {"text":"تسجيل دفعة"} → tapped «تسجيل دفعة»
+2026-10-11T12:17:48.549Z [abu-fahd] taps=1 see {} → ok
+2026-10-11T12:17:48.734Z [abu-fahd] taps=1 shot {"name":"t5-pay-form"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-023-t5-pay-form.jpg
+2026-10-11T12:17:53.046Z [abu-fahd] taps=2 tap {"text":"حفظ"} → tapped «حفظ»
+2026-10-11T12:17:55.176Z [abu-fahd] taps=2 see {} → ok
+2026-10-11T12:17:55.367Z [abu-fahd] taps=2 shot {"name":"t5-after-save"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-024-t5-after-save.jpg
+2026-10-11T12:18:11.059Z [abu-fahd] taps=0 resetTaps {} → taps=0
+2026-10-11T12:18:11.262Z [abu-fahd] taps=1 tap {"text":"الرئيسية"} → tapped «الرئيسية»
+2026-10-11T12:18:13.406Z [abu-fahd] taps=1 see {} → ok
+2026-10-11T12:18:13.606Z [abu-fahd] taps=1 shot {"name":"t6-home"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-025-t6-home.jpg
+2026-10-11T12:18:22.006Z [abu-fahd] taps=2 tap {"text":"المستحقات"} → tapped «المستحقات»
+2026-10-11T12:18:24.170Z [abu-fahd] taps=2 see {} → ok
+2026-10-11T12:18:24.350Z [abu-fahd] taps=2 shot {"name":"t6-dues"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-026-t6-dues.jpg
+2026-10-11T12:18:30.136Z [abu-fahd] taps=3 tap {"text":"اختر من الاتفاقيات"} → tapped «اختر من الاتفاقيات»
+2026-10-11T12:18:32.289Z [abu-fahd] taps=3 see {} → ok
+2026-10-11T12:18:32.485Z [abu-fahd] taps=3 shot {"name":"t6-plans-list"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-027-t6-plans-list.jpg
+2026-10-11T12:18:51.341Z [abu-fahd] taps=0 resetTaps {} → taps=0
+2026-10-11T12:18:51.519Z [abu-fahd] taps=1 tap {"text":"اتفاقية جديدة"} → tapped «اتفاقية جديدة»
+2026-10-11T12:18:53.219Z [abu-fahd] taps=2 tap {"text":"اتفاقية مفتوحة"} → tapped «اتفاقية مفتوحة»
+2026-10-11T12:18:54.839Z [abu-fahd] taps=2 see {} → ok
+2026-10-11T12:18:55.067Z [abu-fahd] taps=2 shot {"name":"t7-open-form"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-028-t7-open-form.jpg
+2026-10-11T12:19:00.605Z [abu-fahd] taps=3 select {"label":"الجهة","option":"+ جهة جديدة"} → selected «+ جهة جديدة» in «الجهة»
+2026-10-11T12:19:00.729Z [abu-fahd] taps=4 fill {"label":"اسم الجهة الجديدة","value":"خالد الدوسري"} → filled «اسم الجهة الجديدة»
+2026-10-11T12:19:00.933Z [abu-fahd] taps=5 tap {"text":"حفظ"} → tapped «حفظ»
+2026-10-11T12:19:02.633Z [abu-fahd] taps=6 tap {"text":"إغلاق"} → tapped «إغلاق»
+2026-10-11T12:19:02.756Z [abu-fahd] taps=7 fill {"label":"عنوان الاتفاقية","value":"خالد الدوسري"} → filled «عنوان الاتفاقية»
+2026-10-11T12:19:02.870Z [abu-fahd] taps=8 select {"label":"التصنيف","option":"دفعة من عميل"} → selected «دفعة من عميل» in «التصنيف»
+2026-10-11T12:19:02.999Z [abu-fahd] taps=8 see {} → ok
+2026-10-11T12:19:03.218Z [abu-fahd] taps=8 shot {"name":"t7-filled"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-029-t7-filled.jpg
+2026-10-11T12:19:06.880Z [abu-fahd] taps=9 tap {"text":"حفظ"} → tapped «حفظ»
+2026-10-11T12:19:09.003Z [abu-fahd] taps=9 see {} → ok
+2026-10-11T12:19:09.181Z [abu-fahd] taps=9 shot {"name":"t7-open-plan"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-030-t7-open-plan.jpg
+2026-10-11T12:19:13.205Z [abu-fahd] taps=10 fill {"label":"المبلغ","value":"300"} → filled «المبلغ»
+2026-10-11T12:19:13.416Z [abu-fahd] taps=11 tap {"text":"تسجيل دفعة"} → tapped «تسجيل دفعة»
+2026-10-11T12:19:15.548Z [abu-fahd] taps=11 see {} → ok
+2026-10-11T12:19:15.751Z [abu-fahd] taps=11 shot {"name":"t7-after-pay"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-031-t7-after-pay.jpg
+2026-10-11T12:19:31.150Z [abu-fahd] taps=0 resetTaps {} → taps=0
+2026-10-11T12:19:31.364Z [abu-fahd] taps=1 tap {"text":"إضافة"} → tapped «إضافة»
+2026-10-11T12:19:32.609Z [abu-fahd] taps=2 tap {"text":"موظف جديد"} → tapped «موظف جديد»
+2026-10-11T12:19:34.245Z [abu-fahd] taps=2 see {} → ok
+2026-10-11T12:19:34.471Z [abu-fahd] taps=2 shot {"name":"t8-staff-new"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-032-t8-staff-new.jpg
+2026-10-11T12:19:39.685Z [abu-fahd] taps=3 fill {"label":"اسم الموظف","value":"سعد"} → filled «اسم الموظف»
+2026-10-11T12:19:39.821Z [abu-fahd] taps=4 fill {"label":"الراتب الأساسي (اختياري)","value":"4000"} → filled «الراتب الأساسي (اختياري)»
+2026-10-11T12:19:39.941Z [abu-fahd] taps=5 fill {"label":"يوم صرف الراتب","value":"27"} → filled «يوم صرف الراتب»
+2026-10-11T12:19:40.061Z [abu-fahd] taps=5 options {"label":"حساب الدخول المرتبط"} → ok
+2026-10-11T12:19:40.264Z [abu-fahd] taps=5 shot {"name":"t8-filled-salary"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-033-t8-filled-salary.jpg
+2026-10-11T12:19:40.461Z [abu-fahd] taps=6 tap {"text":"حفظ"} → tapped «حفظ»
+2026-10-11T12:19:42.611Z [abu-fahd] taps=6 see {} → ok
+2026-10-11T12:19:42.837Z [abu-fahd] taps=6 shot {"name":"t8-after-save"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-034-t8-after-save.jpg
+2026-10-11T12:20:06.370Z [abu-fahd] taps=0 resetTaps {} → taps=0
+2026-10-11T12:20:06.570Z [abu-fahd] taps=1 tap {"text":"الرئيسية"} → tapped «الرئيسية»
+2026-10-11T12:20:08.800Z [abu-fahd] taps=2 tap {"text":"تسجيل حضور"} → tapped «تسجيل حضور»
+2026-10-11T12:20:10.937Z [abu-fahd] taps=2 see {} → ok
+2026-10-11T12:20:11.112Z [abu-fahd] taps=2 shot {"name":"t9-attendance"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-035-t9-attendance.jpg
+2026-10-11T12:20:20.556Z [abu-fahd] taps=3 tap {"text":"متأخر"} → tapped «متأخر»
+2026-10-11T12:20:20.680Z [abu-fahd] taps=3 see {} → ok
+2026-10-11T12:20:20.833Z [abu-fahd] taps=4 tap {"text":"حفظ الحضور"} → tapped «حفظ الحضور»
+2026-10-11T12:20:22.958Z [abu-fahd] taps=4 see {} → ok
+2026-10-11T12:20:23.152Z [abu-fahd] taps=4 shot {"name":"t9-after-save"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-036-t9-after-save.jpg
+2026-10-11T12:20:36.641Z [abu-fahd] taps=0 resetTaps {} → taps=0
+2026-10-11T12:20:36.828Z [abu-fahd] taps=1 tap {"text":"المزيد"} → tapped «المزيد»
+2026-10-11T12:20:38.034Z [abu-fahd] taps=2 tap {"text":"الموظفون"} → tapped «الموظفون»
+2026-10-11T12:20:40.179Z [abu-fahd] taps=2 see {} → ok
+2026-10-11T12:20:40.360Z [abu-fahd] taps=2 shot {"name":"t10-staff-list"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-037-t10-staff-list.jpg
+2026-10-11T12:20:45.180Z [abu-fahd] taps=3 tap {"text":"سعد"} → tapped «سعد»
+2026-10-11T12:20:47.401Z [abu-fahd] taps=4 tap {"text":"صرف راتب"} → tapped «صرف راتب»
+2026-10-11T12:20:49.549Z [abu-fahd] taps=4 see {} → ok
+2026-10-11T12:20:49.772Z [abu-fahd] taps=4 shot {"name":"t10-salary-form"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-038-t10-salary-form.jpg
+2026-10-11T12:20:55.274Z [abu-fahd] taps=5 tap {"text":"حفظ"} → tapped «حفظ»
+2026-10-11T12:20:57.414Z [abu-fahd] taps=5 see {} → ok
+2026-10-11T12:20:57.579Z [abu-fahd] taps=5 shot {"name":"t10-after-save"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-039-t10-after-save.jpg
+2026-10-11T12:21:16.707Z [abu-fahd] taps=0 resetTaps {} → taps=0
+2026-10-11T12:21:16.908Z [abu-fahd] taps=1 tap {"text":"الرئيسية"} → tapped «الرئيسية»
+2026-10-11T12:21:19.030Z [abu-fahd] taps=1 scroll {"dy":700} → scrolled 700
+2026-10-11T12:21:19.262Z [abu-fahd] taps=1 shot {"name":"t11-home-scrolled"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-040-t11-home-scrolled.jpg
+2026-10-11T12:21:19.396Z [abu-fahd] taps=1 see {} → ok
+2026-10-11T12:21:26.724Z [abu-fahd] taps=2 tap {"text":"المزيد"} → tapped «المزيد»
+2026-10-11T12:21:27.951Z [abu-fahd] taps=3 tap {"text":"التقارير"} → tapped «التقارير»
+2026-10-11T12:21:30.099Z [abu-fahd] taps=3 see {} → ok
+2026-10-11T12:21:30.278Z [abu-fahd] taps=3 shot {"name":"t11-reports"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-041-t11-reports.jpg
+2026-10-11T12:21:40.457Z [abu-fahd] taps=4 tap {"text":"تطبيق"} → tapped «تطبيق»
+2026-10-11T12:21:42.072Z [abu-fahd] taps=4 scroll {"dy":900} → scrolled 900
+2026-10-11T12:21:42.275Z [abu-fahd] taps=4 shot {"name":"t11-reports-scrolled"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-042-t11-reports-scrolled.jpg
+2026-10-11T12:21:42.502Z [abu-fahd] taps=5 tap {"text":"طباعة"} → tapped «طباعة»
+2026-10-11T12:21:44.654Z [abu-fahd] taps=5 see {} → ok
+2026-10-11T12:21:44.861Z [abu-fahd] taps=5 shot {"name":"t11-after-print"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-043-t11-after-print.jpg
+2026-10-11T12:22:07.071Z [abu-fahd] taps=0 resetTaps {} → taps=0
+2026-10-11T12:22:07.265Z [abu-fahd] taps=1 tap {"text":"إضافة"} → tapped «إضافة»
+2026-10-11T12:22:08.430Z [abu-fahd] taps=2 tap {"text":"حركة جديدة"} → tapped «حركة جديدة»
+2026-10-11T12:22:10.055Z [abu-fahd] taps=2 see {} → ok
+2026-10-11T12:22:14.940Z [abu-fahd] taps=3 fill {"label":"المبلغ","value":"350"} → filled «المبلغ»
+2026-10-11T12:22:15.068Z [abu-fahd] taps=4 fill {"label":"التاريخ","value":"2026-09-20"} → filled «التاريخ»
+2026-10-11T12:22:15.203Z [abu-fahd] taps=5 select {"label":"التصنيف","option":"مشتريات"} → selected «مشتريات» in «التصنيف»
+2026-10-11T12:22:15.392Z [abu-fahd] taps=5 shot {"name":"t12-sept-entry"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-044-t12-sept-entry.jpg
+2026-10-11T12:22:15.573Z [abu-fahd] taps=6 tap {"text":"حفظ"} → tapped «حفظ»
+2026-10-11T12:22:17.722Z [abu-fahd] taps=6 see {} → ok
+2026-10-11T12:22:24.252Z [abu-fahd] taps=6 scroll {"dy":1500} → scrolled 1500
+2026-10-11T12:22:24.529Z [abu-fahd] taps=6 shot {"name":"t12-list-sept-row"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-045-t12-list-sept-row.jpg
+2026-10-11T12:22:24.725Z [abu-fahd] taps=7 tap {"text":"المزيد"} → tapped «المزيد»
+2026-10-11T12:22:25.946Z [abu-fahd] taps=8 tap {"text":"إقفال الأشهر"} → tapped «إقفال الأشهر»
+2026-10-11T12:22:28.122Z [abu-fahd] taps=8 see {} → ok
+2026-10-11T12:22:28.294Z [abu-fahd] taps=8 shot {"name":"t12-locks"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-046-t12-locks.jpg
+2026-10-11T12:22:35.029Z [abu-fahd] taps=9 tap {"text":"إقفال"} → tapped «إقفال»
+2026-10-11T12:22:36.660Z [abu-fahd] taps=9 see {} → ok
+2026-10-11T12:22:36.859Z [abu-fahd] taps=9 shot {"name":"t12-lock-tapped"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-047-t12-lock-tapped.jpg
+2026-10-11T12:22:43.846Z [abu-fahd] taps=10 tap {"text":"السجل"} → tapped «السجل»
+2026-10-11T12:22:45.993Z [abu-fahd] taps=10 see {} → ok
+2026-10-11T12:22:52.456Z [abu-fahd] taps=10 scroll {"dy":2000} → scrolled 2000
+2026-10-11T12:22:52.660Z [abu-fahd] taps=10 shot {"name":"t12-locked-row"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-048-t12-locked-row.jpg
+2026-10-11T12:22:52.909Z [abu-fahd] taps=11 tap {"text":"شهر مقفل"} → tapped «شهر مقفل»
+2026-10-11T12:22:54.044Z [abu-fahd] taps=11 see {} → ok
+2026-10-11T12:23:04.810Z [abu-fahd] taps=12 tap {"text":"إقفال الأشهر"} → tapped «إقفال الأشهر»
+2026-10-11T12:23:06.528Z [abu-fahd] taps=13 tap {"text":"إلغاء الإقفال"} → tapped «إلغاء الإقفال»
+2026-10-11T12:23:08.171Z [abu-fahd] taps=13 see {} → ok
+2026-10-11T12:23:08.359Z [abu-fahd] taps=13 shot {"name":"t12-unlocked"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-049-t12-unlocked.jpg
+2026-10-11T12:23:18.635Z [abu-fahd] taps=13 ERROR {"cmd":"tap","text":"العودة إلى السجل"} → nothing visible on screen matches «العودة إلى السجل»
+2026-10-11T12:23:25.712Z [abu-fahd] taps=13 shot {"name":"t12-unlock-dialog"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-050-t12-unlock-dialog.jpg
+2026-10-11T12:23:25.923Z [abu-fahd] taps=14 tap {"text":"تأكيد"} → tapped «تأكيد»
+2026-10-11T12:23:27.545Z [abu-fahd] taps=14 see {} → ok
+2026-10-11T12:23:27.796Z [abu-fahd] taps=15 tap {"text":"العودة إلى السجل"} → tapped «العودة إلى السجل»
+2026-10-11T12:23:30.030Z [abu-fahd] taps=16 tap {"text":"تعديل","nth":5} → tapped «تعديل» [5]
+2026-10-11T12:23:31.683Z [abu-fahd] taps=16 see {} → ok
+2026-10-11T12:23:31.857Z [abu-fahd] taps=16 shot {"name":"t12-edit-form"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-051-t12-edit-form.jpg
+2026-10-11T12:23:41.719Z [abu-fahd] taps=17 fill {"label":"المبلغ","value":"380"} → filled «المبلغ»
+2026-10-11T12:23:41.934Z [abu-fahd] taps=18 tap {"text":"حفظ"} → tapped «حفظ»
+2026-10-11T12:23:44.066Z [abu-fahd] taps=18 see {} → ok
+2026-10-11T12:23:44.163Z [abu-fahd] taps=18 scroll {"dy":2000} → scrolled 2000
+2026-10-11T12:23:44.337Z [abu-fahd] taps=18 shot {"name":"t12-after-edit"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-052-t12-after-edit.jpg
+2026-10-11T12:23:44.532Z [abu-fahd] taps=19 tap {"text":"المزيد"} → tapped «المزيد»
+2026-10-11T12:23:45.751Z [abu-fahd] taps=20 tap {"text":"إقفال الأشهر"} → tapped «إقفال الأشهر»
+2026-10-11T12:23:47.471Z [abu-fahd] taps=21 tap {"text":"إقفال"} → tapped «إقفال»
+2026-10-11T12:23:49.102Z [abu-fahd] taps=21 see {} → ok
+2026-10-11T12:23:49.270Z [abu-fahd] taps=21 shot {"name":"t12-relocked"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-053-t12-relocked.jpg
+2026-10-11T12:24:19.629Z [abu-fahd] taps=0 resetTaps {} → taps=0
+2026-10-11T12:24:19.834Z [abu-fahd] taps=1 tap {"text":"المزيد"} → tapped «المزيد»
+2026-10-11T12:24:21.042Z [abu-fahd] taps=2 tap {"text":"حسابات الدخول"} → tapped «حسابات الدخول»
+2026-10-11T12:24:23.190Z [abu-fahd] taps=2 see {} → ok
+2026-10-11T12:24:23.387Z [abu-fahd] taps=2 shot {"name":"t13-logins"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-054-t13-logins.jpg
+2026-10-11T12:24:30.115Z [abu-fahd] taps=3 tap {"text":"قبول"} → tapped «قبول»
+2026-10-11T12:24:32.252Z [abu-fahd] taps=3 see {} → ok
+2026-10-11T12:24:32.457Z [abu-fahd] taps=3 shot {"name":"t13-after-accept"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-055-t13-after-accept.jpg
+2026-10-11T12:24:45.273Z [abu-fahd] taps=4 tap {"text":"السماح بالتعديل"} → tapped «السماح بالتعديل»
+2026-10-11T12:24:46.917Z [abu-fahd] taps=4 see {} → ok
+2026-10-11T12:24:47.119Z [abu-fahd] taps=4 shot {"name":"t13-after-allow-edit"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-056-t13-after-allow-edit.jpg
+2026-10-11T12:25:11.743Z [abu-fahd] taps=0 resetTaps {} → taps=0
+2026-10-11T12:25:11.922Z [abu-fahd] taps=1 tap {"text":"إضافة"} → tapped «إضافة»
+2026-10-11T12:25:13.124Z [abu-fahd] taps=2 tap {"text":"حركة جديدة"} → tapped «حركة جديدة»
+2026-10-11T12:25:14.805Z [abu-fahd] taps=3 tap {"text":"تعديل التصنيفات"} → tapped «تعديل التصنيفات»
+2026-10-11T12:25:16.433Z [abu-fahd] taps=3 see {} → ok
+2026-10-11T12:25:16.635Z [abu-fahd] taps=3 shot {"name":"t14-categories"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-057-t14-categories.jpg
+2026-10-11T12:25:57.420Z [abu-fahd] taps=3 ERROR {"cmd":"tap","text":"إخفاء التصنيف مواصلات"} → nothing visible on screen matches «إخفاء التصنيف مواصلات»
+2026-10-11T12:26:30.346Z [abu-fahd] taps=3 ERROR {"cmd":"tap","text":"إخفاء التصنيف","nth":6} → nothing visible on screen matches «إخفاء التصنيف»
+2026-10-11T12:26:39.812Z [abu-fahd] taps=3 ERROR {"cmd":"tap","text":"×","nth":6} → nothing visible on screen matches «×»
+2026-10-11T12:26:39.950Z [abu-fahd] taps=3 see {} → ok
+2026-10-11T12:26:47.836Z [abu-fahd] taps=3 eval {"js":"Array.from(document.querySelectorAll('button[aria-label^=\"إخفاء\"]')).map(b=>{const r=b.getBoundingClientRect();return [b.getAttribute('aria-label'), Math.round(r.x), Math.round(r.y), Math.round(r.width), Math.round(r.height), getComputedStyle(b).visibility, getComputedStyle(b).opacity]})"} → ok
+2026-10-11T12:27:01.859Z [abu-fahd] taps=3 eval {"js":"(()=>{const e=document.elementFromPoint(274,663);return [e.tagName, e.className, e.getAttribute('aria-label'), e.outerHTML.slice(0,200)]})()"} → ok
+2026-10-11T12:27:39.930Z [abu-fahd] taps=3 ERROR {"cmd":"tap","text":"إخفاء التصنيف مواصلات"} → nothing visible on screen matches «إخفاء التصنيف مواصلات»
+2026-10-11T12:27:40.060Z [abu-fahd] taps=3 see {} → ok
+2026-10-11T12:28:22.299Z [abu-fahd] taps=1 goto {"url":"http://localhost:3000"} → at http://localhost:3000/login
+2026-10-11T12:28:22.495Z [abu-fahd] taps=2 fill {"label":"البريد الإلكتروني","value":"abufahd@zakham-test.sa"} → filled «البريد الإلكتروني»
+2026-10-11T12:28:22.658Z [abu-fahd] taps=3 fill {"label":"كلمة المرور","value":"<password>"} → filled «كلمة المرور»
+2026-10-11T12:28:24.183Z [abu-fahd] taps=4 tap {"text":"تسجيل الدخول"} → tapped «تسجيل الدخول»
+2026-10-11T12:28:26.321Z [abu-fahd] taps=0 resetTaps {} → taps=0
+2026-10-11T12:28:26.511Z [abu-fahd] taps=1 tap {"text":"إضافة"} → tapped «إضافة»
+2026-10-11T12:28:32.793Z [abu-fahd] taps=1 ERROR {"cmd":"tap","text":"حركة جديدة"} → nothing visible on screen matches «حركة جديدة» | last click error: locator.click: Timeout 2500ms exceeded. | Call log: | [2m  - waiting for getByRole('link', { name: 'حركة جديدة' }).first()[22m | [2m    - locator resolved to <a href="/owner/transactions/new" class="flex min-h-16 flex-col items-center justify-center gap-1 rounded-lg border px-2 py-2 text-center text-sm font-medium leading-tight transition-[scale,background-color,border-color] duration-[80ms] ease-out active:scale-[0.97] bg-accent text-white border-accent hover:bg-accent-dark hover:border-accent-dark">…</a>[22m
+2026-10-11T12:28:42.632Z [abu-fahd] taps=2 tap {"text":"حركة جديدة","nth":1} → tapped «حركة جديدة» [1]
+2026-10-11T12:28:44.331Z [abu-fahd] taps=3 tap {"text":"تعديل التصنيفات"} → tapped «تعديل التصنيفات»
+2026-10-11T12:29:17.534Z [abu-fahd] taps=3 ERROR {"cmd":"tap","text":"إخفاء التصنيف مواصلات"} → nothing visible on screen matches «إخفاء التصنيف مواصلات» | last click error: locator.click: Timeout 2500ms exceeded. | Call log: | [2m  - waiting for getByLabel('إخفاء التصنيف مواصلات').first()[22m | [2m    - locator resolved to <button type="button" aria-label="إخفاء التصنيف مواصلات" class="inline-flex size-11 items-center justify-center rounded-full text-gray-600 hover:bg-gray-200 disabled:text-gray-400">…</button>[22m
+2026-10-11T12:29:27.668Z [abu-fahd] taps=3 eval {"js":"(()=>{const b=document.querySelector('button[aria-label=\"إخفاء التصنيف مواصلات\"]');const li=b.closest('li');const r=b.getBoundingClientRect();const top=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);return {disabled:b.disabled, liAnim:getComputedStyle(li).animationName, liTrans:getComputedStyle(li).transition, bAnim:getComputedStyle(b).animationName, topTag: top&&top.tagName, topInsideBtn: b.contains(top), rect:[r.x,r.y,r.width,r.height], scrollY: window.scrollY, innerH: innerHeight}})()"} → ok
+2026-10-11T12:29:38+00:00 [abu-fahd] NOTE: eval used to click chip × (wiggle animation blocks Playwright click). Counted manually as 1 tap.
+2026-10-11T12:29:38.247Z [abu-fahd] taps=3 eval {"js":"document.querySelector('button[aria-label=\"إخفاء التصنيف مواصلات\"]').click(); 'clicked'"} → clicked
+2026-10-11T12:29:39.903Z [abu-fahd] taps=3 see {} → ok
+2026-10-11T12:29:40.153Z [abu-fahd] taps=3 shot {"name":"t14-after-hide"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-058-t14-after-hide.jpg
+2026-10-11T12:29:44.171Z [abu-fahd] taps=3 see {} → ok
+2026-10-11T12:29:51.453Z [abu-fahd] taps=4 tap {"text":"تأكيد"} → tapped «تأكيد»
+2026-10-11T12:29:53.577Z [abu-fahd] taps=4 see {} → ok
+2026-10-11T12:29:53.777Z [abu-fahd] taps=4 shot {"name":"t14-after-confirm"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-059-t14-after-confirm.jpg
+2026-10-11T12:29:58.211Z [abu-fahd] taps=4 see {} → ok
+2026-10-11T12:29:58.411Z [abu-fahd] taps=5 tap {"text":"تم"} → tapped «تم»
+2026-10-11T12:29:59.571Z [abu-fahd] taps=5 see {} → ok
+2026-10-11T12:30:16.738Z [abu-fahd] taps=0 resetTaps {} → taps=0
+2026-10-11T12:30:16.943Z [abu-fahd] taps=1 tap {"text":"المستحقات"} → tapped «المستحقات»
+2026-10-11T12:30:19.052Z [abu-fahd] taps=1 text {} → تجاوز إلى المحتوى
+
+قطع غيار أبو فهد
+
+فهد القحطاني
+تسجيل الخروج
+المستحقات
+دفعة على اتفاقية غير مستحقة بعد؟ اختر من الاتفاقيات
+متأخرة
+لا شيء
+اليوم
+2026-10-11
+لا شيء
+الاثنين
+2026-10-12
+لا شيء
+الثلاثاء
+2026-10-13
+لا شيء
+الأربعاء
+2026-10-14
+لا شيء
+الخميس
+2026-10-15
+لا شيء
+الجمعة
+2026-10-16
+لا شيء
+السبت
+2026-10-17
+لا شيء
+متأخرات
+
+لا توجد متأخرات.
+
+مستحقات هذا الأسبوع
+من اليوم حتى
+2026-10-17
+
+لا توجد مستحقات هذا الأسبوع.
+
+زخم · الإصدار 0.1.0
+
+للتواصل والدعم الفني: support@example.com
+
+الرئيسية
+إضافة
+السجل
+المستحقات
+المزيد
+0.00
+2026-10-11T12:30:19.225Z [abu-fahd] taps=1 shot {"name":"t15-dues"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-060-t15-dues.jpg
+2026-10-11T12:30:19.435Z [abu-fahd] taps=2 tap {"text":"المزيد"} → tapped «المزيد»
+2026-10-11T12:30:20.644Z [abu-fahd] taps=3 tap {"text":"الاتفاقيات"} → tapped «الاتفاقيات»
+2026-10-11T12:30:22.809Z [abu-fahd] taps=3 see {} → ok
+2026-10-11T12:30:22.992Z [abu-fahd] taps=3 shot {"name":"t15-plans"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-061-t15-plans.jpg
+2026-10-11T12:30:30.649Z [abu-fahd] taps=4 tap {"text":"المزيد"} → tapped «المزيد»
+2026-10-11T12:30:31.861Z [abu-fahd] taps=5 tap {"text":"الجهات"} → tapped «الجهات»
+2026-10-11T12:30:34.018Z [abu-fahd] taps=5 see {} → ok
+2026-10-11T12:30:34.212Z [abu-fahd] taps=5 shot {"name":"t15-parties"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-062-t15-parties.jpg
+2026-10-11T12:30:34.410Z [abu-fahd] taps=6 tap {"text":"المزيد"} → tapped «المزيد»
+2026-10-11T12:30:35.642Z [abu-fahd] taps=7 tap {"text":"التذكيرات"} → tapped «التذكيرات»
+2026-10-11T12:30:37.820Z [abu-fahd] taps=7 see {} → ok
+2026-10-11T12:30:38.027Z [abu-fahd] taps=7 shot {"name":"t15-reminders"} → /home/user/albuhayra/progress/v14/owner-test/abu-fahd-063-t15-reminders.jpg
+2026-10-11T12:31:13.076Z [um-rayan] taps=0 persona {"name":"um-rayan","kind":"desktop"} → new desktop session for um-rayan
+2026-10-11T12:31:13.401Z [um-rayan] taps=1 goto {"url":"http://localhost:3000"} → at http://localhost:3000/login
+2026-10-11T12:31:13.586Z [um-rayan] taps=2 fill {"label":"البريد الإلكتروني","value":"abufahd@zakham-test.sa"} → filled «البريد الإلكتروني»
+2026-10-11T12:31:13.726Z [um-rayan] taps=3 fill {"label":"كلمة المرور","value":"<password>"} → filled «كلمة المرور»
+2026-10-11T12:31:15.286Z [um-rayan] taps=4 tap {"text":"تسجيل الدخول"} → tapped «تسجيل الدخول»
+2026-10-11T12:31:17.432Z [um-rayan] taps=4 see {} → ok
+2026-10-11T12:31:17.610Z [um-rayan] taps=4 shot {"name":"home"} → /home/user/albuhayra/progress/v14/owner-test/um-rayan-001-home.jpg
+2026-10-11T12:31:33.741Z [um-rayan] taps=0 resetTaps {} → taps=0
+2026-10-11T12:31:33.927Z [um-rayan] taps=1 tap {"text":"حركة جديدة"} → tapped «حركة جديدة»
+2026-10-11T12:31:35.549Z [um-rayan] taps=1 see {} → ok
+2026-10-11T12:31:40.855Z [um-rayan] taps=2 tap {"text":"وارد"} → tapped «وارد»
+2026-10-11T12:31:41.001Z [um-rayan] taps=3 fill {"label":"المبلغ","value":"250"} → filled «المبلغ»
+2026-10-11T12:31:41.133Z [um-rayan] taps=3 options {"label":"التصنيف"} → ok
+2026-10-11T12:31:41.301Z [um-rayan] taps=4 select {"label":"التصنيف","option":"دفعة من عميل"} → selected «دفعة من عميل» in «التصنيف»
+2026-10-11T12:31:41.549Z [um-rayan] taps=5 tap {"text":"تفاصيل أكثر"} → tapped «تفاصيل أكثر»
+2026-10-11T12:31:42.681Z [um-rayan] taps=6 select {"label":"الجهة (اختياري)","option":"+ جهة جديدة"} → selected «+ جهة جديدة» in «الجهة (اختياري)»
+2026-10-11T12:31:43.809Z [um-rayan] taps=6 see {} → ok
+2026-10-11T12:31:43.964Z [um-rayan] taps=6 shot {"name":"t2-form"} → /home/user/albuhayra/progress/v14/owner-test/um-rayan-002-t2-form.jpg
+2026-10-11T12:31:54.749Z [um-rayan] taps=6 options {"label":"الجهة (اختياري)"} → ok
+2026-10-11T12:31:54.876Z [um-rayan] taps=7 fill {"label":"اسم الجهة الجديدة","value":"عبدالله"} → filled «اسم الجهة الجديدة»
+2026-10-11T12:31:55.066Z [um-rayan] taps=8 tap {"text":"حفظ"} → tapped «حفظ»
+2026-10-11T12:31:56.704Z [um-rayan] taps=8 see {} → ok
+2026-10-11T12:31:56.866Z [um-rayan] taps=8 shot {"name":"t2-party-added"} → /home/user/albuhayra/progress/v14/owner-test/um-rayan-003-t2-party-added.jpg
+2026-10-11T12:32:09.783Z [um-rayan] taps=9 tap {"text":"حفظ"} → tapped «حفظ»
+2026-10-11T12:32:11.940Z [um-rayan] taps=9 see {} → ok
+2026-10-11T12:32:12.079Z [um-rayan] taps=9 shot {"name":"t2-after-save"} → /home/user/albuhayra/progress/v14/owner-test/um-rayan-004-t2-after-save.jpg
+2026-10-11T12:32:36.502Z [um-rayan] taps=0 resetTaps {} → taps=0
+2026-10-11T12:32:36.681Z [um-rayan] taps=1 tap {"text":"+ إضافة"} → tapped «+ إضافة»
+2026-10-11T12:32:37.819Z [um-rayan] taps=1 see {} → ok
+2026-10-11T12:32:38.035Z [um-rayan] taps=1 shot {"name":"t4-add-sheet"} → /home/user/albuhayra/progress/v14/owner-test/um-rayan-005-t4-add-sheet.jpg
+2026-10-11T12:32:38.224Z [um-rayan] taps=2 tap {"text":"اتفاقية جديدة"} → tapped «اتفاقية جديدة»
+2026-10-11T12:32:39.955Z [um-rayan] taps=3 tap {"text":"دفعات محددة"} → tapped «دفعات محددة»
+2026-10-11T12:32:41.591Z [um-rayan] taps=4 select {"label":"الجهة","option":"+ جهة جديدة"} → selected «+ جهة جديدة» in «الجهة»
+2026-10-11T12:32:41.726Z [um-rayan] taps=5 fill {"label":"اسم الجهة الجديدة","value":"ناصر"} → filled «اسم الجهة الجديدة»
+2026-10-11T12:32:41.905Z [um-rayan] taps=6 tap {"text":"حفظ"} → tapped «حفظ»
+2026-10-11T12:32:43.539Z [um-rayan] taps=7 fill {"label":"عنوان الاتفاقية","value":"ناصر — 3 دفعات"} → filled «عنوان الاتفاقية»
+2026-10-11T12:32:43.667Z [um-rayan] taps=8 fill {"label":"المبلغ الإجمالي","value":"3000"} → filled «المبلغ الإجمالي»
+2026-10-11T12:32:43.799Z [um-rayan] taps=9 select {"label":"التصنيف","option":"دفعة من عميل"} → selected «دفعة من عميل» in «التصنيف»
+2026-10-11T12:32:43.919Z [um-rayan] taps=10 fill {"label":"عدد الأقساط","value":"3"} → filled «عدد الأقساط»
+2026-10-11T12:32:44.097Z [um-rayan] taps=11 tap {"text":"توليد الجدول"} → tapped «توليد الجدول»
+2026-10-11T12:32:45.236Z [um-rayan] taps=11 see {} → ok
+2026-10-11T12:32:45.361Z [um-rayan] taps=11 shot {"name":"t4-generated"} → /home/user/albuhayra/progress/v14/owner-test/um-rayan-006-t4-generated.jpg
+2026-10-11T12:32:50.370Z [um-rayan] taps=11 scroll {"dy":1500} → scrolled 1500
+2026-10-11T12:32:50.527Z [um-rayan] taps=11 shot {"name":"t4-bottom"} → /home/user/albuhayra/progress/v14/owner-test/um-rayan-007-t4-bottom.jpg
+2026-10-11T12:32:50.780Z [um-rayan] taps=12 tap {"text":"حفظ"} → tapped «حفظ»
+2026-10-11T12:32:52.920Z [um-rayan] taps=12 see {} → ok
+2026-10-11T12:33:06.440Z [um-rayan] taps=12 shot {"name":"t4-saved"} → /home/user/albuhayra/progress/v14/owner-test/um-rayan-008-t4-saved.jpg
+2026-10-11T12:33:06.539Z [um-rayan] taps=0 resetTaps {} → taps=0
+2026-10-11T12:33:06.719Z [um-rayan] taps=1 tap {"text":"الاتفاقيات"} → tapped «الاتفاقيات»
+2026-10-11T12:33:08.420Z [um-rayan] taps=2 tap {"text":"اتفاقية جديدة"} → tapped «اتفاقية جديدة»
+2026-10-11T12:33:10.117Z [um-rayan] taps=3 tap {"text":"اتفاقية مفتوحة"} → tapped «اتفاقية مفتوحة»
+2026-10-11T12:33:11.744Z [um-rayan] taps=4 select {"label":"الجهة","option":"+ جهة جديدة"} → selected «+ جهة جديدة» in «الجهة»
+2026-10-11T12:33:11.861Z [um-rayan] taps=5 fill {"label":"اسم الجهة الجديدة","value":"فيصل"} → filled «اسم الجهة الجديدة»
+2026-10-11T12:33:12.036Z [um-rayan] taps=6 tap {"text":"حفظ"} → tapped «حفظ»
+2026-10-11T12:33:13.679Z [um-rayan] taps=7 fill {"label":"عنوان الاتفاقية","value":"فيصل — دفعات مفتوحة"} → filled «عنوان الاتفاقية»
+2026-10-11T12:33:13.834Z [um-rayan] taps=8 select {"label":"التصنيف","option":"دفعة من عميل"} → selected «دفعة من عميل» in «التصنيف»
+2026-10-11T12:33:14.021Z [um-rayan] taps=9 tap {"text":"حفظ"} → tapped «حفظ»
+2026-10-11T12:33:16.157Z [um-rayan] taps=9 see {} → ok
+2026-10-11T12:33:16.272Z [um-rayan] taps=10 fill {"label":"المبلغ","value":"150"} → filled «المبلغ»
+2026-10-11T12:33:16.479Z [um-rayan] taps=11 tap {"text":"تسجيل دفعة"} → tapped «تسجيل دفعة»
+2026-10-11T12:33:18.626Z [um-rayan] taps=11 see {} → ok
+2026-10-11T12:33:18.778Z [um-rayan] taps=11 shot {"name":"t7-after-pay"} → /home/user/albuhayra/progress/v14/owner-test/um-rayan-009-t7-after-pay.jpg
+2026-10-11T12:33:41.348Z [um-rayan] taps=0 resetTaps {} → taps=0
+2026-10-11T12:33:41.542Z [um-rayan] taps=1 tap {"text":"التقارير"} → tapped «التقارير»
+2026-10-11T12:33:43.694Z [um-rayan] taps=1 shot {"name":"t11-reports"} → /home/user/albuhayra/progress/v14/owner-test/um-rayan-010-t11-reports.jpg
+2026-10-11T12:33:43.834Z [um-rayan] taps=1 see {} → ok
+2026-10-11T12:33:44.021Z [um-rayan] taps=2 tap {"text":"طباعة"} → tapped «طباعة»
+2026-10-11T12:33:45.662Z [um-rayan] taps=2 see {} → ok
+2026-10-11T12:33:45.847Z [um-rayan] taps=2 shot {"name":"t11-after-print"} → /home/user/albuhayra/progress/v14/owner-test/um-rayan-011-t11-after-print.jpg
+2026-10-11T12:33:54.578Z [um-rayan] taps=0 resetTaps {} → taps=0
+2026-10-11T12:33:54.802Z [um-rayan] taps=1 tap {"text":"الموظفون والحضور"} → tapped «الموظفون والحضور»
+2026-10-11T12:33:55.947Z [um-rayan] taps=1 see {} → ok
+2026-10-11T12:33:56.135Z [um-rayan] taps=2 tap {"text":"حسابات الدخول"} → tapped «حسابات الدخول»
+2026-10-11T12:33:58.258Z [um-rayan] taps=2 see {} → ok
+2026-10-11T12:33:58.408Z [um-rayan] taps=2 shot {"name":"t13-logins"} → /home/user/albuhayra/progress/v14/owner-test/um-rayan-012-t13-logins.jpg
+2026-10-11T12:33:58.600Z [um-rayan] taps=3 tap {"text":"رمز الانضمام"} → tapped «رمز الانضمام»
+2026-10-11T12:34:00.723Z [um-rayan] taps=3 see {} → ok
+2026-10-11T12:34:00.894Z [um-rayan] taps=3 shot {"name":"t13-join-code"} → /home/user/albuhayra/progress/v14/owner-test/um-rayan-013-t13-join-code.jpg
+2026-10-11T12:34:08.004Z [um-rayan] taps=4 tap {"text":"الموظفون"} → tapped «الموظفون»
+2026-10-11T12:34:09.733Z [um-rayan] taps=5 tap {"text":"سعد"} → tapped «سعد»
+2026-10-11T12:34:11.433Z [um-rayan] taps=6 tap {"text":"تعديل"} → tapped «تعديل»
+2026-10-11T12:34:13.065Z [um-rayan] taps=6 options {"label":"حساب الدخول المرتبط"} → ok
+2026-10-11T12:34:13.208Z [um-rayan] taps=6 see {} → ok
+2026-10-11T12:34:13.375Z [um-rayan] taps=6 shot {"name":"t13-staff-edit-login"} → /home/user/albuhayra/progress/v14/owner-test/um-rayan-014-t13-staff-edit-login.jpg
+2026-10-11T12:34:18.085Z [um-rayan] taps=7 select {"label":"حساب الدخول المرتبط","option":"سعد العتيبي (saad@zakham-test.sa)"} → selected «سعد العتيبي (saad@zakham-test.sa)» in «حساب الدخول المرتبط»
+2026-10-11T12:34:18.325Z [um-rayan] taps=8 tap {"text":"حفظ"} → tapped «حفظ»
+2026-10-11T12:34:20.495Z [um-rayan] taps=8 see {} → ok
+2026-10-11T12:34:20.644Z [um-rayan] taps=8 shot {"name":"t13-linked"} → /home/user/albuhayra/progress/v14/owner-test/um-rayan-015-t13-linked.jpg

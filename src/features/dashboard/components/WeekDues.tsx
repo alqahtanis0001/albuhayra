@@ -3,7 +3,9 @@
  * متأخرات strip whenever anything is overdue — how many (plural) and the لنا /
  * علينا totals — linking to المستحقات; then «مستحقات هذا الأسبوع» with its range
  * «من اليوم حتى …», the two totals and up to five rows. Everything is computed
- * from the server's today (W8).
+ * from the server's today (W8). v1.4 (D17 c9): the card is not shown at all
+ * while the establishment has no plan — there is nothing it could ever list —
+ * like ActiveProjects; `getDues().hasPlans` carries that fact.
  */
 import Link from "next/link";
 
@@ -59,6 +61,7 @@ export function OverdueStrip({ dues }: { dues: Dues }) {
 }
 
 export function WeekDues({ dues }: { dues: Dues }) {
+  if (!dues.hasPlans) return null;
   return (
     <Card
       title={t.dues.thisWeek}

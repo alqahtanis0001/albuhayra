@@ -178,7 +178,7 @@ vi.mock("@/lib/auth", () => {
 });
 
 const { listTransactions, getTransaction } = await import("./queries");
-const { createTransaction, updateTransaction, deleteTransaction } = await import(
+const { createTransaction, updateTransaction, deleteTransaction, recordOpenPlanPayment } = await import(
   "./actions"
 );
 const { getOwnerDashboard, getStaffDashboard } = await import(
@@ -194,7 +194,7 @@ const {
   setCategoryActive,
   changeOwnPassword,
 } = await import("@/features/settings/actions");
-const { listStaff, getJoinCode } = await import(
+const { listStaff, getJoinCode, countPendingStaff, listPendingStaffNames } = await import(
   "@/features/establishments/queries"
 );
 const { listCategories } = await import("@/features/settings/queries");
@@ -218,6 +218,9 @@ const { createProject, updateProject, setProjectStatus, deleteProject } = await 
 );
 const { topActiveProjects } = await import("@/features/projects/queries");
 const { listPlans, getPlan } = await import("@/features/plans/queries");
+// v1.4: open agreements.
+const { getOpenPlan, getOpenPlanPaymentLink } = await import("@/features/plans/openQueries");
+const { createOpenPlan, updateOpenPlan, closeOpenPlan, reopenOpenPlan } = await import("@/features/plans/openActions");
 const {
   getDues,
   getOverdueCount,
@@ -371,8 +374,9 @@ function scopeFailure(call: Call): string | null {
  * absent), grouping only by link keys, selecting only ids, and reading no
  * aggregate. Each clause is pinned by its own case below.
  */
-const LINK_KEYS = new Set(["establishmentId", "partyId", "projectId", "instalmentId"]);
-const PROBE_SELECT_KEYS = new Set(["id", "partyId", "projectId", "instalmentId", "_all"]);
+// v1.4 D5: `planId` joins both sets — "does this open plan have a payment" without an amount.
+const LINK_KEYS = new Set(["establishmentId", "partyId", "projectId", "instalmentId", "planId"]);
+const PROBE_SELECT_KEYS = new Set(["id", "partyId", "projectId", "instalmentId", "planId", "_all"]);
 
 function isReferenceProbe(call: Call): boolean {
   const { method, args } = call;
@@ -667,6 +671,17 @@ describe("v1.2a: the reference-probe exemption (V1) is narrow", () => {
     ).toBeNull();
   });
 
+  it("v1.4 D5: planId is a link key — the positive case (fails if the widening is removed), then its two refusals", () => {
+    expect(probe("count", { where: { establishmentId: EST, planId: "p1" } })).toBeNull();
+    expect(probe("findFirst", { where: { establishmentId: EST, planId: "p1" }, select: { id: true } })).toBeNull();
+    expect(probe("groupBy", { by: ["planId"], where: { establishmentId: EST, planId: { in: ["p1"] } } })).toBeNull();
+    // An amount select on a planId probe fails; planId plus a non-link key fails.
+    expect(
+      probe("findFirst", { where: { establishmentId: EST, planId: "p1" }, select: { id: true, amountHalalas: true } }),
+    ).toMatch(/deletedAt is undefined/);
+    expect(probe("count", { where: { establishmentId: EST, planId: "p1", direction: "OUT" } })).toMatch(/deletedAt is undefined/);
+  });
+
   it("S-K5a: refuses a probe that names no link — a count of every entry, deleted included", () => {
     expect(probe("count", { where: { establishmentId: EST } })).toMatch(/deletedAt is undefined/);
   });
@@ -803,6 +818,33 @@ describe("dashboard/queries.ts scopes every call", () => {
     await getOwnerDashboard(EST);
     expect(harness.calls.length).toBeGreaterThan(0);
     expect(failures()).toEqual([]);
+    record();
+  });
+
+  /**
+   * v1.4 D25: the four first-run existence reads. Each is a scoped `count`
+   * (the entry count through `ledgerWhere`, so `deletedAt: null` is on it —
+   * D27); the result carries exactly four booleans and nothing that could be
+   * formatted as a number. Responses are set so both sides of each `> 0` run.
+   */
+  it("getOwnerDashboard first-run reads are scoped and reduce to four booleans", async () => {
+    harness.responses.set("transaction.count", 3);
+    harness.responses.set("party.count", 0);
+    harness.responses.set("plan.count", 1);
+    harness.responses.set("employee.count", 0);
+    const { firstRun } = await getOwnerDashboard(EST);
+    expect(failures()).toEqual([]);
+
+    const counts = harness.calls.filter((c) => c.method === "count");
+    expect(counts.map((c) => c.model)).toEqual(["transaction", "party", "plan", "employee"]);
+    for (const c of counts) {
+      expect((c.args.where as Record<string, unknown>).establishmentId, c.model).toBe(EST);
+    }
+    expect((counts[0]!.args.where as Record<string, unknown>).deletedAt).toBeNull();
+
+    expect(firstRun).toEqual({ hasEntry: true, hasParty: false, hasPlan: true, hasEmployee: false });
+    expect(Object.keys(firstRun)).toHaveLength(4);
+    expect(Object.values(firstRun).every((v) => typeof v === "boolean")).toBe(true);
     record();
   });
 
@@ -1015,9 +1057,10 @@ describe("B11: the migrated staff and settings writes scope in SQL", () => {
 
   it("createCategory", async () => {
     harness.responses.set("category.findFirst", null);
+    // v1.4 D12: the row comes back so the entry form can append and select it.
     expect(await createCategory(null, categoryForm())).toEqual({
       ok: true,
-      data: null,
+      data: { id: "generated_id", nameAr: "إيجار جديد", type: "OUT" },
     });
     expect(observedPairs()).toContain("category.create");
     expect(failures()).toEqual([]);
@@ -1141,6 +1184,29 @@ describe("the staff and settings reads scope every call", () => {
   it("getJoinCode", async () => {
     await getJoinCode(EST);
     expect(harness.calls.length).toBeGreaterThan(0);
+    expect(failures()).toEqual([]);
+    record();
+  });
+
+  // v1.4 (D17 c10, `add`): the pending-join badge count — a count, nothing selected.
+  it("countPendingStaff", async () => {
+    harness.responses.set("user.count", 2);
+    expect(await countPendingStaff(EST)).toBe(2);
+    expect(observedPairs()).toEqual(new Set(["user.count"]));
+    expect(harness.calls[0].args).toEqual({ where: { establishmentId: EST, role: "STAFF", status: "PENDING" } });
+    expect(failures()).toEqual([]);
+    record();
+  });
+
+  // v1.4 part 3 (D29 R9, `flows`): the home notice's names — scoped, names only, newest first.
+  it("listPendingStaffNames", async () => {
+    harness.responses.set("user.findMany", [{ firstName: "سعد", middleName: null, lastName: "العتيبي", legacyName: null }]);
+    expect(await listPendingStaffNames(EST)).toEqual(["سعد العتيبي"]);
+    expect(observedPairs()).toEqual(new Set(["user.findMany"]));
+    const call = harness.calls[0]!;
+    expect(call.args.where).toEqual({ establishmentId: EST, role: "STAFF", status: "PENDING" });
+    expect(Object.keys(call.args.select as object).sort()).toEqual(["firstName", "lastName", "legacyName", "middleName"]);
+    expect(call.args.orderBy).toEqual({ createdAt: "desc" });
     expect(failures()).toEqual([]);
     record();
   });
@@ -1572,7 +1638,7 @@ const PLAN_ROW = {
 };
 
 const PLAN_REF = { title: "توريد", state: "OPEN", direction: "OUT", partyId: "party_1", categoryId: "cat_1",
-  totalHalalas: 3000, reminderDays: 3, party: { name: "مورد" } };
+  totalHalalas: 3000, reminderDays: 3, employeeId: "emp_1", party: { name: "مورد" } };
 
 const INSTALMENT = { id: "inst_1", planId: "plan_1", seq: 1, dueDate: day("2026-09-20"), amountDueHalalas: 1000, paidHalalas: 0, plan: PLAN_REF };
 
@@ -1616,7 +1682,7 @@ describe("v1.2a CP2: plans and dues scope every call", () => {
     await listPlans(EST);
     populatePlans();
     const [row] = await listPlans(EST, { direction: "OUT", partyId: "party_1", status: "ACTIVE" }, "2026-10-01");
-    expect(row?.nextDue).toMatchObject({ instalmentId: "inst_1", status: "OVERDUE" });
+    expect(row?.kind !== "OPEN_ENDED" ? row?.nextDue : null).toMatchObject({ instalmentId: "inst_1", status: "OVERDUE" });
     expect(failures()).toEqual([]);
     record();
   });
@@ -1646,7 +1712,11 @@ describe("v1.2a CP2: plans and dues scope every call", () => {
 
   it("the payment-form reads; the staff prefill has exactly six fields (W2)", async () => {
     populatePlans();
-    expect(await getInstalmentForPayment(EST, "inst_1")).toMatchObject({ planRemainingHalalas: 2500 });
+    // v1.4 part 3 (R6, D31h): the plan's employeeId rides the same findFirst — no extra call.
+    expect(await getInstalmentForPayment(EST, "inst_1")).toMatchObject({ planRemainingHalalas: 2500, employeeId: "emp_1" });
+    const findFirst = harness.calls.filter((c) => c.model === "instalment" && c.method === "findFirst");
+    expect(findFirst).toHaveLength(1);
+    expect((findFirst[0]!.args.select as { plan: { select: Record<string, unknown> } }).plan.select.employeeId).toBe(true);
     const prefill = await getStaffPaymentPrefill(EST, "inst_1");
     expect(Object.keys(prefill!).sort()).toEqual([
       "categoryId", "direction", "instalmentId", "instalmentRemainingHalalas", "partyId", "partyName",
@@ -1734,6 +1804,127 @@ describe("v1.2a CP2: plan and payment writes scope every call", () => {
     expect(observedPairs()).toContain("transaction.aggregate");
     expect(failures()).toEqual([]);
     record();
+  });
+});
+
+/* --------------------------------------------- v1.4: open agreements (C) */
+
+const OPEN_PLAN_ROW = {
+  id: "plan_open", kind: "OPEN_ENDED", state: "OPEN", revision: 1, partyId: "party_1", direction: "OUT", categoryId: "cat_1",
+  title: "اتفاقية مفتوحة", totalHalalas: 5000, startDate: day("2026-09-01"), expectedEndDate: null, notes: null, closedAt: null,
+  reminderDays: 3, employeeId: null, createdAt: day("2026-09-01"),
+  party: { name: "مورد", type: "SUPPLIER" }, category: { nameAr: "موردون" },
+};
+
+/** An open-plan payment: satisfies the detail select, EXISTING_SELECT and the ledger ROW_SELECT. */
+const OPEN_TX = { ...PAYMENT_TX, id: "tx_open", instalmentId: null, planId: "plan_open", date: day(todayISO()) };
+
+function populateOpenPlans(): void {
+  harness.responses.set("plan.findFirst", OPEN_PLAN_ROW);
+  harness.responses.set("plan.findMany", [PLAN_ROW, OPEN_PLAN_ROW]);
+  harness.responses.set("instalment.findMany", [INSTALMENT]);
+  harness.responses.set("transaction.findMany", [OPEN_TX]);
+  harness.responses.set("transaction.findFirst", OPEN_TX);
+  harness.responses.set("transaction.groupBy", [{ planId: "plan_open", _sum: { amountHalalas: 500 } }]);
+  harness.responses.set("transaction.aggregate", { _sum: { amountHalalas: 500 } });
+  harness.responses.set("party.findFirst", { active: true });
+}
+
+function openPlanForm(): FormData {
+  const form = new FormData();
+  for (const [k, v] of Object.entries({
+    partyId: "party_1", direction: "OUT", title: "اتفاقية مفتوحة", categoryId: "cat_1", startDate: "2026-09-01",
+    totalHalalas: "5000", expectedEndDate: "", notes: "",
+  })) form.append(k, v);
+  return form;
+}
+
+function openPaymentForm(): FormData {
+  const form = new FormData();
+  for (const [k, v] of Object.entries({ amountHalalas: "500", date: todayISO(), paymentMethod: "CASH" })) form.append(k, v);
+  return form;
+}
+
+describe("v1.4: open agreements scope every call", () => {
+  it("listPlans with an open row: the received sum is read for it; getDues reads hasPlans with one scoped count", async () => {
+    populateOpenPlans();
+    harness.responses.set("plan.count", 2);
+    const rows = await listPlans(EST, {}, "2026-10-01");
+    expect(rows.find((r) => r.id === "plan_open")).toMatchObject({ kind: "OPEN_ENDED", receivedHalalas: 500, remainingHalalas: 4500 });
+    expect(observedPairs()).toContain("transaction.groupBy");
+    const dues = await getDues(EST, "2026-09-20");
+    expect(dues.hasPlans).toBe(true);
+    const counted = harness.calls.find((c) => c.model === "plan" && c.method === "count")!;
+    expect(counted.args).toEqual({ where: { establishmentId: EST } });
+    expect(failures()).toEqual([]);
+    record();
+  });
+
+  it("getOpenPlan: payments, the reference probe (D5), and the payment link keyed by the entry", async () => {
+    populateOpenPlans();
+    harness.responses.set("transaction.count", 1);
+    const plan = await getOpenPlan(EST, "plan_open");
+    expect(plan).toMatchObject({ partyLocked: true, receivedHalalas: 500 });
+    expect(plan?.payments).toHaveLength(1);
+    expect(await getOpenPlanPaymentLink(EST, "tx_open")).toMatchObject({ planId: "plan_open", partyName: "مورد" });
+    expect(observedPairs()).toContain("transaction.count");
+    expect(failures()).toEqual([]);
+    record();
+  });
+
+  it("createOpenPlan, updateOpenPlan (locked and unlocked), closeOpenPlan, reopenOpenPlan", async () => {
+    populateOpenPlans();
+    expect(await createOpenPlan(null, openPlanForm())).toEqual({ ok: true, data: { id: "generated_id" } });
+    expect(observedPairs()).toContain("plan.create");
+    expect(await updateOpenPlan("plan_open", null, openPlanForm())).toEqual({ ok: true, data: null });
+    harness.responses.set("transaction.count", 1);
+    expect(await updateOpenPlan("plan_open", null, openPlanForm())).toEqual({ ok: true, data: null });
+    expect(await closeOpenPlan("plan_open")).toEqual({ ok: true, data: null });
+    harness.responses.set("plan.findFirst", { ...OPEN_PLAN_ROW, state: "ARCHIVED" });
+    expect(await reopenOpenPlan("plan_open")).toEqual({ ok: true, data: null });
+    expect(observedPairs()).toContain("plan.updateMany");
+    expect(failures()).toEqual([]);
+    record();
+  });
+
+  it("recordOpenPlanPayment: bump, create, the non-deleted sum, the auto-close write", async () => {
+    populateOpenPlans();
+    harness.responses.set("transaction.aggregate", { _sum: { amountHalalas: 5000 } });
+    expect(await recordOpenPlanPayment("plan_open", null, openPaymentForm())).toEqual({
+      ok: true, data: { transactionId: "generated_id", autoClosed: true },
+    });
+    for (const pair of ["plan.updateMany", "transaction.create", "transaction.aggregate", "auditLog.create"]) {
+      expect(observedPairs()).toContain(pair);
+    }
+    expect(failures()).toEqual([]);
+    record();
+  });
+
+  it("an open-plan payment's edit and delete through the ordinary actions (D9, P13)", async () => {
+    populateOpenPlans();
+    const form = ledgerForm();
+    form.set("partyId", "party_1");
+    form.set("direction", "OUT");
+    expect(await updateTransaction("tx_open", null, form)).toEqual({ ok: true, data: null });
+    expect(await deleteTransaction("tx_open")).toEqual({ ok: true, data: null });
+    expect(failures()).toEqual([]);
+    record();
+  });
+
+  it("rule 11: a foreign open plan or payment reads as missing, through a scoped lookup", async () => {
+    const own = (row: unknown, id: string) => (args: Record<string, unknown>) => {
+      const where = args.where as Record<string, unknown>;
+      return where.establishmentId === EST && where.id === id ? row : null;
+    };
+    harness.responses.set("plan.findFirst", own(OPEN_PLAN_ROW, "plan_open"));
+    harness.responses.set("transaction.findFirst", own(OPEN_TX, "tx_open"));
+    expect(await getOpenPlan(EST, "plan_foreign")).toBeNull();
+    expect(await getOpenPlanPaymentLink(EST, "tx_foreign")).toBeNull();
+    expect(await closeOpenPlan("plan_foreign")).toEqual({ ok: false, error: "err.notFound" });
+    expect(await reopenOpenPlan("plan_foreign")).toEqual({ ok: false, error: "err.notFound" });
+    expect(await updateOpenPlan("plan_foreign", null, openPlanForm())).toEqual({ ok: false, error: "err.notFound" });
+    expect(await recordOpenPlanPayment("plan_foreign", null, openPaymentForm())).toEqual({ ok: false, error: "err.notFound" });
+    expect(failures()).toEqual([]);
   });
 });
 
@@ -2221,6 +2412,8 @@ describe("static sweep: no call site escapes the runtime net", () => {
     // v1.2a: the link checks actions.ts calls.
     "src/features/transactions/links.ts",
     "src/features/dashboard/queries.ts",
+    // v1.4 part 2 (D25): the first-run card's four existence counts.
+    "src/features/dashboard/firstRunReads.ts",
     "src/features/reports/queries.ts",
     "src/features/locks/assertUnlocked.ts",
     "src/features/locks/actions.ts",
@@ -2281,6 +2474,12 @@ describe("static sweep: no call site escapes the runtime net", () => {
     "src/features/reports/aging.ts",
     // Reads only through getPartyStatement (C14); listed like the ledger export.
     "src/app/api/export/statement/route.ts",
+    // v1.4: open agreements (D7, M4)
+    "src/features/plans/openQueries.ts",
+    "src/features/plans/openRules.ts",
+    "src/features/plans/openActions.ts",
+    "src/features/plans/openRemaining.ts",
+    "src/features/transactions/openPlanPayments.ts",
   ];
 
   it("every (model, method) pair in the source was exercised above", () => {
@@ -2336,6 +2535,8 @@ describe("static sweep: no call site escapes the runtime net", () => {
       "src/features/employees", "src/features/payroll", "src/features/attendance",
       // v1.2c
       "src/features/reminders", "src/features/reports",
+      // v1.4 (P18): the open-plan payment module reads Transaction by planId.
+      "src/features/transactions",
     ];
     let scanned = 0;
     for (const dir of dirs) {
@@ -2416,6 +2617,11 @@ describe("static sweep: no call site escapes the runtime net", () => {
       "src/features/reminders/settings.ts", "src/features/reminders/select.ts",
       "src/features/reminders/digest.ts", "src/features/reminders/run.ts",
       "src/features/reminders/clientRules.ts", "src/features/reports/aging.ts",
+      // v1.4: the open-plan helpers and the payment module — never "use server".
+      "src/features/plans/openQueries.ts", "src/features/plans/openRules.ts", "src/features/plans/openRemaining.ts",
+      "src/features/transactions/openPlanPayments.ts",
+      // v1.4 part 2 (D25): reads for the first-run card — server-only, never an endpoint.
+      "src/features/dashboard/firstRunReads.ts",
     ];
     for (const file of serverOnly) {
       const source = readFileSync(file, "utf8");

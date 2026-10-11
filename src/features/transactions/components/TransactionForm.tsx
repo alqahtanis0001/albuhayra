@@ -5,17 +5,18 @@ import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/Button";
 import { FormToast } from "@/components/FormToast";
-import { Input } from "@/components/Input";
+import { DateField } from "@/components/DateField";
+import { withSaved } from "@/components/SavedNotice";
 import { Select } from "@/components/Select";
-import { Textarea } from "@/components/Textarea";
 import { Toast } from "@/components/Toast";
 import { errorMessage, t } from "@/i18n/ar";
 import type { DirectionValue } from "@/lib/validation";
 
 import { AmountField } from "./AmountField";
 import { categoryOptions } from "./categoryOptions";
+import { CategoryQuickActions } from "./CategoryQuickActions";
 import { DirectionToggle, readLastDirection, rememberDirection } from "./DirectionToggle";
-import { LinkFields } from "./LinkFields";
+import { EntryDetails } from "./EntryDetails";
 import { LockedNotice } from "./LockedNotice";
 import type { TransactionRow } from "./data";
 import type { CategoryRow } from "@/features/settings/queries";
@@ -38,10 +39,13 @@ export function TransactionForm({
   today,
   doneHref,
   initial,
+  presetPartyId,
   presetProjectId,
   payment,
   banner,
   notice,
+  manageCategories,
+  manageParties,
 }: {
   mode: "new" | "edit";
   action: TransactionFormAction;
@@ -54,11 +58,10 @@ export function TransactionForm({
   today: string;
   doneHref: string;
   initial?: TransactionRow;
-  /**
-   * New entry from an إضافة's «تسجيل تكلفة» (?projectId=, already checked
-   * against the options by the page): preselects it and صادر.
-   */
+  /** New entry from an إضافة's «تسجيل تكلفة» (?projectId=, checked against the options by the page): preselects it and صادر. */
   presetProjectId?: string;
+  /** v1.4 D24: a party's link (?partyId=, checked by the page). Not a `preset` — the remembered direction still applies. */
+  presetPartyId?: string;
   /**
    * Payment mode (v1.2a CP2): a new payment on an instalment or an edit of a
    * linked one. Direction and party are the plan's — no toggle, no party
@@ -69,28 +72,27 @@ export function TransactionForm({
   banner?: ReactNode;
   /** An err.* key to toast on arrival (an unusable ?instalmentId=). */
   notice?: string;
+  manageCategories?: boolean; // v1.4 A2 (D12): owner pages only — the category quick actions and the lock link.
+  manageParties?: boolean; // v1.4 D23: owner pages only — «+ جهة جديدة» in the party select.
 }) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
 
   const [direction, setDirection] = useState<DirectionValue>(payment?.direction ?? initial?.direction ?? "OUT");
-  // Remounts LinkFields after «حفظ وإضافة أخرى», clearing the party.
-  const [linkKey, setLinkKey] = useState(0);
+  const [linkKey, setLinkKey] = useState(0); // Remounts the link fields (inside EntryDetails) after «حفظ وإضافة أخرى».
   const [date, setDate] = useState(initial?.date ?? today);
   const startAmount = initial?.amountHalalas ?? payment?.amountHalalas;
-  const [amount, setAmount] = useState(
-    startAmount === undefined ? "" : (startAmount / 100).toFixed(2),
-  );
+  const [amount, setAmount] = useState(startAmount === undefined ? "" : (startAmount / 100).toFixed(2));
   // Controlled, not defaultValue: when the direction flips, the option list is
   // replaced and an uncontrolled select can keep a stale DOM value — including a
   // retired category, which the server would then reject as a direction
   // mismatch. Clearing it on every switch makes that unreachable.
   const [categoryId, setCategoryId] = useState(initial?.categoryId ?? payment?.categoryId ?? "");
+  const [list, setList] = useState(categories); // v1.4 A1: the select is untouched; only the array it maps over is client state.
   const [saved, setSaved] = useState(false);
   const [noticeShown, setNoticeShown] = useState(Boolean(notice));
 
-  // localStorage is read after mount only: it does not exist during the server
-  // render, and seeding state from it would be a hydration mismatch.
+  // localStorage is read after mount only: it does not exist during the server render, and seeding state from it would be a hydration mismatch.
   // Never over a preset: «تسجيل تكلفة» means صادر (S6), a payment is the plan's (W3d).
   const preset = Boolean(presetProjectId || payment);
   useEffect(() => {
@@ -122,7 +124,7 @@ export function TransactionForm({
         setLinkKey((k) => k + 1);
         setSaved(true);
       } else {
-        router.push(doneHref);
+        router.push(withSaved(doneHref)); // R4: the landing page shows «تم حفظ الحركة».
       }
       return result;
     },
@@ -138,11 +140,11 @@ export function TransactionForm({
   const originalLocked = initial ? lockedMonths.includes(monthOf(initial.date)) : false;
   const blocked = dateLocked || originalLocked;
 
-  const options = categoryOptions(categories, direction, initial?.categoryId);
+  const options = categoryOptions(list, direction, initial?.categoryId);
 
   return (
     <form ref={formRef} action={formAction} className="flex flex-col gap-4" noValidate>
-      {blocked ? <LockedNotice /> : null}
+      {blocked ? <LockedNotice href={manageCategories ? "/owner/settings/locks" : undefined} /> : null}
       {banner}
       {/* The banner's hidden fields have no input to show their error under. */}
       {linkError ? <p role="alert" className="text-sm font-medium text-money-out">{errorMessage(linkError)}</p> : null}
@@ -167,10 +169,9 @@ export function TransactionForm({
         disabled={originalLocked}
       />
 
-      <Input
+      <DateField
         label={t.transaction.date}
         name="date"
-        type="date"
         value={date}
         max={today}
         onChange={(event) => setDate(event.target.value)}
@@ -186,24 +187,12 @@ export function TransactionForm({
         placeholder={t.transaction.chooseCategory}
         value={categoryId}
         onChange={(event) => setCategoryId(event.target.value)}
+        hint={direction === "IN" && !payment ? t.transaction.categoryHelpIn : undefined} // R7 (D32 S2)
         disabled={originalLocked}
         required
         error={fieldErrors?.categoryId}
       />
-
-      <LinkFields
-        key={linkKey}
-        parties={parties}
-        projects={projects}
-        initial={{
-          partyId: initial?.partyId ?? null,
-          counterparty: initial?.counterparty ?? null,
-          projectId: initial?.projectId ?? presetProjectId ?? null,
-        }}
-        disabled={originalLocked}
-        lockParty={Boolean(payment)}
-        fieldErrors={fieldErrors}
-      />
+      {manageCategories && !originalLocked && !payment ? <CategoryQuickActions direction={direction} categories={list} selected={categoryId} keepId={initial?.categoryId} onCategories={setList} onSelect={setCategoryId} /> : null}
 
       <Select
         label={t.paymentMethod.label}
@@ -215,13 +204,17 @@ export function TransactionForm({
         error={fieldErrors?.paymentMethod}
       />
 
-      <Textarea
-        label={`${t.transaction.note} (${t.common.optional})`}
-        name="note"
-        defaultValue={initial?.note ?? ""}
-        maxLength={500}
+      <EntryDetails
+        parties={parties}
+        projects={projects}
+        initial={initial}
+        presetPartyId={presetPartyId}
+        presetProjectId={presetProjectId}
+        payment={Boolean(payment)}
         disabled={originalLocked}
-        error={fieldErrors?.note}
+        fieldErrors={fieldErrors}
+        linkKey={linkKey}
+        manageParties={manageParties}
       />
 
       <div className="flex flex-wrap gap-2">
@@ -246,7 +239,7 @@ export function TransactionForm({
       {noticeShown && notice ? (
         <Toast message={errorMessage(notice)} onDismiss={() => setNoticeShown(false)} />
       ) : null}
-      {saved ? <Toast message={t.common.saved} tone="success" onDismiss={() => setSaved(false)} /> : null}
+      {saved ? <Toast message={t.transaction.saved} tone="success" onDismiss={() => setSaved(false)} /> : null}
     </form>
   );
 }

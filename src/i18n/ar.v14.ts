@@ -22,13 +22,17 @@ export const v14Sections = {
     hide: "إخفاء التصنيف {name}",
     hidden: "تم إخفاء التصنيف",
     chipsLabel: "التصنيفات النشطة",
+    /** D17 c5: grey chips of the direction's hidden categories, each with an «إظهار» control. */
+    hiddenChipsLabel: "التصنيفات المخفية",
+    show: "إظهار",
     done: "تم",
     more: "المزيد (إعادة ترتيب، إعادة تسمية، إظهار)",
   },
 
   /** `cats`, A5 — the settings page that keeps every function. */
   categoriesPage: {
-    back: "← الإعدادات",
+    /** v1.4 part 2 (D26): the arrow points the RTL "back" way (to the right). */
+    back: "→ الإعدادات",
     hint: "يمكنك أيضًا إضافة التصنيفات وإخفاؤها مباشرة من نموذج الحركة.",
   },
 
@@ -38,8 +42,11 @@ export const v14Sections = {
     tab: "+ إضافة",
     title: "إضافة",
     newEntry: "حركة جديدة",
-    recordPayment: "تسجيل دفعة",
+    /** v1.4 part 3 (R1, lead): the row goes to the agreement pick list, so it says so. */
+    recordPayment: "دفعة على اتفاقية",
     newProject: "نشاط جديد",
+    /** v1.4 part 3 (R16): second line under «نشاط جديد». */
+    newProjectHint: "مشروع أو مناسبة لها تكاليفها",
     newParty: "جهة جديدة",
     newEmployee: "موظف جديد",
     /** Staff, linked login only. */
@@ -94,9 +101,48 @@ export const v14Sections = {
     statementRemaining: "اتفاقيات مفتوحة: المتبقي {amount}",
   },
 
+  /** v1.4 part 2 (D23) — `p2-forms`: inline quick-add of a party from the party select. */
+  partyQuick: {
+    /** The trailing option of the party select (owner only). */
+    /** v1.4 part 3 (R10): first in the trailing options, and says the party is kept. */
+    add: "+ جهة جديدة (تُحفظ للمرات القادمة)",
+    name: "اسم الجهة الجديدة",
+    type: "نوع الجهة",
+    added: "تمت إضافة الجهة",
+  },
+
+  /** v1.4 part 2 (D24) — `p2-forms`: the «تفاصيل أكثر» disclosure on the entry form. */
+  entryDetails: {
+    more: "تفاصيل أكثر",
+    less: "تفاصيل أقل",
+    /** sr-only hint on the button: what the disclosure holds. */
+    holds: "الجهة، النشاط، الملاحظة",
+  },
+
+  /** v1.4 part 2 (D25) — `p2-home`: the first-run checklist card on the owner home. */
+  firstRun: {
+    title: "ابدأ هنا",
+    hint: "أربع خطوات تجعل زخم مفيدًا من أول يوم.",
+    stepEntry: "سجّل أول حركة",
+    stepParty: "أضف جهة: عميلًا أو موردًا",
+    stepPlan: "سجّل اتفاقية",
+    stepEmployee: "أضف موظفًا",
+    /** sr text on a ticked step. */
+    done: "تم",
+    /** `{done}` = number of ticked steps, Western digits. */
+    progress: "{done} من 4",
+    hide: "إخفاء",
+  },
+
+  /** v1.4 part 3 (R9) — `flows`: the owner-home notice for a pending staff join request. `{name}` = the requester. */
+  pendingJoin: {
+    one: "طلب انضمام جديد من {name}",
+    open: "فتح دخول الموظفين",
+  },
+
   /** v1.4 error keys. Merged into `t.err` by ar.ts. */
   errV14: {
-    planBothLinks: "لا يمكن ربط الحركة بدفعة وباتفاقية مفتوحة معًا",
+    planBothLinks: "لا يمكن ربط الحركة بقسط وباتفاقية مفتوحة معًا",
     planNotOpenEnded: "هذه الاتفاقية ليست مفتوحة",
     planKindFixed: "لا يمكن تغيير نوع الاتفاقية",
     expectedEndBeforeStart: "تاريخ الانتهاء المتوقع لا يسبق تاريخ البدء",

@@ -15,17 +15,40 @@
  *
  * Staff see the same two selects: they may pick existing parties and إضافات,
  * never create them. Controlled, so a refused submit keeps the choice.
+ *
+ * v1.4 part 2 (D23): on an owner page (`manageParties`) the very last option is
+ * «+ جهة جديدة», a sentinel that opens the inline `PartyQuickAdd` box and posts
+ * `partyId=""` meanwhile; the added row is handed up (`onPartyAdded`) — the
+ * list is the parent's client state, so it survives this component's remount
+ * after «حفظ وإضافة أخرى», and the parent shows the toast outside the
+ * collapsible panel — and selected here. Absent while the party is locked or
+ * the month is (a disabled select). Opening the box (`adding`) leaves the
+ * chosen party alone, so «إلغاء» restores it (R-p2-1-S1).
  */
 import { useState } from "react";
 
 import { Input } from "@/components/Input";
 import { Select, type SelectGroup } from "@/components/Select";
 import { t } from "@/i18n/ar";
+import { PartyQuickAdd } from "@/features/parties/components/PartyQuickAdd";
+import { NEW_PARTY, postedPartyId, shownPartyChoice } from "@/features/parties/components/quickPartyList";
 import type { PartyOption } from "@/features/parties/queries";
 import type { ProjectOption } from "@/features/projects/queries";
 import { PartyTypeEnum } from "@/lib/validation";
 
 const OTHER = "__other";
+
+/**
+ * v1.4 part 3 (D29 R10): «+ جهة جديدة (تُحفظ للمرات القادمة)» comes before
+ * «أخرى — اسم لمرة واحدة (لا يُحفظ)» — the sentinel first, so a one-off name is
+ * the second thought, not the first. The sentinel is still never posted.
+ */
+export function trailingOptions(quickAdd: boolean): { value: string; label: string }[] {
+  return [
+    ...(quickAdd ? [{ value: NEW_PARTY, label: t.partyQuick.add }] : []),
+    { value: OTHER, label: t.parties.other },
+  ];
+}
 
 export type LinkInitial = {
   partyId: string | null;
@@ -40,6 +63,8 @@ export function LinkFields({
   disabled = false,
   lockParty = false,
   fieldErrors,
+  manageParties = false,
+  onPartyAdded,
 }: {
   parties: PartyOption[];
   projects: ProjectOption[];
@@ -49,12 +74,17 @@ export function LinkFields({
   /** Payment mode: the party is the plan's, posted by PaymentBanner — no picker. */
   lockParty?: boolean;
   fieldErrors?: Record<string, string>;
+  /** Owner pages only (D23): offers «+ جهة جديدة»; the parent upserts the row into its list. */
+  manageParties?: boolean;
+  onPartyAdded?: (row: PartyOption) => void;
 }) {
   const [party, setParty] = useState(
     initial.partyId ?? (initial.counterparty ? OTHER : ""),
   );
   const [counterparty, setCounterparty] = useState(initial.counterparty ?? "");
   const [projectId, setProjectId] = useState(initial.projectId ?? "");
+  const [adding, setAdding] = useState(false);
+  const shown = shownPartyChoice(party, adding);
 
   const partyGroups: SelectGroup[] = PartyTypeEnum.options.map((type) => ({
     label: t.partyType[type],
@@ -65,6 +95,9 @@ export function LinkFields({
         label: p.active ? p.name : `${p.name} (${t.status.DISABLED})`,
       })),
   }));
+
+  const quickAdd = manageParties && !lockParty && !disabled;
+  const trailing = trailingOptions(quickAdd);
 
   const projectOptions = projects
     .filter((p) => p.status === "ACTIVE" || p.id === initial.projectId)
@@ -82,14 +115,25 @@ export function LinkFields({
             id="partyChoice"
             options={[{ value: "", label: t.parties.none }]}
             groups={partyGroups}
-            trailing={[{ value: OTHER, label: t.parties.other }]}
-            value={party}
-            onChange={(e) => setParty(e.target.value)}
+            trailing={trailing}
+            value={shown}
+            onChange={(e) => (e.target.value === NEW_PARTY ? setAdding(true) : (setAdding(false), setParty(e.target.value)))}
             disabled={disabled}
             error={fieldErrors?.partyId}
           />
-          <input type="hidden" name="partyId" value={party === OTHER ? "" : party} />
-          {party === OTHER ? (
+          <input type="hidden" name="partyId" value={shown === OTHER ? "" : postedPartyId(shown)} />
+          {quickAdd ? (
+            <PartyQuickAdd
+              open={shown === NEW_PARTY}
+              onAdded={(row) => {
+                setAdding(false);
+                onPartyAdded?.(row);
+                setParty(row.id);
+              }}
+              onCancel={() => setAdding(false)}
+            />
+          ) : null}
+          {shown === OTHER ? (
             <Input
               label={t.parties.otherName}
               name="counterparty"

@@ -145,6 +145,7 @@ export async function updatePlan(planId: string, _prev: PlanState, formData: For
   const plan = await db.plan.findFirst({ where: { establishmentId, id: parsedId.data }, select: PLAN_READ });
   if (!plan) return { ok: false, error: "err.notFound" };
   if (plan.kind === "SALARY") return { ok: false, error: "err.salaryPlanManaged" }; // D1
+  if (plan.kind === "OPEN_ENDED") return { ok: false, error: "err.planKindFixed" }; // v1.4 P1: open plans have no schedule
   if (plan.state !== "OPEN") return { ok: false, error: "err.planClosed" };
 
   const schedule = await resolveSchedule(establishmentId, plan, input);
@@ -227,6 +228,8 @@ async function closePlan(planId: string, state: "CANCELLED" | "ARCHIVED"): Promi
   if (!plan) return { ok: false, error: "err.notFound" };
   // D1/S1: a salary plan is ended or archived only through its employee.
   if (plan.kind === "SALARY") return { ok: false, error: "err.salaryPlanManaged" };
+  // v1.4 P1: an open plan moves only through closeOpenPlan / reopenOpenPlan / auto-close.
+  if (plan.kind === "OPEN_ENDED") return { ok: false, error: "err.planKindFixed" };
   if (plan.state !== "OPEN") return { ok: false, error: "err.planClosed" };
 
   if (state === "CANCELLED") {

@@ -9,6 +9,7 @@ import { getInstalmentForPayment } from "@/features/plans/dues";
 import { listProjectOptions } from "@/features/projects/queries";
 import { PaymentBanner } from "@/features/transactions/components/PaymentBanner";
 import { TransactionForm } from "@/features/transactions/components/TransactionForm";
+import { withSaved } from "@/components/savedParam";
 import { t } from "@/i18n/ar";
 import { requireOwner } from "@/lib/auth";
 import { todayISO } from "@/lib/dates";
@@ -35,6 +36,9 @@ export default async function OwnerNewTransactionPage({
   // establishment is preselected; anything else is ignored, not an error.
   const sp = await searchParams;
   const presetProjectId = projects.find((p) => p.id === sp.projectId && p.status === "ACTIVE")?.id;
+  // v1.4 D24: a party's page may link here with ?partyId=; only an active party
+  // of this establishment is preselected (and opens «تفاصيل أكثر»).
+  const presetPartyId = parties.find((p) => p.id === sp.partyId && p.active)?.id;
   // «تسجيل دفعة» links here with ?instalmentId= (it wins over ?projectId=, W9,
   // though a valid project still preselects). Unknown, closed or fully paid →
   // the ordinary form with a toast.
@@ -43,17 +47,25 @@ export default async function OwnerNewTransactionPage({
       ? await getInstalmentForPayment(establishmentId, sp.instalmentId)
       : null;
   const notice = sp.instalmentId !== undefined && !pay ? "err.instalmentInvalid" : undefined;
-  const doneHref = pay
-    ? `/owner/plans/${pay.planId}?paid=${encodeURIComponent(pay.instalmentId)}`
-    : presetProjectId
-      ? `/owner/projects/${presetProjectId}`
-      : "/owner/transactions";
+  // R4: every landing page shows «تم حفظ الحركة» from `?saved=1`. R6: a salary
+  // payment returns to the employee page, not the system-managed salary plan.
+  const salary = pay?.kind === "SALARY";
+  const doneHref = withSaved(
+    salary && pay.employeeId
+      ? `/owner/staff/${pay.employeeId}`
+      : pay
+        ? `/owner/plans/${pay.planId}?paid=${encodeURIComponent(pay.instalmentId)}`
+        : presetProjectId
+        ? `/owner/projects/${presetProjectId}`
+        : "/owner/transactions",
+  );
 
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-xl font-semibold text-gray-900">
-        {pay ? t.payment.title : t.transaction.newTitle}
+        {salary ? t.employees.paySalary : pay ? t.payment.title : t.transaction.newTitle}
       </h1>
+      {pay ? null : <p className="-mt-2 text-sm text-gray-600">{t.transaction.newSubtitle}</p>}
       <TransactionForm
         mode="new"
         action={createTransaction}
@@ -63,9 +75,13 @@ export default async function OwnerNewTransactionPage({
         lockedMonths={lockedMonths}
         today={todayISO()}
         presetProjectId={presetProjectId}
+        // A payment's party is the plan's (D27): the preset applies to ordinary entries only.
+        presetPartyId={pay ? undefined : presetPartyId}
         // حفظ returns to the plan (payment) or the إضافة («تسجيل تكلفة»).
         doneHref={doneHref}
         notice={notice}
+        manageCategories // v1.4 A2: owner only — decided here, on the server (D12).
+        manageParties // v1.4 D23: owner only — «+ جهة جديدة» in the party select.
         payment={
           pay
             ? { direction: pay.direction, amountHalalas: pay.instalmentRemainingHalalas, categoryId: pay.categoryId }
@@ -86,6 +102,7 @@ export default async function OwnerNewTransactionPage({
                 seq: pay.seq,
                 periodYm: pay.periodYm,
                 planRemainingHalalas: pay.planRemainingHalalas,
+                employeeId: pay.employeeId, // R6: the salary banner links to the employee's file.
               }}
             />
           ) : undefined

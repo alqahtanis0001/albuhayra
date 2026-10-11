@@ -27,13 +27,14 @@ export type ReminderTarget = {
  * The instalment, if a reminder may be sent for it: in this establishment
  * (else `notFound`, rule 11), on an OPEN plan the party owes us (IN), still
  * unpaid (else `reminderNotApplicable`), and the party opted in (C9).
+ * v1.4 (C5, P9): an instalment on an OPEN_ENDED plan reads as missing.
  */
 export async function reminderTarget(
   establishmentId: string,
   instalmentId: string,
 ): Promise<ActionResult<ReminderTarget>> {
   const row = await db.instalment.findFirst({
-    where: { establishmentId, id: instalmentId },
+    where: { establishmentId, id: instalmentId, plan: { kind: { not: "OPEN_ENDED" } } },
     select: {
       id: true,
       planId: true,

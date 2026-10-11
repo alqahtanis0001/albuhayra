@@ -9,6 +9,7 @@ import { dayOffset } from "@/lib/instalments";
  * of OPEN plans, by days past due — 1–30 · 31–60 · 61–90 · >90 (the due day
  * itself is not overdue) — one row per party per direction, لنا first.
  * Salary instalments are OUT and so count under علينا. One scoped read.
+ * v1.4 (C5): OPEN_ENDED plans are excluded explicitly (D4-tested).
  */
 
 export type AgingBuckets = {
@@ -70,7 +71,7 @@ export async function getAgingReport(establishmentId: string, today: string = to
       establishmentId,
       dueDate: { lt: isoToDate(today) },
       paidHalalas: { lt: db.instalment.fields.amountDueHalalas },
-      plan: { state: "OPEN" },
+      plan: { state: "OPEN", kind: { not: "OPEN_ENDED" } },
     },
     select: {
       dueDate: true,

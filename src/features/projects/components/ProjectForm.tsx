@@ -11,6 +11,7 @@ import { useActionState, useState } from "react";
 
 import { Button } from "@/components/Button";
 import { FormToast } from "@/components/FormToast";
+import { DateField } from "@/components/DateField";
 import { Input } from "@/components/Input";
 import { Textarea } from "@/components/Textarea";
 import { AmountField } from "@/features/transactions/components/AmountField";
@@ -60,7 +61,7 @@ export function ProjectForm({
       const result = await action(prev, formData);
       if (result.ok) {
         const id = result.data?.id ?? projectId;
-        router.push(id ? `/owner/projects/${id}` : "/owner/projects");
+        router.push(id ? `/owner/projects/${id}` : "/owner/transactions?tab=activities");
       }
       return result;
     },
@@ -102,19 +103,17 @@ export function ProjectForm({
       />
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Input
+        <DateField
           label={t.projects.startDate}
           name="startDate"
-          type="date"
           value={values.startDate}
           onChange={(e) => set("startDate", e.target.value)}
           required
           error={fieldErrors?.startDate}
         />
-        <Input
+        <DateField
           label={`${t.projects.endDate} (${t.common.optional})`}
           name="endDate"
-          type="date"
           value={values.endDate}
           min={values.startDate || undefined}
           onChange={(e) => set("endDate", e.target.value)}

@@ -257,6 +257,13 @@ describe("approveOwner", () => {
     expect(rows.filter((r) => r.type === "IN")).toHaveLength(4);
     expect(rows.filter((r) => r.type === "OUT")).toHaveLength(9);
     expect(rows.every((r) => r.nameAr.trim().length > 0)).toBe(true);
+    // v1.4 part 3 (R7): the seeded IN names, in order — «سداد من عميل», never «دفعة من عميل».
+    expect(rows.filter((r) => r.type === "IN").map((r) => r.nameAr)).toEqual([
+      "مبيعات",
+      "سداد من عميل",
+      "رصيد افتتاحي / رأس مال",
+      "أخرى",
+    ]);
   });
 
   it("does not create them twice", async () => {
