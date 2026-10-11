@@ -143,3 +143,4 @@ The exact callback paths and variable names will be written here when v1.1 is bu
 - `docs/BACKEND.md`, `docs/FRONTEND.md`: the specification; `docs/V12-SPEC.md`, `docs/V13-SPEC.md`, `docs/V14-SPEC.md`: the product owner's release specs (they win).
 - `CHANGELOG.md`: what each release added or changed, from v1.3.
 - `render.yaml`: the Render Blueprint.
+- `docs/BACKUP.md`: nightly encrypted database backups — where the copies are, the passphrase, and how to restore (`scripts/backup/`).
