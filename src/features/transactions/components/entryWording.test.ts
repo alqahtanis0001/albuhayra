@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
@@ -58,5 +59,14 @@ describe("R10 — the party select's trailing order", () => {
     expect(trailingOptions(true).map((o) => o.value)).toEqual([NEW_PARTY, "__other"]);
     expect(trailingOptions(true).map((o) => o.label)).toEqual([t.partyQuick.add, t.parties.other]);
     expect(trailingOptions(false).map((o) => o.value)).toEqual(["__other"]);
+  });
+});
+
+describe("D31j — «حفظ وإضافة أخرى» shows «تم حفظ الحركة» in place (qa-tests p3 F4)", () => {
+  it("the saveAndAdd arm calls setSaved(true) and the toast reads t.transaction.saved (static)", () => {
+    const source = readFileSync("src/features/transactions/components/TransactionForm.tsx", "utf8");
+    expect(source).toMatch(/if \(formData\.get\("intent"\) === "saveAndAdd"\) \{[^}]*setSaved\(true\);/);
+    expect(source).toMatch(/\{saved \? <Toast message=\{t\.transaction\.saved\} tone="success"/);
+    expect(source).toMatch(/\} else \{\s*router\.push\(withSaved\(doneHref\)\)/);
   });
 });

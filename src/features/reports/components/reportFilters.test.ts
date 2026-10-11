@@ -60,6 +60,12 @@ describe("ReportFilters (R11)", () => {
     expect(/<input [^>]*name="to"[^>]*>/.exec(html)?.[0]).toMatch(/aria-invalid="true"/);
   });
 
+  it("the month select's onChange goes through afterMonthChoice and the dates through afterDateTyped (static, qa-tests p3 F7)", () => {
+    const source = readFileSync("src/features/reports/components/ReportFilters.tsx", "utf8");
+    expect(source).toMatch(/name="month"[\s\S]*?onChange=\{\(e\) => setPeriod\(\(s\) => afterMonthChoice\(s, e\.target\.value\)\)\}/);
+    expect(source.match(/afterDateTyped\(s, "(from|to)", e\.target\.value\)/g)).toHaveLength(2);
+  });
+
   it("neither the client leaf nor reportMonths mentions the validation barrel or reportRange (D32 B1)", () => {
     for (const file of ["ReportFilters.tsx", "reportMonths.ts"]) {
       const source = readFileSync(`src/features/reports/components/${file}`, "utf8");

@@ -31,6 +31,11 @@ describe("Toast (D29 R3)", () => {
     expect(button).toMatch(/class="[^"]*\bpointer-events-auto\b/);
   });
 
+  it("the delay is exactly 3 000 ms and the strip is fixed (qa-tests p3 F1/F2)", () => {
+    expect(SUCCESS_DISMISS_MS).toBe(3000);
+    expect(/<div [^>]*>/.exec(render("success"))?.[0]).toMatch(/class="[^"]*\bfixed\b/);
+  });
+
   it("an error toast is an alert, a success toast a status", () => {
     expect(render("error")).toMatch(/<div [^>]*role="alert"/);
     expect(render("success")).toMatch(/<div [^>]*role="status"/);

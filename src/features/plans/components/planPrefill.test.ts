@@ -38,6 +38,8 @@ describe("prefillCategory", () => {
     expect(prefillCategory(CATS, "IN")).toBe("in_pay");
     expect(prefillCategory([cat("in_a", "مبيعات", "IN"), cat("in_old", "دفعة من عميل", "IN")], "IN")).toBe("in_old");
     expect(prefillCategory([cat("in_a", "مبيعات", "IN"), cat("in_b", "أخرى", "IN")], "IN")).toBe("in_a");
+    // Both names present, the old one first in the list: «سداد من عميل» still wins (qa-tests p3 F6).
+    expect(prefillCategory([cat("in_old", "دفعة من عميل", "IN"), cat("in_new", "سداد من عميل", "IN")], "IN")).toBe("in_new");
     expect(prefillCategory(CATS, "OUT")).toBe("out_rent");
     expect(prefillCategory(CATS, "")).toBe("");
     expect(prefillCategory([cat("in_pay", "سداد من عميل", "IN", false)], "IN")).toBe("");

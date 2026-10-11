@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
@@ -55,5 +56,10 @@ describe("ResetStaffPasswordForm (R5)", () => {
     expect(input).toMatch(/\bminlength="\d+"/i);
     expect(html).not.toContain("> *</span>");
     expect(html).toContain(t.settings.resetPasswordFor);
+  });
+
+  it("the server's error still lands under the field (static, qa-tests p3 F5)", () => {
+    const source = readFileSync("src/features/settings/components/ResetStaffPasswordForm.tsx", "utf8");
+    expect(source).toMatch(/<Input[\s\S]*?name="newPassword"[\s\S]*?error=\{fieldErrors\?\.newPassword\}/);
   });
 });

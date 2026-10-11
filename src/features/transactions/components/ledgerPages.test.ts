@@ -46,6 +46,17 @@ describe("the two ledgers and ?saved=1 (R4)", () => {
   });
 });
 
+describe("the owner ledger passes `showing` to the filters (qa-tests p3 F3)", () => {
+  it("with a filter the panel is open and «مسح التصفية» is offered; without, closed and absent", async () => {
+    const on = await owner({ from: "2026-10-01" });
+    expect(on).toMatch(/<button [^>]*aria-expanded="true"/);
+    expect(on).toContain(t.common.clearFilters);
+    const off = await owner({});
+    expect(off).toMatch(/<button [^>]*aria-expanded="false"/);
+    expect(off).not.toContain(t.common.clearFilters);
+  });
+});
+
 describe("the ledgers tolerate ?saved=1 (D32 S3c)", () => {
   it("the filter schema strips it and hasAnyFilter stays false", () => {
     const filters = parseLedgerFilters({ saved: "1" });
