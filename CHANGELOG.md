@@ -2,6 +2,13 @@
 
 Started at v1.3. Earlier releases (v1.0 – v1.2c) are recorded in `PROGRESS.md` (*Done*, *Decisions*, *Session log*).
 
+## v1.5 follow-up (2026-10-12)
+The product owner's four rulings after the v1.5 release (`docs/V15-SPEC.md › v1.5 follow-up`, D45–D51). No schema change.
+- **The theme button is a simple light ↔ dark switch.** It follows the phone or computer until you tap it once; then it remembers your choice. Its icon and its label say what a tap will do (a moon: «التبديل إلى المظهر الداكن»). The «حسب الجهاز» step is gone.
+- **On phones narrower than 480 px the theme button moves out of the top bar** into the first row of «المزيد» — «المظهر» with فاتح / داكن (staff and admin find it at the top of «حسابي»). The establishment name gets the whole top bar again.
+- **One colour per category:** the wheel's middle ring now uses the expense donut's colours, so a category looks the same everywhere on the home page.
+- **«عرض» on each of the wheel's four explanation rows** opens its page directly: this month's السجل, التقارير, الجهات and المستحقات. «كم باقي على محمد؟» takes 2 taps again.
+
 ## v1.5 — home overview wheel, nav tidy-up, dark theme (2026-10-11)
 Spec: `docs/V15-SPEC.md` (A–C from the product owner, Decisions D1–D41). No schema change, no migration, no new environment variable. Light mode looks exactly as before (checked pixel for pixel); nothing an owner or staff member could do before was removed.
 

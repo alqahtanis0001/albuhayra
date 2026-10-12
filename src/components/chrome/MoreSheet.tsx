@@ -15,6 +15,10 @@
  * v1.4 (D21 M2): the trigger shows the sum of its tiles' badges, number only
  * (the tiles carry the accessible phrases), so a count on a non-tab item such
  * as حسابات الدخول is visible before the sheet opens.
+ *
+ * v1.5 follow-up (D46): below 480 px the theme button leaves the top bar, so
+ * the sheet's first row is «المظهر» (`theme`'s ThemeSegmented, which hides
+ * itself from 480 px).
  */
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -28,6 +32,7 @@ import { LinkPending } from "../NavProgress";
 import { NavBadge } from "./NavBadge";
 import { moreBadgeTotal, type LinkGroup } from "./nav";
 import { NAV_PRESS, TAB_ACTIVE, TAB_CLASS } from "./navClasses";
+import { ThemeSegmented } from "./ThemeSegmented";
 
 export function MoreSheet({
   groups,
@@ -97,6 +102,8 @@ export function MoreSheet({
               <CloseIcon size={22} />
             </button>
           </div>
+
+          <ThemeSegmented />
 
           {shown.map((group) => (
             <section key={group.key} className="flex flex-col gap-2">

@@ -46,6 +46,9 @@ export const v15Sections = {
     today: "اليوم",
     replay: "إعادة العرض",
     showAll: "إظهار الكل",
+    /** D48: the trailing link on each explanation row; `{title}` = the row title. */
+    rowLink: "عرض",
+    rowLinkLabel: "عرض: {title}",
     /** sr-only: what a second activation does. */
     openHint: "اضغط مرة أخرى للفتح",
     /** aria-label of a segment: `{name}` + `{amount}` (exact, formatted with its currency — D29). */
@@ -216,11 +219,14 @@ export const v15Sections = {
     cancel: "إلغاء الاختيار",
   },
 
-  /** `theme`, C2 — the TopBar toggle. `{mode}` = one of the three names. */
+  /** `theme`, C2 as amended by the follow-up (D45/D46): the two-state toggle and the «المظهر» control. */
   theme: {
-    toggle: "المظهر: {mode}",
+    /** D46: the «المزيد» row and the account-page control. */
+    title: "المظهر",
     light: "فاتح",
     dark: "داكن",
-    system: "حسب الجهاز",
+    /** D45: the top-bar button names its action (aria-label and title). */
+    toDark: "التبديل إلى المظهر الداكن",
+    toLight: "التبديل إلى المظهر الفاتح",
   },
 } as const;

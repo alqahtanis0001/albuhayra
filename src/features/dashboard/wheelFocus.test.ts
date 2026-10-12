@@ -252,13 +252,13 @@ describe("the model (D4, D18, D29) and the roving order (D27)", () => {
 });
 
 describe("client-safety (D25)", () => {
-  it("wheel.ts, wheelHrefs.ts, wheelFocus.ts, wheelModel.ts: no server-only, values only from dates/money/plural/visuals", () => {
-    for (const file of ["wheel.ts", "wheelHrefs.ts", "wheelFocus.ts", "wheelModel.ts", "wheelController.ts"]) {
+  it("wheel.ts, wheelHrefs.ts, wheelFocus.ts, wheelModel.ts, categoryColours.ts: no server-only, values only from dates/money/plural/visuals/palette", () => {
+    for (const file of ["wheel.ts", "wheelHrefs.ts", "wheelFocus.ts", "wheelModel.ts", "wheelController.ts", "categoryColours.ts"]) {
       const source = readFileSync(`src/features/dashboard/${file}`, "utf8");
       expect(source, file).not.toMatch(/^import\s+["']server-only["']/m);
       const values = [...source.matchAll(/^import (?!type )[^;]*?from "([^"]+)";/gms)].map((m) => m[1]);
       for (const from of values) {
-        expect(["@/lib/dates", "@/lib/money", "@/lib/plural", "./visuals", "./wheel", "./wheelHrefs", "./wheelFocus"], `${file}: ${from}`).toContain(from);
+        expect(["@/lib/dates", "@/lib/money", "@/lib/plural", "./visuals", "./wheel", "./wheelHrefs", "./wheelFocus", "./categoryColours", "@/components/visualPalette"], `${file}: ${from}`).toContain(from);
       }
       expect(source, file).not.toMatch(/from "@\/lib\/validation"/);
     }

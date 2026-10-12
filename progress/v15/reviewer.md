@@ -606,3 +606,126 @@ Verdict: **all reviews closed** (pre-code; nav R1–R2; home R1–R2; theme R1�
 ## Questions / requests sent to lead
 - Rulings needed: #1 (D3), #3 (D9), #9 (D2), #10/#11 (D4), #12 (D15 flag), #31 (keys), #33.
 - Round 1: D22's premise («salary rows never exist beyond this month») is false; amend it with R1-H1.
+
+## Follow-up review (D45–D50; tree on `claude/v15-wheel-nav-theme` restarted from `main` `9cacd1f`, uncommitted, 2026-10-12)
+
+Scope: `git diff origin/main` plus untracked files.
+- theme: `theme.ts`, `ThemeToggle*.tsx`, `ThemeToggleState.ts`, `ThemeSegmented.tsx`, `TopBar.tsx`, `MoreSheet.tsx`, the staff and admin «حسابي» pages, `globals.css`.
+- home: `categoryColours.ts`, `ExpenseDonut.tsx`, `wheelModel.ts`, `wheelHrefs.ts`, `WheelRows.tsx`, `WheelSvg.tsx`.
+- Tests for both.
+
+Work was done on a scratch copy (`scratchpad/rv2`, with `node_modules` symlinked). On that copy: `tsc` 0, vitest **138 files / 2019 tests** green, and the token lint is green (no hex in the touched files; grep agrees).
+
+### Rulings vs code
+1. **Two-state toggle (D45): implemented exactly.**
+   - Toggle logic:
+     - `toggleTheme(shown)` stores the opposite of what is shown.
+     - With no choice, the click reads `matchMedia` at tap time (`shownTheme(choice, deviceIsDark())`).
+     - Only light or dark is ever written.
+   - Unchanged, as the spec requires: `parseTheme`, `htmlThemeAttrs`, the cookie and `ui:theme` format, `layout.tsx` and the dark blocks.
+   - A stored `system` is no choice everywhere it is read:
+     - the server layout: `htmlThemeAttrs("system")` → `{}`;
+     - the wrapper: `explicitTheme` → null;
+     - `reconcileTheme`, for the cookie and for storage;
+     - `themeFromCookies`.
+   - `aria-label` = `title` = the action (`toDark` / `toLight`).
+   - D50: the icon shows the target (moon under `.theme-light-only`, sun under `.theme-dark-only`), pinned by shape.
+2. **Placement (D46): implemented exactly.**
+   - The button has `max-[480px]:hidden` and the row has `min-[480px]:hidden`. I compiled the CSS on scratch: they become `@media (width < 480px)` and `@media (width >= 480px)`. These are complementary, so exactly one control shows at any width.
+   - D37 is gone: the name is plain text in its `flex-1` box.
+   - «المظهر» is the sheet's first row, before every tile section.
+   - Staff and admin «حسابي» get the row after the h1 and before the password form. The owner's «حسابي» does not.
+   - Each segment has `aria-pressed` and is 44 × 64 px.
+3. **D47: implemented exactly.** One function, `categoryColour(key, rank)`, colours both the donut's `colourOf` and ring 2. Both draw `donutSlices` of the same `data.topOutCategories` and `monthOutHalalas` (`owner/page.tsx`), so the ranks are the same. The row-2 swatches use `s.colour`.
+4. **D48: implemented exactly.**
+   - Each row is a `div`: the unchanged focus `<button>`, then a sibling `next/link` «عرض».
+   - Each link has `aria-label` «عرض: {title}» (the visible text is part of the name, WCAG 2.5.3), `no-print`, `min-h-11 min-w-11`, and stretches to the row's height.
+   - Hrefs:
+     - ring 1 → `?from&to` of the month (the same parsing as `directionHref`);
+     - ring 2 → `?tab=reports` (pinned `=== REPORTS_HREF`);
+     - ring 3 → `/owner/parties`;
+     - dial → `/owner/dues`.
+   - The links stay in the D28 empty state.
+
+### Mutations re-applied on scratch (each file restored from `.bak`)
+I ran 20 mutations, 8 of them not in the recordings: T2, T8, T9, T11, T12, H2, H6 and H8. All are killed except T8.
+
+| # | Mutation | Result |
+|---|---|---|
+| T1 | `toggleTheme` returns `shown` | 13 failed |
+| T2 | `explicitTheme("system")` → light | 5 failed |
+| T3 | `max-[480px]:hidden` dropped | 1 failed |
+| T4 | a segment toggles instead of storing | 1 failed |
+| T5 | D50 reverted (sun under `.theme-light-only`) | 3 failed |
+| T6 | the row moved after the tiles | 2 failed |
+| T7 | the row removed from staff «حسابي» | 1 failed |
+| **T8** | **the OS `change` listener removed from `useThemeChoice`** | **survived (310/310 green)** |
+| T9 | the cookie lookup uses `includes` | 1 failed |
+| T10 | `min-[480px]:hidden` dropped | 1 failed |
+| T11 | `shown` ignores the device | 2 failed |
+| T12 | the pre-mount sr-only labels swapped | 2 failed |
+| H1 | ring 2 gets the mock palette | 4 failed |
+| H2 | the donut's rank shifted by one | 1 failed |
+| H3 | `no-print` dropped | 1 failed |
+| H4 | ring 1 → `directionHref("OUT")` | 2 failed |
+| H5 | dial → `/owner/plans` | 2 failed |
+| H6 | the link's aria-label dropped | 3 failed |
+| H7 | `min-w-11` dropped | 1 failed |
+| H8 | the row button loses `aria-pressed` | 2 failed |
+
+### Checks
+- **Hydration and flash.**
+  - The button's first client render equals the server's. With a stored choice the label comes from the same prop on both sides. With no choice there is no label on either side and `deviceDark` is null on both.
+  - `ThemeSegmented` renders "neither pressed" on both sides, and `useId` is stable.
+  - Before hydration the icons and the two sr-only names are chosen by CSS (`--wordmark-*`, unlayered and declared in both dark blocks). So there is no mismatch and no wrong-icon flash.
+- **Contrast in dark (light in brackets).**
+  - Row label gray-900 on the sheet surface: 14.3 (17.9).
+  - Segment text gray-700: 10.4 (10.4); on hover 9.3.
+  - Pressed segment, on-accent on accent: 6.35 (6.57).
+  - «عرض», accent-dark on surface: 7.39 (10.05); on accent-soft when the row is on: 6.04 (8.84).
+  - Focus uses the global `:focus-visible`.
+- **RTL.** «المظهر» sits at the start; the segments read فاتح then داكن from the right; «عرض» trails the row. No new `dir` or physical-side classes.
+- **Security: unchanged.**
+  - The cookie is still whitelisted by `parseTheme`.
+  - The staff and admin pages still call `requireStaff()` / `requireAdmin()` first.
+  - The links are static internal paths.
+  - No new actions, reads or routes; `.env` untouched.
+- **Bundles.** On `bundles-followup-{theme,home}.json`, the worst route is `/owner` at +6.2 KB gz against `bundle-baseline.json`, well under the +40 KB cap. D50 is an icon swap and adds no bytes.
+
+### Findings
+**SHOULD**
+- **F-S1 (theme): following the OS while no choice is stored is unpinned (T8 survives).**
+  - `useThemeChoice` subscribes to `matchMedia("(prefers-color-scheme: dark)")` `change`. That subscription keeps the button's `aria-label`/`title` and the pressed segment right when the device flips while the page is open. `theme.md` claims it ("then follows OS changes").
+  - Deleting `media?.addEventListener("change", onDevice)` leaves every test green, because the stub's `matchMedia().addEventListener` is a no-op.
+  - Without it, after an OS switch the page turns dark (by CSS) but the button still says «التبديل إلى المظهر الداكن» and «فاتح» stays pressed. The tap itself is still right: it reads the device at click time.
+  - *Fix (test only):* in `themeToggleClick.test.ts`, make the stub's `matchMedia` record the `change` handler. Then run the mount effect with `deviceDark = false`, set `deviceDark = true`, call the handler, and expect the last `setState` to be `true`. Optionally, check that the cleanup removes the handler.
+
+**NOTE**
+- **F-N1 (theme).** `ThemeSegmented` calls `useThemeChoice(null)`. Even with a stored light/dark cookie, neither segment is pressed until mount. D50 accepted this only for "no stored choice".
+  - It is visible only on the staff/admin «حسابي» below 480 px, for a split second. «المزيد» opens after hydration.
+  - Optional fix: a tiny server wrapper, as `ThemeToggle` does, passing `explicitTheme(parseTheme(cookie))`. Accept or fix as the lead prefers.
+- **F-N2 (stale wording, no behaviour).**
+  - `globals.css` comment above `.theme-light-only`: "so the icon for the scheme on screen shows". Since D50 it is the icon of the *target*, visible while that scheme is on screen.
+  - `src/i18n/ar.v15.ts:222` (lead): "`{mode}` = one of the three names".
+  - `docs/V15-SPEC.md` C2 ("cycling light → dark → system; default = system") and `docs/FRONTEND.md:88` ("light / dark / system theme") are not marked as superseded by D45 (lead).
+- **F-N3.** `WheelRows` imports `fillText` from `@/features/dashboard/visuals`, which was already client-safe. `wheelFocus.test.ts`'s allow-list now admits `@/components/visualPalette` for every wheel file. That is fine: `visualPalette` is token-only and lint-covered.
+
+### Verdict
+No BLOCKER. One SHOULD (F-S1, theme, test only) and three NOTEs. The follow-up review closes when F-S1 lands with its mutation (T8) killed.
+
+### Follow-up review — recheck (theme's fixes, lead's F-N2 items)
+I took a fresh scratch copy (`scratchpad/rv3`): `tsc` 0, vitest **138 files / 2024 tests** green.
+- **F-S1 — CLOSED.** The new case "a device flip while the page is open updates the shown scheme; unmount stops listening" kills both mutations I re-applied:
+  - T8 (the `addEventListener("change")` line removed): 1 failed.
+  - R1 (the `removeEventListener` line removed): 1 failed.
+- **F-N1 — CLOSED.** The new `ThemeSegmentedServer.tsx` reads the cookie and passes `choice` down. The client starts from `explicitTheme(choice)`, so the server and the first client render agree and there is no mismatch.
+  - R2 (`ThemeSegmented` ignores `choice`): 2 failed, the "stored light/dark pressed at SSR" cases.
+  - R3 (the staff page mounts the client-only row): 5 failed.
+- **F-N2 — CLOSED.**
+  - The `globals.css` comment now describes the D50 icon.
+  - `ar.v15.ts:222` is updated.
+  - `docs/V15-SPEC.md` C2 carries the lead's supersession note.
+  - `docs/FRONTEND.md:88` now reads light ↔ dark.
+- F-N3 needed no change.
+
+Verdict: **follow-up review closed.**

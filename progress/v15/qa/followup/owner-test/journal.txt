@@ -1,0 +1,80 @@
+2026-10-12T09:01:56.396Z [standin-rich-t6] taps=1 goto {"url":"http://localhost:3000/login"} → at http://localhost:3000/login
+2026-10-12T09:01:56.614Z [standin-rich-t6] taps=2 fill {"label":"البريد الإلكتروني","value":"rich@qa.test"} → filled «البريد الإلكتروني»
+2026-10-12T09:01:56.749Z [standin-rich-t6] taps=3 fill {"label":"كلمة المرور","value":"<password>"} → filled «كلمة المرور»
+2026-10-12T09:01:57.271Z [standin-rich-t6] taps=4 tap {"text":"تسجيل الدخول"} → tapped «تسجيل الدخول»
+2026-10-12T09:02:00.080Z [standin-rich-t6] taps=5 goto {"url":"http://localhost:3000/owner/transactions"} → at http://localhost:3000/owner/transactions
+2026-10-12T09:02:02.242Z [standin-rich-t6] taps=0 resetTaps {} → taps=0
+2026-10-12T09:02:02.507Z [standin-rich-t6] taps=0 shot {"name":"t6-start-ledger"} → progress/v15/qa/followup/owner-test/standin-rich-t6-001-t6-start-ledger.jpg
+2026-10-12T09:02:03.159Z [standin-rich-t6] taps=1 tap {"text":"الرئيسية"} → tapped «الرئيسية»
+2026-10-12T09:02:07.403Z [standin-rich-t6] taps=1 shot {"name":"t6-home"} → progress/v15/qa/followup/owner-test/standin-rich-t6-002-t6-home.jpg
+2026-10-12T09:02:21.119Z [standin-rich-t6] taps=1 scroll {"dy":700} → scrolled 700
+2026-10-12T09:02:21.356Z [standin-rich-t6] taps=1 shot {"name":"t6-row3-visible"} → progress/v15/qa/followup/owner-test/standin-rich-t6-003-t6-row3-visible.jpg
+2026-10-12T09:02:21.870Z [standin-rich-t6] taps=2 tap {"text":"عرض: الحلقة الخارجية — الالتزامات","role":"link"} → tapped «عرض: الحلقة الخارجية — الالتزامات»
+2026-10-12T09:02:25.074Z [standin-rich-t6] taps=2 shot {"name":"t6-parties"} → progress/v15/qa/followup/owner-test/standin-rich-t6-004-t6-parties.jpg
+2026-10-12T09:02:25.194Z [standin-rich-t6] taps=2 see {} → تجاوز إلى المحتوى
+
+مؤسسة الحربي للتجارة
+
+خالد الحربي
+تسجيل الخروج
+الجهات
+إضافة جهة
+الكل
+العملاء
+الموردون
+الموظفون
+أخرى
+
+سعد العتيبي
+
+موظف
+علينا: 8,000.00 ر.س
+
+شركة النور للتوريدات
+
+مورد
+علينا: 6,500.00 ر.س
+
+مؤسسة البناء الحديث
+
+عميل
+لنا: 9,000.00 ر.س
+
+ماجد الشهري
+
+موظف
+علينا: 7,000.00 ر.س
+
+محمد القحطاني
+
+عميل
+0551234567
+لنا: 9,000.00 ر.س
+
+مصنع الخليج
+
+مورد
+لا رصيد
+اتفاقيات مفتوحة: المتبقي 4,500.00 ر.س
+
+مكتب العقار
+
+أخرى
+علينا: 18,000.00 ر.س
+
+المتبقي من الاتفاقيات القائمة
+
+زخم · الإصدار 0.1.0
+
+للتواصل والدعم الفني: support@example.com
+
+الرئيسية
+إضافة
+السجل
+3
+3 أقساط متأخرة
+المستحقات
+1
+المزيد
+2026-10-12T09:02:58.890Z [standin-rich-t6] taps=2 taps {} → taps=2
+2026-10-12T09:02:59.002Z [standin-rich-t6] taps=2 quit {} → bye

@@ -189,7 +189,7 @@ M1 light `--color-accent` #006c35 → #006c36 → "keeps every pre-v1.5 colour t
 - It is a 44 × 44 icon button, `text-on-topbar hover:bg-topbar-dark`, with its own `aria-label` («المظهر: فاتح/داكن/حسب الجهاز»). Suggested place: just before the account link, in the same row as the other top-bar buttons.
 
 ## In progress
-- Task: none — T1–T4 done; reported to the lead.
+- Task: none — T1–T4 and the follow-up (F1, F2) done; reported to the lead.
 - Next action: reviewer findings, if any.
 
 ## Gotchas I found
@@ -203,3 +203,83 @@ M1 light `--color-accent` #006c35 → #006c36 → "keeps every pre-v1.5 colour t
 - Decision request: `white` = surface in dark + `text-on-accent` (deep ink in dark) on fills + deep-green top bar with white (above). → accepted as D36.
 - `--color-on-gold` was added at `home`'s request (their D40 / R1-H3); its light value is a new token (#171717 = gray-900 light), so it changes no existing pixel.
 - The test-only helpers are now `src/lib/themeCss.testkit.ts` (block parser, comment stripper, contrast) and `src/lib/tokenLint.testkit.ts` (lint rules). They live in `src/lib/**`, the lead's area by CLAUDE.md; tell me if you want them moved.
+
+## Follow-up (D45, D46 — the user's rulings 1 and 2, 2026-10-12)
+
+### Tasks
+- **F1 — two-state toggle (D45).** `src/lib/theme.ts`: `nextTheme` retired; new `explicitTheme` (a stored or cookie `system` → no choice), `shownTheme(choice, deviceDark)`, `toggleTheme(shown)` (the opposite of what is shown), and `themeFromCookies` (the client reads `document.cookie`). `chooseTheme` and `themeCookie` take only light/dark. `reconcileTheme` returns `ThemeMode | null`; null means follow the device. These are unchanged: `parseTheme`, `htmlThemeAttrs`, the cookie/`ui:theme` format, the layout and the dark CSS blocks.
+- New `src/components/chrome/ThemeToggleState.ts` holds the browser glue both controls share:
+  - `browserEnv` and `deviceIsDark()` (matchMedia);
+  - `useThemeChoice`: on mount it reconciles from `document.cookie` and reads the device, then follows OS changes;
+  - a `ui:theme-change` window event, so a choice made in one control reaches the other (they never show at once; this matters on resize past 480 px).
+- `ThemeToggleButton.tsx`:
+  - It draws both icons (sun `.theme-light-only`, moon `.theme-dark-only`). Two new rules in `globals.css` switch them with the wordmark's `--wordmark-light/dark` variables, so the first paint is right before hydration, whether the choice comes from the cookie or from "system".
+  - `aria-label` and `title` name the **action** (`t.theme.toDark` / `toLight`). This happens at once for a stored choice, or after mount from the device.
+  - Before mount, with no choice, there is no aria-label and no title. Two CSS-picked `sr-only` texts name the button instead.
+  - The button carries `max-[480px]:hidden` (`THEME_TOGGLE_CLASS`).
+- **F2 — placement (D46).**
+  - New `ThemeSegmented.tsx`: the «المظهر» row. It is `role="group"`, labelled by its span, with two buttons فاتح / داكن. Each has `aria-pressed` and is 44 × 64 px. The active one is `bg-accent text-on-accent`. The row carries `min-[480px]:hidden`.
+  - Before mount neither segment is pressed. After mount the pressed one is what the page shows.
+  - It is mounted as the first row of `MoreSheet` (after the title bar, before the tiles), and under the h1 on `/staff/account` and `/admin/account`. The owner's «حسابي» does not get it.
+  - `TopBar.tsx`: D37 is removed (`ESTABLISHMENT_NAME_TEXT` and `max-[375px]:*` are gone). The name is plain text in its `flex-1` box again.
+
+### Tests (all new or rewritten; mutations run in-tree with a cp backup restored at once, scripted)
+- Test files:
+  - `src/lib/theme.test.ts`: the two-state toggle, `shownTheme`, `explicitTheme`, `themeFromCookies` (8 cases), and reconcile with `system`.
+  - `themeToggle.test.ts`: labels, first paint, both icons, the CSS switch, the 480 px class, and the ThemeSegmented markup.
+  - `themeToggleClick.test.ts`: taps, `Secure`, segment presses, the pressed state, mount and sync. It is rewritten with stubbed hooks.
+  - New `themePlaces.test.ts`: the «المزيد» first row and the staff/admin «حسابي».
+  - `shell.test.ts`: the D37 describe is replaced by a D46 one, and the D36 regex no longer expects the name's `<span>`.
+- Mutations (→ failing cases):
+  - M1 `toggleTheme` returns `shown` → 13 failed, among them every "first tap stores the opposite" and "repeat taps flip" case.
+  - M2 the first tap ignores the device (`shownTheme(choice, false)`) → 2 failed: the device-dark cases, from null and from "system".
+  - M3a reconcile takes a "system" cookie as a choice → 2 failed: "a stored system … is no choice", and "on mount with a system cookie".
+  - M3b the button reads a "system" cookie as light → 2 failed.
+  - M4 the label names the current mode, not the action → 4 failed.
+  - M4b `title` removed → 3 failed.
+  - M5 `max-[480px]:hidden` removed → "hidden below 480 px only" failed.
+  - M6 `max-[375px]:border-s-0` restored → the D46 name case failed.
+  - M6b the `max-[375px]:sr-only` span restored → 3 failed.
+  - M7 the sheet row moved after the tiles → 2 failed.
+  - M8 / M8b the row removed from staff / admin «حسابي» → that role's case failed.
+  - M9 a segment press toggles instead of storing → both "pressing «داكن»/«فاتح» stores …" cases failed.
+  - M10 `min-[480px]:hidden` removed → "shows only below 480 px" failed.
+  - M11 `aria-pressed` removed → 3 failed.
+  - M11b the pressed state ignores the device → 2 failed.
+  - M12 `.theme-dark-only` reads `--wordmark-light` → the CSS-switch case failed.
+  - M13 no `ui:theme-change` listener → the mount/sync case failed.
+  - M14 mount ignores `document.cookie` → the mount case failed.
+  - M15 the cookie lookup matches `xtheme=` → it first survived; I added the case `xtheme=light; theme=dark → dark`, which kills it.
+
+### Gates
+`tsc` 0 · vitest **138 files / 2016 tests**, all green (shared tree, with `home`'s in-flight work) · `npm run build` exit 0 (placeholder `DATABASE_URL`, under `.claude/build.lock`) · bundles `progress/v15/bundles-followup-theme.json`, 55 routes: max **+6.2 KB gz** vs `bundle-baseline.json` (`/owner`). Against `bundles-release.json` it is at most **+0.7 KB** (owner routes, the shared chrome chunk) and +0.6 on staff/admin «حسابي»; auth is +0.0.
+
+### Screenshots (`progress/v15/qa/followup-*.png`, static harness: real AppShell/TopBar/MoreSheet/staff account page rendered with `react-dom/static`, built CSS, the post-mount state)
+- `followup-topbar-{375,390,480}-{light,dark}.png`. Below 480 px the button is hidden (`display: none`) and the name gets 99 px at 375 and 114 px at 390. Before, it got about 62 px (D42 N10). At 480 px the button shows.
+- `followup-more-{375,390,480}-{light,dark}.png`. Below 480 px the row is first in the sheet with segments of 44 × 64 px. At 480 px the row is `display: none`.
+- `followup-staff-account-390-{light,dark}.png`.
+
+### Open questions
+- Icon: the button shows the **current** scheme (sun in light, moon in dark), as in v1.5. The label names the action. Tell me if you want the icon to show the target instead.
+- With no stored choice, before hydration (a split second) no segment is pressed. The server cannot know the device's scheme.
+
+### D50 — the icon shows the target (lead's ruling)
+- `ThemeToggleButton.tsx`: the moon now carries `theme-light-only` (shown while light is on screen) and the sun `theme-dark-only`, matching the action label. CSS unchanged.
+- Test: `themeToggle.test.ts` "the icon shows the target, like the label (D50)" × light/dark/null identifies each icon by its shape, not order. Mutation: old mapping restored → all 3 cases failed (restored).
+- Gates: `tsc` 0 · vitest 138 files / 2019 tests · build 0 · bundles re-measured into `bundles-followup-theme.json`. `followup-topbar-*` (and `followup-more-*`, `followup-staff-account-*`) re-shot: moon at 480 light, sun at 480 dark.
+
+### Follow-up review (reviewer F-S1, F-N1, F-N2)
+- **F-S1 (SHOULD, test only).** The `matchMedia` stub in `themeToggleClick.test.ts` now records its `change` handler, and its `matches` is live like a real MediaQueryList. A new case mounts the button with the device light, flips the device to dark and calls the handler. The last state must then be `true`, and after cleanup the handler must be gone.
+  - Mutation: deleting `media?.addEventListener("change", onDevice)` → the new case failed.
+  - Mutation: deleting `media?.removeEventListener(...)` → the same case failed.
+- **F-N1.**
+  - `ThemeSegmented` now takes an optional `choice`.
+  - New `src/components/chrome/ThemeSegmentedServer.tsx`, an async wrapper that reads the `theme` cookie the way ThemeToggle does. The staff and admin «حسابي» pages mount it, so a stored light/dark choice is already pressed at SSR.
+  - With no cookie, or a `system` one, neither segment is pressed until mount (D50).
+  - «المزيد» is a client component, closed at hydration, so it keeps reading the cookie on mount (threading the prop would mean editing nav's RoleNav).
+  - Test: `themePlaces.test.ts` renders with `react-dom/static` and checks the pressed state for the cookies dark, light, system and none, on both pages.
+  - Mutation: the wrapper drops `choice` → the dark and light cases failed.
+  - Mutation: the client ignores the prop → the same 2 cases failed.
+  - Equivalent mutation: passing a raw `system` through unchanged survives. It is equivalent because a shown "system" matches neither segment, so nothing is pressed either way, and mount reconciles it to no choice.
+- **F-N2.** The `globals.css` comment above `.theme-light-only` now says the icon names the target (D50).
+- Gates: `tsc` 0 · vitest 138 files / 2024 tests · build 0 (under the lock) · bundles re-measured, max +6.2 KB gz vs baseline (`/owner`).
