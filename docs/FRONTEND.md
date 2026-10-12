@@ -220,3 +220,27 @@ Authoritative spec: `docs/V13-SPEC.md` (the product owner's; it outranks the rul
 - **Tests:** component tests are `.test.ts` files rendering with `createElement` + `renderToStaticMarkup` (first precedent: `nav.test.ts`, `categoryQuick.test.ts`); rules live in pure helpers where possible.
 - **Part 2 (D23–D28):** the owner home order is now quick actions → **«ابدأ هنا» first-run card** (four steps حركة → جهة → اتفاقية → موظف from `getOwnerDashboard().firstRun`; `hidden` until mounted, gone when all done or dismissed per device, `no-print`) → the four money cards → the rest as before (this amends V12-SPEC §1's order — D27 S4). The entry form is direction → amount → date → category → payment method → «تفاصيل أكثر» (`EntryDetails`: الجهة, ضمن نشاط, ملاحظة in a `hidden` container while collapsed; remembered per device in `ledger:detailsOpen`; auto-opens for an edited entry with any of them set, a `?partyId=`/`?projectId=` preset, or a server field error on one of them; payment mode has no disclosure). The party select in the entry form and both agreement forms (`PlanPartySelect`) ends with «+ جهة جديدة» for owners: an inline box (name, type عميل/مورد/أخرى as a nameless `Select`) calling `createParty`; the new party is upserted into the client-side option list and selected; nothing inside the box carries a `name`. `ConfirmDialog` is centred (`m-auto`).
 - **Part 3 (D29–D31, wording and first day):** `Toast` sits under the top bar at every width (`fixed top-20`, D34), `pointer-events-none` on the strip, success tone auto-dismissed after 3 s with no ✕, error tone until dismissed; `inline` renders the same strip in the page flow. Every entry save lands with `?saved=1` and `SavedNotice` shows «تم حفظ الحركة» once, in flow under the title (the parameter is dropped with `replaceState`); the plan page's `PaymentRecorded` shows the same toast beside its sr-only line. `LedgerFilters` is collapsed behind «تصفية» on phones (open when a filter is active; always open from md); every filter/report submit reads «عرض». `DateField` wraps every native date input (`lang="ar-SA"`, caption «الأحد 11-10-2026» from `dateCaption()`). The reports' three GET forms are one `ReportFilters` form (client, no validation import), rendered under the report on phones (`order-last md:order-none`). `ScheduleBuilder` shows «عدد الأقساط» and «تاريخ أول قسط» above «توليد» with the edit hint. «إقفال» and «إلغاء الإقفال» both confirm (supersedes c19). The staff-access row uses `Switch` «التعديل: مسموح / غير مسموح». The owner home shows `PendingJoinNotice` above the quick actions while a join request waits. Subtitles, helper lines, the dues empty state, the sheet row hint and the renames are listed in D29.
+
+## Category palette (v1.5 D52)
+The expense donut and the home wheel's ring 2 colour categories through one function, `categoryColour(key, rank)` in `src/features/dashboard/categoryColours.ts`: ranks 1–5 (largest first) → `--color-cat-1` … `--color-cat-5`, «أخرى» (and any rank past five) → `--color-cat-6`. A category therefore has one colour on the page. The six never reuse the semantic colours — money-in green, money-out red, `accent` green, salary gold — which keep their meanings in rings 1 and 3, the dial, badges and amounts. Tokens live in `src/app/globals.css` (`PALETTE.cat1`…`cat6` in `src/components/visualPalette.ts`); pinned with the measurements below by `src/lib/categoryPalette.test.ts`. Card: light `#ffffff`, dark `#172019`. ΔE = CIEDE2000.
+
+| Token | Family | Light | Dark | Nearest semantic ΔE (light / dark) | ΔE to the next colour, contrast (light / dark) | On the card (light / dark) |
+|---|---|---|---|---|---|---|
+| `cat-1` | petrol | `#2298c3` | `#6cc5e5` | money-in 40.7 / 33.7 | → cat-2: 54.1, 1.77:1 / 48.8, 1.62:1 | 3.31:1 / 8.56:1 |
+| `cat-2` | plum | `#a63f73` | `#cb76a1` | money-out 23.9 / 19.6 | → cat-3: 47.4, 1.17:1 / 46.6, 1.55:1 | 5.87:1 / 5.29:1 |
+| `cat-3` | teal | `#127c78` | `#1b7e73` | accent 18.6 / 20.2 | → cat-4: 31.9, 1.00:1 / 32.8, 1.82:1 | 5.02:1 / 3.40:1 |
+| `cat-4` | indigo | `#6865bd` | `#989ac7` | money-out 40.3 / 30.4 | → cat-5: 45.6, 1.26:1 / 37.9, 1.19:1 | 5.02:1 / 6.19:1 |
+| `cat-5` | clay | `#ac7339` | `#c18244` | gold 19.0 / 19.0 | → cat-6: 31.4, 1.96:1 / 30.8, 1.56:1 | 3.99:1 / 5.21:1 |
+| `cat-6` («أخرى») | slate | `#4f5259` | `#6c6f7a` | accent 27.3 / 32.5 | → cat-1: 30.5, 2.37:1 / 31.6, 2.57:1 | 7.83:1 / 3.34:1 |
+
+When a month has fewer than six slices the ring closes on rank k → rank 1, so rank 1 is also tested against ranks 2–5:
+
+| Pair | Light ΔE, contrast | Dark ΔE, contrast |
+|---|---|---|
+| cat-1 / cat-2 | 54.1, 1.77:1 | 48.8, 1.62:1 |
+| cat-1 / cat-3 | 20.4, 1.52:1 | 29.1, 2.51:1 |
+| cat-1 / cat-4 | 25.3, 1.52:1 | 23.4, 1.38:1 |
+| cat-1 / cat-5 | 44.2, 1.21:1 | 43.8, 1.64:1 |
+| cat-1 / cat-6 | 30.5, 2.37:1 | 31.6, 2.57:1 |
+
+Rules (tested): every colour ≥ ΔE 15 from each semantic colour in its theme; every pair that can sit side by side — consecutive ranks, 6 → 1, and 1 → k for k = 2…5 — has ΔE ≥ 20 and contrast ≥ 1.3:1 or ΔE ≥ 30; every colour ≥ 3:1 on the card (WCAG 1.4.11); `cat-6` is the least saturated. Any two of the six are ≥ ΔE 20.4 apart in light and 20.2 in dark. Colour is never the only signal: the donut's legend and the wheel's row 2 name every category with its amount; the arcs are separated by gaps.

@@ -283,3 +283,121 @@ M1 light `--color-accent` #006c35 → #006c36 → "keeps every pre-v1.5 colour t
   - Equivalent mutation: passing a raw `system` through unchanged survives. It is equivalent because a shown "system" matches neither segment, so nothing is pressed either way, and mount reconciles it to no choice.
 - **F-N2.** The `globals.css` comment above `.theme-light-only` now says the icon names the target (D50).
 - Gates: `tsc` 0 · vitest 138 files / 2024 tests · build 0 (under the lock) · bundles re-measured, max +6.2 KB gz vs baseline (`/owner`).
+
+## D52 — category palette (the user's ruling, 2026-10-12)
+
+### How the six were chosen
+- **Families:** petrol, plum, teal, indigo, clay and slate. Each family's light/dark pair keeps one hue and saturation; only the lightness differs.
+- **Search:** a scripted search in the scratchpad, using CIEDE2000 validated against Sharma's reference pairs.
+  - Order and lightness were chosen to maximise the smallest neighbour ΔE around the ring, in both themes at once.
+  - Hard limits: ΔE ≥ 18 from every semantic colour (a margin over the rule's 15); 3.3–9:1 on the card; chroma ≤ 55 (no neon); slate chroma ≤ 12.
+  - Tie-break: the all-pairs minimum.
+- **Result:** the smallest neighbour ΔE is 30.5. Every pair, neighbours or not, is ≥ 20.6 apart (light) and ≥ 22.5 (dark).
+
+### Measured table (card: light `#ffffff`, dark `--color-white` `#172019`; semantic set: accent, money-in, money-out, gold in each theme)
+| token | family | light | dark | nearest semantic ΔE (light / dark) | ΔE to next, contrast (light / dark) | card contrast (light / dark) |
+|---|---|---|---|---|---|---|
+| cat-1 | petrol | `#2298c3` | `#6cc5e5` | money-in 40.7 / money-in 33.7 | → cat-2: 54.1, 1.77:1 / 48.8, 1.62:1 | 3.31:1 / 8.56:1 |
+| cat-2 | plum | `#a63f73` | `#cb76a1` | money-out 23.9 / money-out 19.6 | → cat-3: 52.2, 1.64:1 / 46.6, 1.55:1 | 5.87:1 / 5.29:1 |
+| cat-3 | teal | `#20978a` | `#1b7e73` | money-in 18.7 / accent 20.2 | → cat-4: 36.4, 1.40:1 / 36.9, 2.37:1 | 3.59:1 / 3.40:1 |
+| cat-4 | indigo | `#6865bd` | `#b2b0dd` | money-out 40.3 / money-out 29.7 | → cat-5: 45.6, 1.26:1 / 38.9, 1.55:1 | 5.02:1 / 8.07:1 |
+| cat-5 | clay | `#ac7339` | `#c18244` | gold 19.0 / gold 19.0 | → cat-6: 31.4, 1.96:1 / 30.8, 1.56:1 | 3.99:1 / 5.21:1 |
+| cat-6 | slate («أخرى») | `#4f5259` | `#6c6f7a` | accent 27.3 / accent 32.5 | → cat-1: 30.5, 2.37:1 / 31.6, 2.57:1 | 7.83:1 / 3.34:1 |
+
+Every neighbour pair is ΔE ≥ 30, so the "contrast ≥ 1.3:1 or ΔE ≥ 30" rule holds through ΔE even where the contrast is 1.26:1 (cat-4 → cat-5, light). Chroma C*: slate 5 (light) / 7 (dark); the other five are 24–52.
+
+### Code
+- `globals.css`: `--color-cat-1…6` are in `@theme static` (light) and in both dark blocks.
+- `visualPalette.ts`: `PALETTE.cat1…cat6`.
+- `categoryColours.ts`: `CATEGORY_COLOURS` is cat1…cat5. The new `OTHER_COLOUR` is cat6, used for «أخرى» and any rank past five.
+- Light mode changes only on the donut and ring 2. `LIGHT_AT_MAIN` (every pre-existing token) still passes. The six new light values are added to `LIGHT_NEW` with a D52 comment.
+- `themeContrast`'s `PALETTE_AT_MAIN` now excludes the `cat*` keys; their pins live in the new test.
+- The project ring (`CategoryRing.tsx`) is unchanged: it is outside D52.
+
+### Tests
+- **New `src/lib/categoryPalette.test.ts`** (34 cases):
+  - Sharma reference pairs, ×6 in both argument orders;
+  - the light and dark values are pinned, and the system dark block matches the explicit one;
+  - `PALETTE.cat*` read the cat tokens;
+  - the donut and the wheel import `categoryColour`;
+  - in each theme: no category colour equals, or is within ΔE 15 of, accent, money-in, money-out or gold; each neighbour pair (6–1 included) is ΔE ≥ 20 and has contrast ≥ 1.3 or ΔE ≥ 30; each colour is ≥ 3:1 on the card; cat-6 has the lowest chroma.
+- **Maths:** `deltaE2000`, `deltaE2000Lab` and `chromaOf` are in `src/lib/themeCss.testkit.ts`.
+- **`wheelFollowup.test.ts` updated:**
+  - order pin: cat1…cat5, then cat6;
+  - «أخرى» and past-five are cat6;
+  - new: no ring-2 or donut colour is a semantic PALETTE entry;
+  - the arcs-stroked case now checks all six cat colours.
+
+### Mutations (scripted, cp backup restored at once)
+| # | Mutation | Cases that failed |
+|---|---|---|
+| P1 | light cat-3 set to money-in | pins, exclusion vs money-in and vs accent, `LIGHT_NEW` |
+| P2 | dark cat-5 set to `#c9a64a` (within ΔE 15 of gold) | exclusion vs gold (dark), dark pins, system-block pin |
+| P3 | dark cat-2 set to `#6cb5e5` (next to cat-1) | dark "cat-1 reads apart from the next one", pins |
+| P4 | light cat-6 set to `#a0a3aa` (< 3:1) | "cat-6 is ≥ 3:1 on the card" (light), pins |
+| P5 | light cat-6 set to `#7a4f8a` (saturated) | "«أخرى» (cat-6) is the most neutral" (light), pins |
+| P6 | light cat-6 set to `#3f8aa8` (too close to cat-1) | light "cat-6 reads apart from the next one", pins |
+| P7 | `OTHER_COLOUR` set to cat5 | 3 `wheelFollowup` cases |
+| P8 | `CATEGORY_COLOURS` back to the v1.3 colours | 4 cases, including "no category colour is a semantic one" |
+| P9 | ring 2 shifted one rank off the donut | 4 cases, including "for each rank ring 2's colour is the donut's" |
+| P10 | `PALETTE.cat1` reads cat-2 | the PALETTE case, the order case |
+| P11 | the ΔE rotation term (Rt) dropped | the 2 Sharma pairs that exercise it |
+
+### Gates
+- `tsc` 0.
+- vitest: 139 files / 2072 tests.
+- Build exit 0 (placeholder `DATABASE_URL`, under `.claude/build.lock`).
+- Bundles: `progress/v15/bundles-d52-theme.json`. Max +6.2 KB gz vs baseline (`/owner`); ±0.0 vs `bundles-followup-theme.json`.
+
+### Screenshot
+`progress/v15/qa/d52-home-390-{light,dark}.png`: the real `WheelCard` and `ExpenseDonut`, bundled client-side with esbuild in the scratchpad and served with the built CSS. They use reduced motion (the end state) and the fixture from `wheelFollowup.test.ts`. Ring 2, row 2's swatches and the donut show the same six colours in the same order, and none of them reads as the in/out/accent/gold of rings 1 and 3.
+
+### Note for home
+`ExpenseDonut.tsx`'s comment (line 28) still says «أخرى» is "always grey". It is now cat-6 slate. That is `home`'s file, so I left it.
+
+### D52 review (reviewer D52-S1, N2, N3)
+- **D52-S1.** The ruling extends the neighbour rule to the consecutive pairs plus (1, k) for k = 2…6: without «أخرى» the ring closes on rank k → 1. Two pairs failed it: light cat-1/cat-3 (ΔE 20.6, 1.08:1) and dark cat-1/cat-4 (ΔE 23.4, 1.06:1).
+  - I searched for the smallest change (one colour per theme; hue/saturation/lightness perturbations) that keeps every D52 rule and keeps ΔE ≥ 18 from the semantic colours.
+  - Light cat-3 `#20978a` → **`#127c78`** (teal, darker; ΔE 10.2 from the old value).
+  - Dark cat-4 `#b2b0dd` → **`#989ac7`** (indigo, a little darker; ΔE 6.8).
+  - Nothing else moved.
+  - Getting ΔE ≥ 22 on light 1–3 would have needed ΔE 19 of change to the teal, so I kept the minimal fix: 20.4 at 1.52:1, which meets the rule on contrast.
+- **Test.** `categoryPalette.test.ts` checks `NEIGHBOURS` = 1–2 … 5–6, 6–1, and 1–3 / 1–4 / 1–5. A coverage case pins that exact pair set.
+  - Mutation S1a: light cat-3 back to `#20978a` → "light theme cat-1 and cat-3 read apart" failed (plus the pin).
+  - Mutation S1b: dark cat-4 back to `#b2b0dd` → "dark theme cat-1 and cat-4 read apart" failed (plus the pins).
+  - Mutation S1c: the 1–k pairs dropped from the test → both coverage cases failed.
+- **N2.** The one-function check now runs on whitespace-free source. It accepts any import shape that names `categoryColour` from `…/categoryColours` and requires a call.
+  - Proof: a multi-line import passes.
+  - Mutation: the donut stops calling the function → the case failed.
+- **N3.** Sharma rows 9–15 (the hue wrap at 180°) are added, both argument orders.
+  - Mutation: the mean hue never wraps → rows 11, 12, 15 (and row 17) failed.
+  - Mutation: Δh never wraps → row 17 failed.
+  - Equivalent mutation: forcing the +360 branch survives because the T terms are periodic and hb ≈ 90° or 450° sits far from 275° in the rotation term.
+
+#### Updated table (supersedes the one above)
+| token | family | light | dark | nearest semantic ΔE (light / dark) | ΔE to next, contrast (light / dark) | card contrast (light / dark) |
+|---|---|---|---|---|---|---|
+| cat-1 | petrol | `#2298c3` | `#6cc5e5` | money-in 40.7 / money-in 33.7 | → cat-2: 54.1, 1.77:1 / 48.8, 1.62:1 | 3.31:1 / 8.56:1 |
+| cat-2 | plum | `#a63f73` | `#cb76a1` | money-out 23.9 / money-out 19.6 | → cat-3: 47.4, 1.17:1 / 46.6, 1.55:1 | 5.87:1 / 5.29:1 |
+| cat-3 | teal | `#127c78` | `#1b7e73` | accent 18.6 / accent 20.2 | → cat-4: 31.9, 1.00:1 / 32.8, 1.82:1 | 5.02:1 / 3.40:1 |
+| cat-4 | indigo | `#6865bd` | `#989ac7` | money-out 40.3 / money-out 30.4 | → cat-5: 45.6, 1.26:1 / 37.9, 1.19:1 | 5.02:1 / 6.19:1 |
+| cat-5 | clay | `#ac7339` | `#c18244` | gold 19.0 / gold 19.0 | → cat-6: 31.4, 1.96:1 / 30.8, 1.56:1 | 3.99:1 / 5.21:1 |
+| cat-6 | slate («أخرى») | `#4f5259` | `#6c6f7a` | accent 27.3 / accent 32.5 | → cat-1: 30.5, 2.37:1 / 31.6, 2.57:1 | 7.83:1 / 3.34:1 |
+
+| pair (the ring closes on rank k → 1) | light ΔE, contrast | dark ΔE, contrast |
+|---|---|---|
+| cat-1 / cat-2 | 54.1, 1.77:1 | 48.8, 1.62:1 |
+| cat-1 / cat-3 | 20.4, 1.52:1 | 29.1, 2.51:1 |
+| cat-1 / cat-4 | 25.3, 1.52:1 | 23.4, 1.38:1 |
+| cat-1 / cat-5 | 44.2, 1.21:1 | 43.8, 1.64:1 |
+| cat-1 / cat-6 | 30.5, 2.37:1 | 31.6, 2.57:1 |
+
+- Every pair the rule names passes: ΔE ≥ 20, and contrast ≥ 1.3:1 or ΔE ≥ 30.
+- Any two of the six (any pair) are ≥ ΔE 20.4 apart in light and ≥ 20.2 in dark.
+- Chroma C*: light 35 / 48 / 29 / 52 / 44 / **5**; dark 30 / 40 / 30 / 25 / 46 / **7**. Slate stays the most neutral.
+
+Gates:
+- `tsc` 0; vitest 139 files / 2087 tests.
+- Build exit 0 (under `.claude/build.lock`).
+- Bundles `bundles-d52-theme.json`: max +6.2 KB gz vs baseline (`/owner`), unchanged.
+- `d52-home-390-{light,dark}.png` re-shot.

@@ -50,7 +50,8 @@ describe("dark contrast (C1: text and badges ≥ 4.5:1 on their surfaces)", () =
 });
 
 /** PALETTE before v1.5 (hexes); now token references whose light value must match. */
-const PALETTE_AT_MAIN: Record<keyof typeof PALETTE, string> = {
+type CatKey = `cat${1 | 2 | 3 | 4 | 5 | 6}`; // D52, new: pinned in categoryPalette.test.ts
+const PALETTE_AT_MAIN: Record<Exclude<keyof typeof PALETTE, CatKey>, string> = {
   green: "#006c35",
   greenDark: "#004d26",
   greenSoft: "#e8f3ec",

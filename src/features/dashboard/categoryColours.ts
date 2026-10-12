@@ -7,10 +7,18 @@
  */
 import { PALETTE } from "@/components/visualPalette";
 
-/** The donut's v1.3 order, by rank: largest first. */
-export const CATEGORY_COLOURS = [PALETTE.out, PALETTE.amber, PALETTE.gold, PALETTE.blue, PALETTE.teal] as const;
+/**
+ * D52: by rank, largest first — cat-1 … cat-5. None is a semantic colour
+ * (money in/out, accent, gold): a category never reads as income, expense or
+ * salary. Neighbours (and 6–1 around the ring) are ΔE ≥ 20 apart; each is
+ * ≥ 3:1 on the card in both themes (src/lib/categoryPalette.test.ts).
+ */
+export const CATEGORY_COLOURS = [PALETTE.cat1, PALETTE.cat2, PALETTE.cat3, PALETTE.cat4, PALETTE.cat5] as const;
 
-/** A slice's colour by its rank in the top five; «أخرى» (and any rank past five) is grey. */
+/** «أخرى» (and any rank past five): cat-6, the most neutral of the six. */
+export const OTHER_COLOUR = PALETTE.cat6;
+
+/** A slice's colour by its rank in the top five; «أخرى» (and any rank past five) is cat-6. */
 export function categoryColour(key: string, rank: number): string {
-  return key === "other" ? PALETTE.grey : (CATEGORY_COLOURS[rank] ?? PALETTE.grey);
+  return key === "other" ? OTHER_COLOUR : (CATEGORY_COLOURS[rank] ?? OTHER_COLOUR);
 }

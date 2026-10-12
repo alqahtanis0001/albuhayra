@@ -68,15 +68,21 @@ describe("D47: one colour per category — ring 2 = the donut", () => {
     ring2.forEach((s, rank) => expect(s.colour, s.name).toBe(donutColours[rank]));
   });
 
-  it("the donut's v1.3 order: out, amber, gold, blue, teal, «أخرى» grey", () => {
-    expect(ring2.map((s) => s.colour)).toEqual([PALETTE.out, PALETTE.amber, PALETTE.gold, PALETTE.blue, PALETTE.teal, PALETTE.grey]);
+  it("the category palette's order (D52): cat-1 … cat-5, «أخرى» cat-6", () => {
+    expect(ring2.map((s) => s.colour)).toEqual([PALETTE.cat1, PALETTE.cat2, PALETTE.cat3, PALETTE.cat4, PALETTE.cat5, PALETTE.cat6]);
+    expect(ring2.map((s) => s.colour)).toEqual([1, 2, 3, 4, 5, 6].map((n) => `var(--color-cat-${n})`));
   });
 
-  it("«أخرى» is grey at any rank; past the fifth rank is grey too", () => {
-    expect(categoryColour("other", 1)).toBe(PALETTE.grey);
-    expect(categoryColour("c9", 5)).toBe(PALETTE.grey);
+  it("«أخرى» is cat-6 at any rank; past the fifth rank is cat-6 too", () => {
+    expect(categoryColour("other", 1)).toBe(PALETTE.cat6);
+    expect(categoryColour("c9", 5)).toBe(PALETTE.cat6);
     const two = buildWheelModel({ ...INPUT, topOutCategories: TOP.slice(0, 1) }, t.wheel).rings[1].segments;
-    expect(two.map((s) => [s.id, s.colour])).toEqual([["r2:c1", PALETTE.out], ["r2:other", PALETTE.grey]]);
+    expect(two.map((s) => [s.id, s.colour])).toEqual([["r2:c1", PALETTE.cat1], ["r2:other", PALETTE.cat6]]);
+  });
+
+  it("no category colour is a semantic one (D52): never money in/out, accent or gold", () => {
+    const semantic = [PALETTE.in, PALETTE.out, PALETTE.green, PALETTE.gold, PALETTE.greenDark];
+    for (const c of [...ring2.map((s) => s.colour), ...swatchColours(donut)]) expect(semantic).not.toContain(c);
   });
 
   it("row 2's swatches follow ring 2", () => {
@@ -92,7 +98,7 @@ describe("D47: one colour per category — ring 2 = the donut", () => {
     const svg = renderToStaticMarkup(
       createElement(WheelSvg, { model, focused: null, centre: centreText(null, model, t.wheel), centreTone: "", animate: false, handlers }),
     );
-    for (const c of [PALETTE.amber, PALETTE.blue, PALETTE.teal]) expect(svg).toContain(`stroke:${c};stroke-dasharray:1`);
+    for (const c of [PALETTE.cat1, PALETTE.cat2, PALETTE.cat3, PALETTE.cat4, PALETTE.cat5, PALETTE.cat6]) expect(svg).toContain(`stroke:${c};stroke-dasharray:1`);
   });
 });
 

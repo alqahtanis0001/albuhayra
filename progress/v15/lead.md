@@ -36,3 +36,4 @@ Rulings where the reviewer offered options: D22 ring 3 keeps salary arrears (ر�
 | CP | Commit | Gates | Notes |
 |---|---|---|---|
 | follow-up | v1.5: follow-up → merge into main | tsc 0 · 138/2025 · build 0 · max +6.2 KB gz | D45–D51; reviewer closed; qa-visual 0 B / 0 S; task 6 → 2 taps |
+| category palette | v1.5: category palette → merge into main | tsc 0 · 139/2087 · build 0 · max +6.2 KB gz | D52; reviewer closed (S1 short-ring pairs fixed); qa-visual 0 B / 0 S |
