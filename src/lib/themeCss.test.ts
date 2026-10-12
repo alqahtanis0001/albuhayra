@@ -71,6 +71,14 @@ const LIGHT_NEW: Record<string, string> = {
   "--color-chart-teal": "#0f766e",
   "--color-chart-grey": "#737373",
   "--color-chart-grid": "#cccccc", // recharts' default grid / cursor / tooltip border
+  // D52 (the user's ruling): new light values for the donut and ring 2 only —
+  // the one place light mode changes. Rules: src/lib/categoryPalette.test.ts.
+  "--color-cat-1": "#2298c3",
+  "--color-cat-2": "#a63f73",
+  "--color-cat-3": "#127c78",
+  "--color-cat-4": "#6865bd",
+  "--color-cat-5": "#ac7339",
+  "--color-cat-6": "#4f5259",
   "--color-page": "#f4f6f5", // .auth-bg / .app-bg base
   "--color-page-veil": "rgb(244 246 245 / 0.5)",
   "--color-nav-pulse": "#d2e7da",

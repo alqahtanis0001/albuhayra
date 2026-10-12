@@ -25,7 +25,7 @@ import { formatPercent } from "./percent";
 export type DonutEntry = DonutSlice & { href: string | null };
 
 /**
- * Named slices in order; «أخرى» always grey. Colour is backed by the legend.
+ * Named slices in order; «أخرى» is cat-6, the neutral slate (D52). Colour is backed by the legend.
  * v1.5 (D47): the same function colours the wheel's ring 2.
  */
 function colourOf(entry: DonutEntry, i: number): string {

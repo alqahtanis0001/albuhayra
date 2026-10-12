@@ -94,6 +94,17 @@
   --color-chart-teal: #0f766e;
   --color-chart-grey: #737373;
   --color-chart-grid: #cccccc;
+  /* D52: the six category colours (expense donut + the wheel's ring 2), in
+     donut order; none reads as money-in/out, accent or gold. Neighbours read
+     apart around the ring, and cat-1 against every rank (a ring without
+     «أخرى» closes on rank k → 1; D52-S1). Measured in progress/v15/theme.md
+     › D52. */
+  --color-cat-1: #2298c3; /* petrol */
+  --color-cat-2: #a63f73; /* plum */
+  --color-cat-3: #127c78; /* teal */
+  --color-cat-4: #6865bd; /* indigo */
+  --color-cat-5: #ac7339; /* clay */
+  --color-cat-6: #4f5259; /* slate «أخرى» */
   --color-page: #f4f6f5;
   --color-page-veil: rgb(244 246 245 / 0.5);
   --color-nav-pulse: #d2e7da;
@@ -192,6 +203,12 @@
     --color-chart-teal: #3fbfaf;
     --color-chart-grey: #8a9890;
     --color-chart-grid: #34443a;
+    --color-cat-1: #6cc5e5;
+    --color-cat-2: #cb76a1;
+    --color-cat-3: #1b7e73;
+    --color-cat-4: #989ac7;
+    --color-cat-5: #c18244;
+    --color-cat-6: #6c6f7a;
     --color-page: #0e1411;
     --color-page-veil: rgb(14 20 17 / 0);
     --page-blend: multiply;
@@ -271,6 +288,12 @@
     --color-chart-teal: #3fbfaf;
     --color-chart-grey: #8a9890;
     --color-chart-grid: #34443a;
+    --color-cat-1: #6cc5e5;
+    --color-cat-2: #cb76a1;
+    --color-cat-3: #1b7e73;
+    --color-cat-4: #989ac7;
+    --color-cat-5: #c18244;
+    --color-cat-6: #6c6f7a;
     --color-page: #0e1411;
     --color-page-veil: rgb(14 20 17 / 0);
     --page-blend: multiply;

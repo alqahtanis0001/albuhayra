@@ -729,3 +729,107 @@ I took a fresh scratch copy (`scratchpad/rv3`): `tsc` 0, vitest **138 files / 20
 - F-N3 needed no change.
 
 Verdict: **follow-up review closed.**
+
+## D52 review — category palette (tree on `claude/v15-wheel-nav-theme` from `main` `dfdace4`, uncommitted, 2026-10-12)
+
+What I read: the user's ruling verbatim and D52 in `docs/V15-SPEC.md`, `docs/FRONTEND.md › Category palette (v1.5 D52)`, `progress/v15/theme.md › D52`, `git diff origin/main` plus the untracked `src/lib/categoryPalette.test.ts`, the bundles JSON and both 390 px screenshots.
+
+Gates, which I re-ran myself:
+- `tsc --noEmit` gave 0.
+- vitest: **139 files / 2072 tests** green.
+- The five D52-related files (categoryPalette, themeCss, themeContrast, tokenLint, wheelFollowup) gave 216/216.
+
+### Checks
+- **Semantic exclusion: holds.** The set is `accent`, `money-in`, `money-out`, `gold`, which are exactly `TONE_VAR` (rings 1 and 3, the dial) and `PALETTE.in/out/green/gold`.
+  - I measured every value with my own Python CIEDE2000, written independently of the testkit.
+  - The nearest semantic ΔE is 18.7 in light (cat-3 vs money-in) and 19.0 in dark (cat-5 vs gold).
+  - No category value equals a semantic one.
+  - `wheelFollowup` also asserts that no ring-2 or donut colour is a semantic `PALETTE` entry.
+- **Neighbours in donut order (1–2 … 5–6, 6–1): hold.** Every neighbour pair is ΔE ≥ 30.5. The cat-4→5 light pair is 1.26:1 but ΔE 45.6, so it passes through the ΔE clause.
+- **Card ≥ 3:1: holds.**
+  - Light card `#ffffff`: lowest is cat-1 at 3.31:1.
+  - Dark card `#172019`: lowest is cat-6 at 3.34:1.
+- **«أخرى» = cat-6: holds.**
+  - `categoryColour` gives `key === "other"` → `OTHER_COLOUR` = `PALETTE.cat6`, and a rank past five also gets cat-6.
+  - cat-6 has the lowest chroma: C* 5 in light, 7 in dark. The other five are 24–52.
+- **One function: holds.**
+  - `categoryColour` has only two callers: `ExpenseDonut.colourOf` and ring 2 in `wheelModel`. `CATEGORY_COLOURS`, `OTHER_COLOUR` and `cat*` are used nowhere else.
+  - `CategoryRing.tsx` (projects) is untouched, which is right because it is outside D52.
+  - The screenshots show the same six colours in the same order in ring 2, row 2's swatches and the donut, in both themes.
+- **ΔE implementation: correct.**
+  - The six Sharma pairs in the test pass.
+  - I ran 14 further Sharma pairs against the testkit's `deltaE2000Lab` in both argument orders, all within 5e-5. They cover rows 2, 3, 4, 9, 11, 13, 15, 16, 18, 19, 20 and three of rows 22–33, including the hue-mean and Δh′ wrap cases in rows 9–15.
+  - The testkit's sRGB→Lab (D65) and WCAG contrast reproduce every number in the doc table to the printed digit.
+- **Light mode unchanged except the donut and ring 2: holds.**
+  - The `globals.css` diff adds 18 lines: 6 light, 6 + 6 dark. No existing token value changed.
+  - `LIGHT_AT_MAIN` still passes. The cat keys are excluded from `PALETTE_AT_MAIN` and pinned in the new test.
+- **Token lint / hex: clean.**
+  - New hex appears only in `globals.css` and in test files (D12).
+  - `tokenLint.test.ts` is green.
+  - The explicit and system dark blocks carry identical cat values, which is pinned twice.
+- **Doc table = `globals.css`: holds.** I checked all 12 values by script. All measured columns in `FRONTEND.md` and `theme.md` match my independent numbers.
+- **Mutations:** I re-applied 11 on a scratch copy (`scratchpad/d52/repo`). All were killed.
+
+| # | Mutation | Failed |
+|---|---|---|
+| R1 | dark cat-3 → `#2f9f66` (ΔE 3.7 from dark accent), both dark blocks | 4 (exclusion vs accent and money-in, pins) |
+| R2 | `categoryColour` ignores `"other"` | 1 («أخرى» is cat-6 at any rank) |
+| R3 | donut `colourOf` uses `i + 1` | 1 (ring 2's colour is the donut's, per rank) |
+| R4 | light cat-1 → `#4aaed6` (2.53:1) | 3 (card 3:1, pins, `LIGHT_NEW`) |
+| R5 | explicit dark cat-6 only changed | 2 (pins, explicit = system) |
+| R6 | ring 2 inlines its own equivalent palette | 1 (the one-function import check) |
+| R7 | CIEDE2000 hue-mean wrap branch dropped | 1 (Sharma 27.1492) |
+| R8 | CIEDE2000 Δh′ ±360 wrap dropped | 1 (Sharma 27.1492) |
+| R9 | CIEDE2000 G term zeroed | 6 Sharma pairs |
+| R10 | `PALETTE.cat6` → `--color-chart-grey` | 2 |
+| R11 | light cat-5 = gold `#c9a227` | 4 (exclusion vs gold, card, pins, `LIGHT_NEW`) |
+
+### Findings
+- **D52-S1 (SHOULD, lead/theme: a decision or a test).** The neighbour rule covers only the fixed ring of six, but shorter rings close on other pairs.
+  - `donutSlices` drops «أخرى» when `rest` is 0. So a month with three or four categories ends the ring on cat-3 or cat-4, which then touches cat-1. Both the wheel (3° gaps) and the donut (2 px card stroke) are closed rings.
+  - Light cat-1/cat-3, the petrol `#2298c3` beside the teal `#20978a`: ΔE 20.6 at **1.08:1**.
+  - Dark cat-1/cat-4, `#6cc5e5` beside `#b2b0dd`: ΔE 23.4 at **1.06:1**.
+  - Both pairs pass "ΔE ≥ 20" but fail D52's own "contrast ≥ 1.3:1 or ΔE ≥ 30". The user asked for "contrast between neighbours", and in those months these colours are neighbours.
+  - The only other pair below the bar is dark cat-3/cat-6 (23.6, 1.02:1). It needs «أخرى» with only three named categories, which `donutSlices` cannot produce today.
+  - Mitigations: segment gaps, and every slice is named with its amount in the legend and row 2.
+  - The lead should either record that D52's pairs are the fixed six and accept the short-ring wrap (gaps plus legend), or extend the test to every pair that can touch, (1, k) for k = 2…5. If the test is extended, cat-1/cat-3 in light and cat-1/cat-4 in dark need a lightness change.
+- **D52-N1 (NOTE, lead).** `docs/V15-SPEC.md` D47 still names the old colour order ("`out`, `amber`, `gold`, `blue`, `teal`, «أخرى» `grey`") with no note that D52 supersedes it. That is the same kind of item as F-N2.
+- **D52-N2 (NOTE, theme).** The "same function" test is a regex on the import line in `ExpenseDonut.tsx` and `wheelModel.ts`.
+  - It killed R6, and `wheelFollowup` covers the behaviour (per-rank equality).
+  - A reformatted import, e.g. `import { categoryColour, X }`, would false-fail it. That is acceptable but brittle.
+- **D52-N3 (NOTE).** The testkit's wrap branches (R7, R8) are each caught by a single Sharma pair (17). Sharma rows 9–15 target exactly these branches; adding two of them would make the coverage deliberate. The maths is correct today.
+- **D52-N4 (NOTE, design, by the ruling).** Light cat-3 teal and dark cat-5 clay sit near the retired or other chart tokens:
+  - light cat-3 vs `chart-teal`: ΔE 12.1;
+  - dark cat-3 vs `accent-3`: 11.5;
+  - cat-5 vs `chart-amber`: 11.2 / 9.8.
+  - Those tokens are not in the semantic set and are not on the home page (D50), so no action is needed.
+- I saw a transient broken comment opener in `ExpenseDonut.tsx` while `home` was mid-edit. It was re-read clean: the comment edit is the only change and `tsc` is 0.
+
+### Verdict
+No BLOCKER. One SHOULD (D52-S1, which a logged Decision can close) and four NOTEs. The palette, the measurements, the docs and the tests are otherwise correct as written.
+
+### D52 review — recheck (theme's S1/N2/N3 fixes, lead's N1 and table rewrite)
+I took a fresh scratch copy (`scratchpad/d52/r2`). `tsc` gave 0. vitest: **139 files / 2087 tests** green; the five D52 files 231/231.
+- **D52-S1 — CLOSED.**
+  - New values: light cat-3 `#127c78`, dark cat-4 `#989ac7`. I re-measured them with my own CIEDE2000.
+  - Every pair that can touch passes "ΔE ≥ 20 and (contrast ≥ 1.3 or ΔE ≥ 30)" in both themes. Those pairs are 1–2 … 5–6, 6–1 and 1–k.
+  - Light: cat-1/cat-3 20.4, 1.52:1; cat-2/cat-3 47.4, 1.17:1; cat-3/cat-4 31.9, 1.00:1 (passes through ΔE ≥ 30); cat-3 on the card 5.02:1; cat-3's nearest semantic colour is accent at 18.6.
+  - Dark: cat-1/cat-4 23.4, 1.38:1; cat-3/cat-4 32.8, 1.82:1; cat-4/cat-5 37.9, 1.19:1 (passes through ΔE ≥ 30); cat-4 on the card 6.19:1; cat-4's nearest semantic colour is money-out at 30.4.
+  - All-pairs minimum: 20.4 light, 20.2 dark.
+  - The pairs still under the bar cannot touch: 2/4 in both themes, and 3/6 in dark, which needs «أخرى» after rank 3 and `donutSlices` cannot produce that.
+  - Re-applied mutations:
+    - S1a (light cat-3 back to `#20978a`): 3 failed, including "cat-1 and cat-3 read apart".
+    - S1b (dark cat-4 back to `#b2b0dd`): 3 failed, including "cat-1 and cat-4 read apart".
+    - S1c (the 1–k pairs dropped from `NEIGHBOURS`): 2 failed, the coverage cases.
+- **D52-N1 — CLOSED.** D47 carries "(Colour order superseded by D52 …)".
+- **D52-N2 — CLOSED.**
+  - The check now strips whitespace. A multi-line, merged import still passes, which I tested (exit 0).
+  - The inline-palette mutation (N2b) still fails 1.
+- **D52-N3 — CLOSED.**
+  - R7 (the hue-mean wrap dropped) now fails 4 Sharma pairs instead of 1.
+  - R8 (the Δh′ wrap dropped) is still caught only by pair 17: rows 9–15 do not reach that branch. It is killed, so this is informational only.
+- **Doc table: matches.** All 12 hex values in `docs/FRONTEND.md › Category palette (v1.5 D52)` equal `globals.css`, checked by script. The dark values appear in both dark blocks.
+  - The table's measured numbers and the new 1–k table match mine to the printed digit.
+- **New NOTE D52-N5 (no action).** Light cat-3 `#127c78` is now ΔE 2.8 from `--color-chart-teal` (`#0f766e`). That token is not semantic, and its only user is the project `CategoryRing` (`PALETTE.teal`), which is not on the home page. The two never appear together.
+
+Verdict: **D52 review closed.**

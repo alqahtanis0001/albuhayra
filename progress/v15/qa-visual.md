@@ -142,3 +142,44 @@ Start on السجل (as in (g), the task begins away from the home). **2 taps:**
 - **Staff and admin** (top bar at 375/390/480, «المظهر» at the top of `/staff/account` and `/admin/account` below 480, no h-scroll): no login — the classifier refused the psql password reset the brief prescribes. Code read only: both pages render `ThemeSegmented` right under the h1, and its class hides it from 480 px; the top bar is the same component for all roles.
 - Task 6 **as أبو فهد himself** (stand-in owner used; path and count are structural).
 - Pre-hydration paint on a real device (checked via JS-off HTML and the SSR attribute instead); Safari/iOS.
+
+## D52 — category palette (qa-visual, 2026-10-12)
+Real build on the D52 working tree, built after the coordinator's message about the `ExpenseDonut.tsx` comment fix (build began after it; `tsc`/`next build` clean). `npm start` on :3000 against the local `ledger` database, owner `rich@qa.test`, read-only (no DB writes). Playwright from `/opt/node-tools`, `reducedMotion: reduce`, colours read with `getComputedStyle` from the ring-2 `<path>` stroke, the row-2 swatch `background-color`, the donut sector `fill` and the donut legend swatch. Light = device light, no cookie; dark = set through «المزيد» → «المظهر» → «داكن» (the page then reads `data-theme="dark"`). The test ended with «فاتح» tapped again. JPEGs in `progress/v15/qa/d52/`.
+
+### Same colour per category (ring 2 = row 2 = donut sector = donut legend), all four agree in each run
+| Rank · category (this data) | Token | Light 390 (and 1280) | Dark 390 |
+|---|---|---|---|
+| 1 مشتريات 7,100 | cat-1 | `rgb(34,152,195)` #2298c3 | `rgb(108,197,229)` #6cc5e5 |
+| 2 إيجار 3,000 | cat-2 | `rgb(166,63,115)` #a63f73 | `rgb(203,118,161)` #cb76a1 |
+| 3 كهرباء وماء 620 | cat-3 | `rgb(32,151,138)` #20978a | `rgb(27,126,115)` #1b7e73 |
+| 4 صيانة 380 | cat-4 | `rgb(104,101,189)` #6865bd | `rgb(178,176,221)` #b2b0dd |
+| 5 اتصالات 300 | cat-5 | `rgb(172,115,57)` #ac7339 | `rgb(193,130,68)` #c18244 |
+| أخرى 445 | cat-6 | `rgb(79,82,89)` #4f5259 | `rgb(108,111,122)` #6c6f7a |
+Semantic colours as drawn: rings 1/3 green = `accent` `rgb(0,108,53)` / `rgb(61,170,107)`; red = `money-out` `rgb(185,28,28)` / `rgb(240,138,126)`; ring-3 «رواتب الشهر», row-4 «يوم الرواتب» = `gold` `rgb(201,162,39)` / `rgb(216,182,74)`. `money-in` (`#15803d` / `#4cc27e`) is not drawn on the wheel but colours amounts elsewhere on the page. Card: `rgb(255,255,255)` / `rgb(23,32,25)`. The donut separator stroke equals the card in both themes. 1280 light gives the same values as 390 light. No horizontal scroll at 390 (scrollWidth 390) or 1280.
+
+### Measured from the computed colours (CIEDE2000, WCAG contrast); match the FRONTEND.md table
+| | Nearest semantic ΔE (L / D) | → next ΔE, contrast (L / D) | On card (L / D) |
+|---|---|---|---|
+| cat-1 | money-in 40.7 / 33.7 | 54.1, 1.77 / 48.8, 1.62 | 3.31 / 8.56 |
+| cat-2 | money-out 23.9 / 19.6 | 52.2, 1.64 / 46.6, 1.55 | 5.87 / 5.29 |
+| cat-3 | money-in 18.7 (accent 21.9) / accent 20.2 | 36.4, 1.40 / 36.9, 2.37 | 3.59 / 3.40 |
+| cat-4 | money-out 40.3 / 29.7 | 45.6, 1.26 / 38.9, 1.55 | 5.02 / 8.07 |
+| cat-5 | gold 19.0 / 19.1 | 31.4, 1.96 / 30.8, 1.56 | 3.99 / 5.21 |
+| cat-6 | accent 27.3 / 32.5 | → cat-1 30.5, 2.37 / 31.6, 2.57 | 7.83 / 3.34 |
+Closest pair of any two: light 20.6 (cat-1/cat-3), dark 22.5 (cat-2/cat-4). Every rule in D52 holds as measured: ≥ 15 from each semantic colour, neighbours ≥ 20 and ≥ 30 ΔE, and ≥ 3:1 on the card. Dark cat-5 vs gold is 19.1 here and 19.0 in the doc, a difference in rounding.
+
+### By eye (`wheel-390-{light,dark}-zoom.jpg`, `donut-390-{light,dark}.jpg`)
+- None of the six reads as income green, expense red or salary gold. Plum (rank 2) sits radially between ring 1's red and ring 3's red and still reads magenta/mauve against them in both themes. Clay (rank 5) sits just inside ring 3's gold arc and reads brown/orange against its yellow. Teal (rank 3) reads blue-green against the accent green in both themes.
+- Neighbouring arcs read apart. The short arcs (ranks 3–6, 17–36 px of arc) each show a distinct hue, and the segment gaps help.
+- Every arc is visible against the card in both themes, including dark teal and dark slate, which are the darkest.
+
+### Findings
+**BLOCKER**: none. **SHOULD**: none.
+
+**NOTE**
+- D52-N1: dark `cat-3` teal `#1b7e73` is darker than its light value and the dullest of the dark six: 3.40:1 on the card, and its nearest semantic colour is accent at ΔE 20.2. It reads as a deep teal, distinct from the green but the closest of the six to "a green" (`wheel-390-dark-zoom.jpg`, `donut-390-dark.jpg`). Within the rules.
+- D52-N2: the margins at the floor are cat-5 vs gold (19.0/19.1), cat-2 vs dark money-out (19.6) and light cat-3 vs money-in (18.7), all above 15. On the card, light cat-1 (3.31) and dark cat-6 (3.34) are closest to 3:1. All pass.
+- D52-N3: in `donut-390-dark.jpg` the first legend row has the hover background. This is the test pointer resting there, not a defect.
+- Not checked: Safari/iOS rendering, and the reports tab's «حسب التصنيف» view, which is outside the D52 brief.
+
+Screens: `home-390-{light,dark}-full.jpg`, `wheel-390-{light,dark}.jpg` + `-zoom.jpg`, `donut-390-{light,dark}.jpg`, `more-appearance-390-light.jpg`, `home-1280-light-full.jpg`.

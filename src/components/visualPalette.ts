@@ -25,6 +25,15 @@ export const PALETTE = {
   tealSoft: "var(--color-tint-teal)",
   grey: "var(--color-chart-grey)",
   greySoft: "var(--color-tint-grey)",
+  // v1.5 D52: the category colours (expense donut + the wheel's ring 2), in
+  // donut order — petrol, plum, teal, indigo, clay, slate («أخرى»). Kept
+  // apart from the semantic colours (money in/out, accent, gold).
+  cat1: "var(--color-cat-1)",
+  cat2: "var(--color-cat-2)",
+  cat3: "var(--color-cat-3)",
+  cat4: "var(--color-cat-4)",
+  cat5: "var(--color-cat-5)",
+  cat6: "var(--color-cat-6)",
 } as const;
 
 /** One point of a daily series (dashboard `daily30`, statement balance). */
