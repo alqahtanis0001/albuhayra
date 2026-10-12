@@ -46,3 +46,20 @@ export const COMMITMENT_HREF: Record<CommitmentKey, string> = {
   fromUs: "/owner/parties?type=SUPPLIER",
   salaries: "/owner/staff",
 };
+
+/** D48 (ring 1's «عرض»): the whole ledger this month — both directions. */
+export function monthLedgerHref(today: string): string {
+  const { from, to } = monthBounds(today);
+  return `/owner/transactions?${new URLSearchParams({ from, to }).toString()}`;
+}
+
+/**
+ * D48: the other rows' «عرض» — the reports tab (its own default period is this
+ * month; the literal equals `REPORTS_HREF` of the ledger page, pinned by a
+ * test, since that module imports the validation barrel), all parties, المستحقات.
+ */
+export const ROW_HREF = {
+  ring2: "/owner/transactions?tab=reports",
+  ring3: "/owner/parties",
+  dial: "/owner/dues",
+} as const;

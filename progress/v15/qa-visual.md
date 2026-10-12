@@ -84,3 +84,61 @@ Journal: `progress/v15/qa/owner-test/journal.txt`. Setup through the driver (cou
 | new | الشاشة قوية بالليل، أبيها غامقة | — → **4** (2 direct) | Looked for a setting in «المزيد» (2 wasted), then tried the small screen icon in the top bar: the first tap changed it to a sun and nothing else ("ما تغير شي"), the second turned everything dark (027–029); it stayed dark on the next page. |
 
 Measured on the same run: no horizontal scroll at 390 on any screen; the «+» sheet's seven rows are 56–72 px and fit at 390×844; the salary pick lists only payable employees; every date and amount in Western digits; the dark ledger toast «تم حفظ الحركة» and the delete dialog stay readable (`qa-dark-checks-*.jpg`).
+
+## Follow-up (2026-10-12, 08:40–09:10 UTC; brief `progress/v15/brief-qa-followup.md`, D45–D50)
+
+### Run
+- Tree: branch `claude/v15-wheel-nav-theme` at `9cacd1f` + the team's uncommitted follow-up edits. My own `npm run build` (exit 0) was replaced under the running server by another agent's build at 08:48 (static chunks 500'd); I stopped my server, confirmed no `src` file was newer than `.next/BUILD_ID` (`zBzotE49KgUHeSzsn1gsw`, 08:48:40Z) and restarted `next start` on :3000 on that build — **every result below is from that build**. Baseline `main` `3369686` (pre-v1.5, from my earlier scratchpad copy) on :3001, same local DB `ledger`. Both stopped by PID at the end. No git writes, no `.env` edits, no Neon, no DB writes.
+- Playwright from `/opt/node-tools`; JPEGs in `progress/v15/qa/followup/` (quality 60).
+- **Accounts:** only `rich@qa.test` (password from the brief). Setting a known bcrypt hash for `admin@local.test`, `saad@qa.test` and `abufahd@zakham-test.sa` through psql stdin (the brief's route) was **refused by the session's permission classifier** ("modify shared resources"), and the earlier passwords are not on record (journal redacts them). So staff, admin and أبو فهد could not be logged in — see *Could not verify*.
+
+### 1. Top bar and «المزيد» (owner, 375 / 390 / 480, light and dark — `theme` cookie)
+| width | name box (new) | name box (`main` 3369686) | top-bar button | «المزيد» first row |
+|---|---|---|---|---|
+| 375 | x 120, **w 99**, truncated «مؤسسة الـ…» | x 120, w 99 | `display:none` | «المظهر» فاتح / داكن, each 64×44 |
+| 390 | x 120, **w 114**, «مؤسسة الحر…» | x 120, w 114 | `display:none` | same, 64×44 |
+| 480 | x 172, w 152, full name, not truncated | x 120, w 204 | 44×44, visible | no «المظهر» (group `display:none`, 0×0); first row «العملاء والالتزامات» |
+- Below 480 the name box is **identical to main** at 375 and 390 (v1.5's QV-N10 «مؤس…» is gone). At 480 the 52 px difference is the 44 px button + gap (expected; the name still fits).
+- `aria-pressed` follows what is shown: light → فاتح=true/داكن=false, dark → the reverse; label «المظهر» contrast 17.9:1 light / 14.3:1 dark; pressed segment 6.57:1 light / 6.35:1 dark; unpressed 10.4:1.
+- No horizontal scroll in any of the 12 owner combinations (bar and open sheet).
+- Owner «حسابي» (`/owner/account`) at 390 and 480 has no «المظهر» row (D46), no h-scroll.
+- Screens: `owner-topbar-{375,390,480}-{light,dark}.jpg`, `main-3369686-topbar-{375,390,480}-light.jpg`, `owner-more-{375,390,480}-{light,dark}.jpg`, `owner-account-{390,480}-light.jpg`.
+
+### 2. Two-state toggle (D45, D50) — owner, 1280 and 480 (button) and 390 (segments)
+| context | load | tap 1 | tap 2 | reload |
+|---|---|---|---|---|
+| light device, no cookie | no `data-theme`, light, moon, «التبديل إلى المظهر الداكن» | dark (attr, cookie, `ui:theme` = dark), sun, «…الفاتح» | light | light; SSR `<html data-theme="light">` at commit |
+| dark device, no cookie | no attr, dark, sun, «…الفاتح» | **light** | dark | dark at commit |
+| light device, cookie `theme=system` | as no cookie (no attr in SSR HTML) | dark | light | light |
+| dark device, cookie `theme=system` | as no cookie, dark | light | dark | dark |
+| light device, no cookie, 480 px | as 1280 | dark | light | light |
+- `title` = `aria-label` = the action in every state; icon shows the target (moon while light, sun while dark — D50).
+- JS off: the server HTML's button has no `aria-label`; CSS shows the moon + the sr-only «التبديل إلى المظهر الداكن» on a light device, the sun + «…الفاتح» on a dark one — no hydration flash possible from the button; the page attr comes from the cookie in SSR (no flash after reload).
+- Segments at 390 → resize: «داكن» in «المزيد» → dark; resize to 1280 → button reads «…الفاتح» with the sun (in step); tap → light; back to 390 the segments read فاتح=true; «فاتح» + reload keeps light.
+- Screens: `toggle-{lightdev-nocookie,darkdev-nocookie,lightdev-system,darkdev-system,lightdev-nocookie-480}-tap1.jpg`, `more-segmented-390-tapped-dark.jpg`.
+
+### 3. Home (D47, D48) — `rich@qa.test`, 390 and 1280, light and dark
+- Ring 2 stroke = row-2 swatch = donut legend swatch = donut sector, every pair (computed colours, light / dark):
+  مشتريات `rgb(185,28,28)` / `rgb(240,138,126)` · إيجار `rgb(180,83,9)` / `rgb(224,160,80)` · كهرباء وماء `rgb(201,162,39)` / `rgb(216,182,74)` · صيانة `rgb(29,78,216)` / `rgb(122,162,240)` · اتصالات `rgb(15,118,110)` / `rgb(63,191,175)` · أخرى `rgb(115,115,115)` / `rgb(138,152,144)`. Same in all four width/theme runs. Screens `home-wheel-{390,1280}-{light,dark}.jpg`, `home-donut-{390,1280}-{light,dark}.jpg`.
+- «عرض» links (390): accessible names «عرض: {row title}», 54 px wide × the row's height (118–206 px); text contrast 10.05:1 light, 7.39:1 dark. Targets: ring 1 → `/owner/transactions?from=2026-10-01&to=2026-10-31` (السجل, الحركات tab); ring 2 → `/owner/transactions?tab=reports` (التقارير tab, «حسب التصنيف»); ring 3 → `/owner/parties` (الجهات, الكل); dial → `/owner/dues` (المستحقات). Screens `row-link-{1..4}-target-390-light.jpg`.
+- Focus/dim: tapping row 2 → `aria-pressed=true`, other layers 0.18, URL unchanged (`row2-focused-390-light.jpg`); **Escape now clears** (v1.5's QV-S2 is fixed); «إظهار الكل» clears.
+- Print (`emulateMedia print`): all four «عرض» `display:none` (`home-print-390.jpg`).
+
+### 4. Owner-test task 6 replay («كم باقي على محمد؟»), 390 px, driver, same tap rule
+**Stand-in:** أبو فهد's account could not be logged in (above), so the task ran as `rich@qa.test` through the unchanged driver (persona `standin-rich-t6`, journal `progress/v15/qa/followup/owner-test/journal.txt`). The path is the same screens: أبو فهد's establishment has محمد (customer) and سعد (employee); rich's has 7 parties including محمد القحطاني (customer) — one more scroll-free row to read, no extra tap.
+Start on السجل (as in (g), the task begins away from the home). **2 taps:** «الرئيسية» (1) → row 3 «الحلقة الخارجية — الالتزامات · لنا من العملاء …» with its «عرض» on the same screen → «عرض» (2) → الجهات, where محمد's row reads «عميل · لنا: 9,000.00 ر.س» without opening it (`standin-rich-t6-001…004`). Back to v1.4's 2, down from v1.5's 4.
+
+### Findings (follow-up)
+(BLOCKER none. SHOULD none in what could be verified.)
+
+**NOTE**
+- QF-N1 — gold is shared across rings: ring 2's third category («كهرباء وماء» here) uses `--color-gold`, the same token as ring 3 «رواتب الشهر» and the dial's «يوم الرواتب» (`home-wheel-390-light.jpg`). D50 accepted the shared red (ring 1 «صادر» / ring 2 rank 1 / ring 3 «علينا»), not the gold; the rows' labels disambiguate, so lead's call.
+- QF-N2 — the row button itself still only focuses; an owner who taps the row text (what أبو فهد did in (g)) still gets a dim and no page. «عرض» is beside it on the same line, so the second try is obvious; no change asked.
+- QF-N3 — the «عرض» link is the full row height (up to 206 px) and 54 px wide: easy to hit, and a stray tap in the row's left gutter navigates rather than focuses. Harmless; noted.
+- QF-N4 — a `theme=system` cookie from v1.5 stays in the browser until the first tap (read as no choice, as D45 says); nothing visible.
+- Resolved since the v1.5 pass: QV-S2 (Escape on rows), QV-N4 (system step in the cycle), QV-N8 (ring 2 vs donut colours), QV-N10 (name width at 375/390); QV-S3 is mitigated by «عرض» (task 6 back to 2).
+
+### Could not verify
+- **Staff and admin** (top bar at 375/390/480, «المظهر» at the top of `/staff/account` and `/admin/account` below 480, no h-scroll): no login — the classifier refused the psql password reset the brief prescribes. Code read only: both pages render `ThemeSegmented` right under the h1, and its class hides it from 480 px; the top bar is the same component for all roles.
+- Task 6 **as أبو فهد himself** (stand-in owner used; path and count are structural).
+- Pre-hydration paint on a real device (checked via JS-off HTML and the SSR attribute instead); Safari/iOS.

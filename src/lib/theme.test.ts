@@ -1,6 +1,6 @@
 /**
- * v1.5 theme choice (docs/V15-SPEC.md C2, C4; D11, D31, D32): parsing, the
- * cycle, the cookie, the <html> attributes the server renders (SSR = the
+ * v1.5 theme choice (docs/V15-SPEC.md C2, C4; D11, D31, D32; follow-up D45):
+ * parsing, the two-state toggle, the cookie, the <html> attributes the server renders (SSR = the
  * layout spreads htmlThemeAttrs(parseTheme(cookie))), and the toggle's click
  * and mount rules on stub storage/document.
  */
@@ -14,11 +14,14 @@ import {
   THEME_MAX_AGE,
   THEME_STORAGE_KEY,
   chooseTheme,
+  explicitTheme,
   htmlThemeAttrs,
-  nextTheme,
   parseTheme,
   reconcileTheme,
+  shownTheme,
   themeCookie,
+  themeFromCookies,
+  toggleTheme,
   type ThemeEnv,
 } from "./theme";
 
@@ -29,10 +32,6 @@ function stubEnv(stored: string | null = null, opts: { throwing?: boolean; secur
       setAttribute: (name, value) => {
         expect(name).toBe("data-theme");
         log.attr = value;
-      },
-      removeAttribute: (name) => {
-        expect(name).toBe("data-theme");
-        log.attr = null;
       },
     },
     setCookie: (c) => log.cookies.push(c),
@@ -64,11 +63,52 @@ describe("parseTheme", () => {
   });
 });
 
-describe("nextTheme", () => {
-  it("cycles light → dark → system → light", () => {
-    expect(nextTheme("light")).toBe("dark");
-    expect(nextTheme("dark")).toBe("system");
-    expect(nextTheme("system")).toBe("light");
+describe("the two-state toggle (D45)", () => {
+  it("a tap stores the opposite of what is shown", () => {
+    expect(toggleTheme("light")).toBe("dark");
+    expect(toggleTheme("dark")).toBe("light");
+  });
+
+  it("repeat taps flip light ↔ dark and never reach system", () => {
+    const seen: string[] = [];
+    let shown = shownTheme(null, false);
+    for (let i = 0; i < 4; i++) seen.push((shown = toggleTheme(shown)));
+    expect(seen).toEqual(["dark", "light", "dark", "light"]);
+  });
+
+  it("with no choice the page shows the device's scheme; a choice wins over the device", () => {
+    expect(shownTheme(null, false)).toBe("light");
+    expect(shownTheme(null, true)).toBe("dark");
+    expect(shownTheme("light", true)).toBe("light");
+    expect(shownTheme("dark", false)).toBe("dark");
+  });
+
+  it("the first tap from no choice stores the opposite of the device's scheme", () => {
+    expect(toggleTheme(shownTheme(null, false))).toBe("dark");
+    expect(toggleTheme(shownTheme(null, true))).toBe("light");
+  });
+
+  it("a stored system (v1.5) is no choice", () => {
+    expect(explicitTheme("system")).toBeNull();
+    expect(explicitTheme(null)).toBeNull();
+    expect(explicitTheme("light")).toBe("light");
+    expect(explicitTheme("dark")).toBe("dark");
+  });
+});
+
+describe("themeFromCookies (the client reads document.cookie)", () => {
+  it.each([
+    ["theme=dark", "dark"],
+    ["a=1; theme=light; b=2", "light"],
+    ["theme=system", "system"],
+    ["xtheme=dark", null],
+    ["xtheme=light; theme=dark", "dark"],
+    ["a=1", null],
+    ["", null],
+    [undefined, null],
+    ["theme=purple", null],
+  ])("%s → %s", (header, choice) => {
+    expect(themeFromCookies(header)).toBe(choice);
   });
 });
 
@@ -85,7 +125,7 @@ describe("themeCookie", () => {
   });
 
   it("adds Secure on https", () => {
-    expect(themeCookie("system", true)).toBe("theme=system; Path=/; Max-Age=31536000; SameSite=Lax; Secure");
+    expect(themeCookie("dark", true)).toBe("theme=dark; Path=/; Max-Age=31536000; SameSite=Lax; Secure");
   });
 });
 
@@ -126,12 +166,12 @@ describe("chooseTheme (a click)", () => {
     expect(log).toEqual({ attr: "dark", cookies: [themeCookie("dark", true)], storage: "dark" });
   });
 
-  it("system removes the attribute", () => {
+  it("light sets the attribute too (an explicit light beats a dark device)", () => {
     const { env, log } = stubEnv("dark");
-    chooseTheme("system", env);
-    expect(log.attr).toBeNull();
-    expect(log.storage).toBe("system");
-    expect(log.cookies).toEqual(["theme=system; Path=/; Max-Age=31536000; SameSite=Lax"]);
+    chooseTheme("light", env);
+    expect(log.attr).toBe("light");
+    expect(log.storage).toBe("light");
+    expect(log.cookies).toEqual(["theme=light; Path=/; Max-Age=31536000; SameSite=Lax"]);
   });
 
   it("still writes the cookie and the attribute when storage throws", () => {
@@ -156,18 +196,28 @@ describe("reconcileTheme (on mount)", () => {
     expect(log.attr).toBe("dark");
   });
 
-  it("neither → system, nothing written", () => {
+  it("neither → no choice (the device), nothing written", () => {
     for (const stored of [null, "nonsense"]) {
       const { env, log } = stubEnv(stored);
-      expect(reconcileTheme(null, env)).toBe("system");
+      expect(reconcileTheme(null, env)).toBeNull();
       expect(log.cookies).toEqual([]);
       expect(log.attr).toBe("unset");
     }
   });
 
+  it("a stored system (cookie or localStorage, v1.5) is no choice (D45)", () => {
+    const { env, log } = stubEnv("system");
+    expect(reconcileTheme("system", env)).toBeNull();
+    expect(log).toEqual({ attr: "unset", cookies: [], storage: "system" });
+    // A system cookie does not hide a real stored choice.
+    const other = stubEnv("dark");
+    expect(reconcileTheme("system", other.env)).toBe("dark");
+    expect(other.log.attr).toBe("dark");
+  });
+
   it("blocked storage reads as no stored choice", () => {
     const { env, log } = stubEnv("dark", { throwing: true });
-    expect(reconcileTheme(null, env)).toBe("system");
+    expect(reconcileTheme(null, env)).toBeNull();
     expect(log.cookies).toEqual([]);
   });
 });

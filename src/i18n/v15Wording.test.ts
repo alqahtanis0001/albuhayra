@@ -95,9 +95,18 @@ describe("§B — navigation", () => {
   });
 });
 
-describe("§C — the theme toggle", () => {
-  it("C2: the three modes are named", () => {
-    expect([t.theme.light, t.theme.dark, t.theme.system]).toEqual(["فاتح", "داكن", "حسب الجهاز"]);
-    expect(t.theme.toggle.replace("{mode}", t.theme.dark)).toBe("المظهر: داكن");
+describe("§C — the theme toggle (follow-up D45/D46)", () => {
+  it("C2 as amended: two modes, the button names its action, the «المزيد» row is «المظهر»", () => {
+    expect([t.theme.light, t.theme.dark]).toEqual(["فاتح", "داكن"]);
+    expect([t.theme.toDark, t.theme.toLight]).toEqual(["التبديل إلى المظهر الداكن", "التبديل إلى المظهر الفاتح"]);
+    expect(t.theme.title).toBe("المظهر");
+    expect(Object.keys(t.theme)).not.toContain("system");
+  });
+});
+
+describe("follow-up D48 — the rows' trailing link", () => {
+  it("reads «عرض» and names its row", () => {
+    expect(t.wheel.rowLink).toBe("عرض");
+    expect(t.wheel.rowLinkLabel.replace("{title}", t.wheel.row3Title)).toBe("عرض: الحلقة الخارجية — الالتزامات");
   });
 });

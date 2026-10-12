@@ -16,18 +16,9 @@ import { t } from "@/i18n/ar";
 import { BADGE_ANGLE, CENTRE, CENTRE_R, DIAL_R, HIT_RADIUS, VIEWBOX, arcPath, dayAngle, polar } from "@/features/dashboard/wheel";
 import type { CentreText, Focus, Layer } from "@/features/dashboard/wheelFocus";
 import { layerOpacity } from "@/features/dashboard/wheelFocus";
-import type { Tone, WheelDot, WheelModel, WheelRing } from "@/features/dashboard/wheelModel";
+import { TONE_VAR, type Tone, type WheelDot, type WheelModel, type WheelRing } from "@/features/dashboard/wheelModel";
 
-/** Tone → token (theme's v1.5 layer). Shapes only, never text (D33). */
-export const TONE_VAR: Record<Tone, string> = {
-  green: "var(--color-accent)",
-  red: "var(--color-money-out)",
-  gold: "var(--color-gold)",
-  green2: "var(--color-accent-2)",
-  green3: "var(--color-accent-3)",
-  gold2: "var(--color-gold-2)",
-  grey: "var(--color-chart-muted)",
-};
+export { TONE_VAR };
 export const TRACK = "var(--color-track)";
 export const FOCUS = "var(--focus-ring, var(--color-accent))";
 
@@ -78,7 +69,7 @@ function Ring({ ring, animate, h }: { ring: WheelRing; animate: boolean; h: Mark
               strokeWidth={ring.w}
               pathLength={1}
               className={animate ? DRAW : undefined}
-              style={{ stroke: TONE_VAR[s.tone], strokeDasharray: 1, ...delay(LAYER_DELAY[s.ring] + i * SEGMENT_STEP, animate) }}
+              style={{ stroke: s.colour, strokeDasharray: 1, ...delay(LAYER_DELAY[s.ring] + i * SEGMENT_STEP, animate) }}
             />
           </g>
         );

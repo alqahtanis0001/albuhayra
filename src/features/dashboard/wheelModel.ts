@@ -7,8 +7,9 @@
 import { formatSAR } from "@/lib/money";
 import { plural, type PluralForms } from "@/lib/plural";
 
+import { categoryColour } from "./categoryColours";
 import { fillText, momentum, type Momentum } from "./visuals";
-import { COMMITMENT_HREF, categoryHref, directionHref } from "./wheelHrefs";
+import { COMMITMENT_HREF, ROW_HREF, categoryHref, directionHref, monthLedgerHref } from "./wheelHrefs";
 import {
   DIAL_R,
   RINGS,
@@ -22,15 +23,23 @@ import {
   type RingNo,
 } from "./wheel";
 
-/** Colour roles; the client maps each to a token (WheelPalette). */
-export type Tone = "green" | "red" | "gold" | "green2" | "green3" | "gold2" | "grey";
+/** Colour roles of rings 1 and 3 and the dial. */
+export type Tone = "green" | "red" | "gold";
+
+/** Tone → token (theme's v1.5 layer). Shapes only, never text (D33). */
+export const TONE_VAR: Record<Tone, string> = {
+  green: "var(--color-accent)",
+  red: "var(--color-money-out)",
+  gold: "var(--color-gold)",
+};
 
 export type WheelSegment = {
   id: string;
   ring: RingNo;
   name: string;
   amountHalalas: number;
-  tone: Tone;
+  /** A `var(--color-…)` token: the arc's stroke and its row's swatch. Ring 2 uses `categoryColour` (D47). */
+  colour: string;
   a0: number;
   a1: number;
   href: string;
@@ -44,6 +53,8 @@ export type WheelDot = DialMark & { cx: number; cy: number; r: number; aria: str
 
 export type WheelModel = {
   rings: [WheelRing, WheelRing, WheelRing];
+  /** D48: each explanation row's «عرض» link — ring 1, ring 2, ring 3, the dial. */
+  rowHrefs: [string, string, string, string];
   dots: WheelDot[];
   /** D28: no entry, every ring zero and no dial mark. */
   empty: boolean;
@@ -86,8 +97,6 @@ export type WheelInput = {
 
 const round1 = (v: number) => Math.round(v * 10) / 10;
 
-const RING2_TONES: Tone[] = ["green2", "gold", "green3", "gold2", "green"];
-
 function ring(no: RingNo, items: Array<Omit<WheelSegment, "a0" | "a1" | "ring" | "aria">>, words: WheelWords): WheelRing {
   const arcs = ringArcs(items.map((i) => i.amountHalalas));
   const segments: WheelSegment[] = [];
@@ -122,8 +131,8 @@ export function buildWheelModel(input: WheelInput, words: WheelWords): WheelMode
   const r1 = ring(
     1,
     [
-      { id: "r1:IN", name: words.inMonth, amountHalalas: input.monthInHalalas, tone: "green", href: directionHref("IN", today) },
-      { id: "r1:OUT", name: words.outMonth, amountHalalas: input.monthOutHalalas, tone: "red", href: directionHref("OUT", today) },
+      { id: "r1:IN", name: words.inMonth, amountHalalas: input.monthInHalalas, colour: TONE_VAR.green, href: directionHref("IN", today) },
+      { id: "r1:OUT", name: words.outMonth, amountHalalas: input.monthOutHalalas, colour: TONE_VAR.red, href: directionHref("OUT", today) },
     ],
     words,
   );
@@ -134,7 +143,8 @@ export function buildWheelModel(input: WheelInput, words: WheelWords): WheelMode
       id: `r2:${s.key}`,
       name: s.name,
       amountHalalas: s.totalHalalas,
-      tone: s.key === "other" ? "grey" : (RING2_TONES[i] ?? "green"),
+      // D47: the donut's colour for the same rank of the same slices.
+      colour: categoryColour(s.key, i),
       href: categoryHref(s.key, today),
     })),
     words,
@@ -143,9 +153,9 @@ export function buildWheelModel(input: WheelInput, words: WheelWords): WheelMode
   const r3 = ring(
     3,
     [
-      { id: "r3:toUs", name: words.toUs, amountHalalas: c.toUsHalalas, tone: "green", href: COMMITMENT_HREF.toUs },
-      { id: "r3:fromUs", name: words.fromUs, amountHalalas: c.fromUsHalalas, tone: "red", href: COMMITMENT_HREF.fromUs },
-      { id: "r3:salaries", name: words.salaries, amountHalalas: c.salariesHalalas, tone: "gold", href: COMMITMENT_HREF.salaries },
+      { id: "r3:toUs", name: words.toUs, amountHalalas: c.toUsHalalas, colour: TONE_VAR.green, href: COMMITMENT_HREF.toUs },
+      { id: "r3:fromUs", name: words.fromUs, amountHalalas: c.fromUsHalalas, colour: TONE_VAR.red, href: COMMITMENT_HREF.fromUs },
+      { id: "r3:salaries", name: words.salaries, amountHalalas: c.salariesHalalas, colour: TONE_VAR.gold, href: COMMITMENT_HREF.salaries },
     ],
     words,
   );
@@ -162,6 +172,7 @@ export function buildWheelModel(input: WheelInput, words: WheelWords): WheelMode
   const rings: [WheelRing, WheelRing, WheelRing] = [r1, r2, r3];
   return {
     rings,
+    rowHrefs: [monthLedgerHref(today), ROW_HREF.ring2, ROW_HREF.ring3, ROW_HREF.dial],
     dots,
     empty: !input.hasEntry && rings.every((r) => r.segments.length === 0) && dots.length === 0,
     balanceHalalas: input.balanceTotalHalalas,

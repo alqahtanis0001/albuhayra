@@ -123,6 +123,16 @@
 .wordmark-dark {
   display: var(--wordmark-dark);
 }
+/* The theme button's two icons (follow-up D45, D50): the same switch, so the
+   right icon shows before hydration, cookie or "system". The icon names the
+   target, like the label: the moon is .theme-light-only (shown while light is
+   on screen), the sun .theme-dark-only. */
+.theme-light-only {
+  display: var(--wordmark-light);
+}
+.theme-dark-only {
+  display: var(--wordmark-dark);
+}
 
 /* Dark theme (docs/V15-SPEC.md C1–C3, D11, D32). The same values twice: an
    explicit choice (data-theme="dark", from the `theme` cookie) and "system"

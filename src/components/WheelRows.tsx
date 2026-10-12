@@ -4,15 +4,19 @@
  * v1.5 (docs/V15-SPEC.md A1, D4, D6, D29): the wheel's four numbered
  * explanation rows — the mock's wording, the live values with exact amounts
  * and the mock's swatches. Each row is a real `<button>` that focuses its
- * whole ring (never navigates). They light up as their ring finishes (CSS
+ * whole ring (never navigates) beside a trailing «عرض» link to the ring's page
+ * (D48 — a link never sits inside the button). They light up as their ring finishes (CSS
  * only, `backwards` fill — D30), and are the text equivalent of the wheel for
  * screen readers and print.
  */
+import Link from "next/link";
+
 import { MoneyText } from "@/components/MoneyText";
 import { t } from "@/i18n/ar";
 import { plural } from "@/lib/plural";
 import type { Focus, Layer } from "@/features/dashboard/wheelFocus";
 import type { WheelModel } from "@/features/dashboard/wheelModel";
+import { fillText } from "@/features/dashboard/visuals";
 
 import { LAYER_DELAY, TONE_VAR, delay } from "./WheelSvg";
 
@@ -38,7 +42,7 @@ function valuesOf(model: WheelModel, layer: Layer): Value[] {
   return model.rings[layer - 1]!.segments.map((s) => ({
     key: s.id,
     name: s.name,
-    colour: TONE_VAR[s.tone],
+    colour: s.colour,
     halalas: s.amountHalalas,
   }));
 }
@@ -96,33 +100,44 @@ export function WheelRows({
         const live = valuesOf(model, layer);
         const values = live.length > 0 ? live : zeroValues(layer);
         return (
-          <button
+          <div
             key={layer}
-            type="button"
-            aria-pressed={on}
-            onClick={() => onRow(layer)}
-            className={`grid min-h-11 grid-cols-[1.625rem_1fr] items-start gap-2.5 rounded-xl border px-3 py-2.5 text-start ${
-              on ? "border-accent bg-accent-soft" : "border-gray-200 bg-white"
-            } ${animate ? LIT : ""}`}
+            className={`flex items-stretch rounded-xl border ${on ? "border-accent bg-accent-soft" : "border-gray-200 bg-white"} ${
+              animate ? LIT : ""
+            }`}
             style={delay(LAYER_DELAY[layer] + 0.3, animate)}
           >
-            <span className="grid size-6.5 place-items-center rounded-full bg-accent text-[13px] font-bold text-on-accent">
-              {layer}
-            </span>
-            <span className="min-w-0">
-              <span className="block text-sm font-semibold text-gray-900">{TEXT[layer].title}</span>
-              <span className="mt-0.5 block text-xs text-gray-600">{TEXT[layer].text}</span>
-              <span className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1.5 text-xs text-gray-900">
-                {values.map((v) => (
-                  <span key={v.key} className="inline-flex items-center gap-1.5">
-                    {v.colour === null ? null : <Swatch colour={v.colour} hollow={v.hollow} />}
-                    {v.name}
-                    {v.halalas !== undefined ? <MoneyText halalas={v.halalas} className="text-xs font-semibold" /> : null}
-                  </span>
-                ))}
+            <button
+              type="button"
+              aria-pressed={on}
+              onClick={() => onRow(layer)}
+              className="grid min-h-11 min-w-0 flex-1 grid-cols-[1.625rem_1fr] items-start gap-2.5 rounded-xl px-3 py-2.5 text-start"
+            >
+              <span className="grid size-6.5 place-items-center rounded-full bg-accent text-[13px] font-bold text-on-accent">
+                {layer}
               </span>
-            </span>
-          </button>
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold text-gray-900">{TEXT[layer].title}</span>
+                <span className="mt-0.5 block text-xs text-gray-600">{TEXT[layer].text}</span>
+                <span className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1.5 text-xs text-gray-900">
+                  {values.map((v) => (
+                    <span key={v.key} className="inline-flex items-center gap-1.5">
+                      {v.colour === null ? null : <Swatch colour={v.colour} hollow={v.hollow} />}
+                      {v.name}
+                      {v.halalas !== undefined ? <MoneyText halalas={v.halalas} className="text-xs font-semibold" /> : null}
+                    </span>
+                  ))}
+                </span>
+              </span>
+            </button>
+            <Link
+              href={model.rowHrefs[layer - 1]!}
+              aria-label={fillText(t.wheel.rowLinkLabel, { title: TEXT[layer].title })}
+              className="no-print flex min-h-11 min-w-11 shrink-0 self-center items-center justify-center rounded-xl px-3 text-sm font-medium text-accent-dark underline-offset-4 hover:underline"
+            >
+              {t.wheel.rowLink}
+            </Link>
+          </div>
         );
       })}
     </div>

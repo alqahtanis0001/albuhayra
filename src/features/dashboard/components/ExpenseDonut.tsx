@@ -15,20 +15,21 @@ import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts";
 
 import { MoneyText } from "@/components/MoneyText";
 import { useReducedMotion } from "@/components/useReducedMotion";
-import { PALETTE } from "@/components/visualPalette";
 import { t } from "@/i18n/ar";
 
+import { categoryColour } from "../categoryColours";
 import type { DonutSlice } from "../visuals";
 import { fillText } from "../visuals";
 import { formatPercent } from "./percent";
 
 export type DonutEntry = DonutSlice & { href: string | null };
 
-/** Named slices in order; «أخرى» always grey. Colour is backed by the legend. */
-const COLOURS = [PALETTE.out, PALETTE.amber, PALETTE.gold, PALETTE.blue, PALETTE.teal];
-
+/**
+ * Named slices in order; «أخرى» always grey. Colour is backed by the legend.
+ * v1.5 (D47): the same function colours the wheel's ring 2.
+ */
 function colourOf(entry: DonutEntry, i: number): string {
-  return entry.key === "other" ? PALETTE.grey : (COLOURS[i] ?? PALETTE.grey);
+  return categoryColour(entry.key, i);
 }
 
 export function ExpenseDonut({ slices, totalHalalas }: { slices: DonutEntry[]; totalHalalas: number }) {

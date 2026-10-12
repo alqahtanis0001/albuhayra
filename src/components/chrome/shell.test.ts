@@ -32,7 +32,7 @@ vi.mock("@/features/employees/salaryPick", () => ({
 }));
 
 const { AppShell } = await import("./AppShell");
-const { ESTABLISHMENT_NAME, ESTABLISHMENT_NAME_TEXT, TopBar } = await import("./TopBar");
+const { ESTABLISHMENT_NAME, TopBar } = await import("./TopBar");
 const { singleGroup } = await import("./nav");
 const { default: OwnerLayout } = await import("@/app/(owner)/layout");
 
@@ -89,29 +89,28 @@ describe("D36: the top bar is the deep-green band in both themes", () => {
     for (const cls of ["bg-topbar", "border-t-topbar-dark", "border-b-topbar-dark", "[--focus-ring:var(--color-on-topbar)]"]) {
       expect(header).toContain(cls);
     }
-    expect(html).toMatch(/<p class="[^"]*\btext-on-topbar\b[^"]*"><span[^>]*>منشأة<\/span><\/p>/);
+    expect(html).toMatch(/<p class="[^"]*\btext-on-topbar\b[^"]*">منشأة<\/p>/);
     expect(html).toMatch(/<a class="[^"]*\btext-on-topbar hover:bg-topbar-dark\b[^"]*" href="\/a"/);
     const source = readFileSync("src/components/chrome/TopBar.tsx", "utf8");
     expect(source).not.toMatch(/\b(?:text|bg|border)-white\b|#[0-9a-fA-F]{3,8}\b/);
   });
 });
 
-describe("D37: the establishment name below 375 px", () => {
-  it("is visually hidden only below 375 px (sr-only, still in the markup) and loses its separator; nothing changes from 375 px up", () => {
+describe("D46 (supersedes D37): the establishment name has the bar's full width at every size", () => {
+  it("is plain text in the flex-1 box, never hidden at any width", () => {
     const html = renderToStaticMarkup(createElement(TopBar, { userName: "س", establishmentName: "منشأة", accountHref: "/a", homeHref: "/h" }));
-    expect(html).toContain(`<p class="${ESTABLISHMENT_NAME}"><span class="${ESTABLISHMENT_NAME_TEXT}">منشأة</span></p>`);
-    expect(ESTABLISHMENT_NAME_TEXT.split(" ")).toEqual(["max-[375px]:sr-only"]);
+    expect(html).toContain(`<p class="${ESTABLISHMENT_NAME}">منشأة</p>`);
     const box = ESTABLISHMENT_NAME.split(" ");
     for (const cls of ["flex-1", "min-w-0", "truncate", "border-s", "text-on-topbar"]) expect(box).toContain(cls);
-    // Only max-[375px] variants, and no unconditional hiding.
-    expect(box.filter((c) => c.includes(":"))).toEqual(["max-[375px]:border-s-0"]);
-    expect([...box, ...ESTABLISHMENT_NAME_TEXT.split(" ")]).not.toContain("sr-only");
-    expect([...box, ...ESTABLISHMENT_NAME_TEXT.split(" ")].some((c) => c === "hidden" || c.endsWith(":hidden"))).toBe(false);
+    // No width variant (D37's max-[375px] rules are gone) and no hiding.
+    expect(box.filter((c) => c.includes(":"))).toEqual([]);
+    expect(box.some((c) => c === "sr-only" || c.endsWith(":sr-only") || c === "hidden" || c.endsWith(":hidden"))).toBe(false);
+    expect(readFileSync("src/components/chrome/TopBar.tsx", "utf8")).not.toMatch(/max-\[375px\]|sr-only[^\n]*establishmentName/);
   });
 
   it("the admin area label follows the same rule", () => {
     const html = renderToStaticMarkup(createElement(TopBar, { userName: "س", establishmentName: null, accountHref: "/a", homeHref: "/h" }));
-    expect(html).toContain(`<span class="${ESTABLISHMENT_NAME_TEXT}">${t.app.adminArea}</span>`);
+    expect(html).toContain(`<p class="${ESTABLISHMENT_NAME}">${t.app.adminArea}</p>`);
   });
 });
 

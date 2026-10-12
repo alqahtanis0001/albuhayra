@@ -17,7 +17,8 @@
  * v1.5 (B1, D35): the wordmark is a link to the role's home, named «الرئيسية»
  * — the link carries the one accessible name, so the image's alt is empty.
  * The theme toggle (C2, `theme`'s component) sits between the establishment
- * name and the user link; at 360px the name truncates first.
+ * name and the user link from 480px up; below 480px it hides itself and the
+ * «المظهر» row in «المزيد» / «حسابي» replaces it (follow-up D46).
  */
 import Link from "next/link";
 
@@ -29,14 +30,13 @@ import { LogoutIcon, UserIcon } from "../icons";
 import { ThemeToggle } from "./ThemeToggle";
 
 /**
- * D37: below 375px the name would get ~32px («م…»), so its text is visually
- * hidden there (still the bar's text for screen readers) and its separator
- * goes; the box keeps `flex-1`, so the controls stay at the far end. From
- * 375px up nothing changes. Exported for the pin in shell.test.ts.
+ * The establishment name takes the room left over and truncates first. D46
+ * retired D37's rule (hidden below 375px): below 480px the theme button
+ * leaves the bar, so the name has its full width again at every size.
+ * Exported for the pin in shell.test.ts.
  */
 export const ESTABLISHMENT_NAME =
-  "min-w-0 flex-1 truncate border-s border-on-topbar/40 ps-3 text-base font-bold text-on-topbar max-[375px]:border-s-0";
-export const ESTABLISHMENT_NAME_TEXT = "max-[375px]:sr-only";
+  "min-w-0 flex-1 truncate border-s border-on-topbar/40 ps-3 text-base font-bold text-on-topbar";
 
 export type TopBarProps = {
   userName: string;
@@ -67,11 +67,9 @@ export function TopBar({ userName, establishmentName, accountHref, homeHref }: T
             className="h-6 w-auto shrink-0 sm:h-9"
           />
         </Link>
-        <p className={ESTABLISHMENT_NAME}>
-          <span className={ESTABLISHMENT_NAME_TEXT}>{establishmentName ?? t.app.adminArea}</span>
-        </p>
+        <p className={ESTABLISHMENT_NAME}>{establishmentName ?? t.app.adminArea}</p>
 
-        {/* v1.5 (C2, D11): light → dark → system, for every role. */}
+        {/* v1.5 (C2, D11; D45, D46): light ↔ dark, every role, from 480px up. */}
         <ThemeToggle />
 
         <Link

@@ -124,3 +124,31 @@ Also:
 - Every earlier mutation re-run after the refactor; moved ones re-targeted (salary scope, empty-no-animation, row-4 count, QV-S2/S3 pins, owner 5) — all fail.
 
 Gates: typecheck 0; vitest 136 files / 1974 tests; build exit 0 under the lock; `/owner` 329.2 KB gz (+5.5).
+
+## Follow-up (D47, D48 — user's rulings 3 and 4, 2026-10-12)
+| Task | Files | Notes |
+|---|---|---|
+| D47 one colour per category | new `dashboard/categoryColours.ts` (`CATEGORY_COLOURS`, `categoryColour(key, rank)` — the donut's v1.3 order out, amber, gold, blue, teal; «أخرى» and rank ≥ 5 grey); `ExpenseDonut.tsx` `colourOf` → `categoryColour`; `wheelModel.ts` segments carry `colour` (a `var(--color-…)`) instead of `tone`, ring 2 = `categoryColour(s.key, i)` over the same `donutSlices`; `TONE_VAR` (green/red/gold only) moved from `WheelSvg.tsx` to `wheelModel.ts` (re-exported by WheelSvg); arcs and row swatches use `s.colour` | The mock's ring-2 tones are retired: `--color-accent-2`, `--color-accent-3`, `--color-gold-2`, `--color-chart-muted` are now unused in `src/` (theme's globals.css — left in place, see Questions) |
+| D48 «عرض» links | `wheelHrefs.ts` `monthLedgerHref(today)` (`/owner/transactions?from=…&to=…`, both directions) + `ROW_HREF` (`?tab=reports`, `/owner/parties`, `/owner/dues`); `WheelModel.rowHrefs` built on the server; `WheelRows.tsx` each row = a `div` (border/tint/lit animation) holding the unchanged focus `<button>` and a trailing `next/link` «عرض» (`aria-label` «عرض: {title}», `no-print min-h-11 min-w-11`, `text-accent-dark`) | Links stay in the D28 empty state. `ROW_HREF.ring2` is a literal (ledgerTab.ts imports the validation barrel) pinned equal to `REPORTS_HREF` by a test |
+
+Tests: new `dashboard/wheelFollowup.test.ts` (9); `wheelFocus.test.ts` client-safety pin extended to `categoryColours.ts` (allowed `./categoryColours`, `@/components/visualPalette`). Existing H18/H19 (rows list their ring's values; each button focuses its ring) unchanged and green. Mutations (scratchpad script, cp backup, restored, sha1 verified):
+- M1 ring 2 given its old mock palette → "for each rank ring 2 = donut", "v1.3 order", "«أخرى» grey", "arcs stroked" failed (4)
+- M2 `categoryColour` ignores «أخرى» → "«أخرى» is grey at any rank" failed
+- M3 donut uses rank i+1 → "for each rank ring 2 = donut" failed
+- M4 row swatch fixed colour → "row 2's swatches follow ring 2" failed
+- M5 arc stroke fixed colour → "arcs stroked with the segment's colour" failed
+- M6 ring 1 → `directionHref("OUT")`; M7 ring 2 → `/owner/reports`; M8 ring 3 → `?type=CUSTOMER`; M9 dial → `/owner/plans`; M10 ring 1 without `to` → each failed "row hrefs" + "links stay in the empty state"
+- M11 link moved inside the button → "never inside a `<button>`" failed (H19 stays green: focus unchanged)
+- M12 `no-print` dropped; M13 `min-h-11` dropped; M14 aria-label without the title → each failed "text «عرض», accessible name, ≥ 44 px, no-print"
+- M15 links hidden when `model.empty` → "links stay in the D28 empty state" failed
+
+Gates: typecheck 0 (whole tree, theme had finished); vitest 138 files / 2015 tests green; build exit 0 under `.claude/build.lock`; bundles → `progress/v15/bundles-followup-home.json` (55 routes): `/owner` 323.7 → 329.9 KB gz (+6.2 vs baseline; +0.7 vs my last v1.5 measure 329.2), max delta of any route +6.2.
+
+Screenshots (static harness, fixture data, reduced motion): `progress/v15/qa/followup-home-{light,dark}-{390,1280}.png`, `followup-home-empty-light-390.png`. At 1280 the donut legend (details open) shows red, amber, gold, blue, grey = ring 2 and row 2.
+
+Questions:
+- `theme`/lead: the four ring-2 tokens above are orphaned in globals.css (light + both dark blocks) — remove or keep?
+- Ring 2's largest category is now `money-out` red, the same as ring 1's «صادر الشهر» — that is what D47 asks (one colour per category everywhere); flagging only so qa-visual expects it.
+
+### QF-N3 (qa-visual follow-up)
+`WheelRows.tsx`: the «عرض» link gets `self-center` (the row is `items-stretch`), so it keeps its own ≥ 44 × 44 px box instead of filling the row's height. Test `wheelFollowup.test.ts` "QF-N3" (link carries `self-center`/`self-start`, never `self-stretch`/`h-full`/`self-auto`); mutation: `self-center` removed → that case failed; restored from backup. Gates: typecheck 0; vitest 138 files / 2025 tests; build 0 under the lock; `/owner` 329.9 KB gz (unchanged).
